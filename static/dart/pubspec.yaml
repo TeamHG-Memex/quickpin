@@ -1,0 +1,16 @@
+name: quickpin
+version: 1.0.0
+dependencies:
+  angular: 1.1.0
+  browser: any
+  web_components: any
+transformers:
+- angular:
+    html_files:
+      - lib/component/subject-search-box.html
+      - lib/component/subject-grid.html
+      - lib/component/subject-add.html
+      - lib/component/nav-bar.html
+      - lib/component/quick-pin.html
+      - web/view/subject/list.html
+      - web/view/subject/add.html

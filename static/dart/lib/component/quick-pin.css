@@ -1,0 +1,12 @@
+p {
+  font-weight: bold;
+}
+
+.user {
+  color: navy;
+}
+
+ng-view {
+  display: block;
+  margin-top: 80px;
+}

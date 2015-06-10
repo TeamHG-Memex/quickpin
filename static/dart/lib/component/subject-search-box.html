@@ -1,0 +1,35 @@
+<input
+  class="form-control input-lg"
+  placeholder="[Alt + S] Search usernames, descriptions, analyst notes, etc."
+  accesskey="s"
+  ng-model="filterText"
+/>
+<div class="pull-right">
+  Showing
+  <span class="btn-group" role="group">
+    <button
+      class="btn btn-xs {{showAll ? 'btn-default' : 'btn-primary active'}}"
+      ng-click="showAll = false;"
+    >Active</button>
+    <button
+      class="btn btn-xs {{showAll ? 'btn-primary active' : 'btn-default'}}"
+      ng-click="showAll = true;"
+    >All</button>
+  </span>
+  subjects<span ng-if="filterText.length > 0">, <em class='text-info'>filtered</em>
+  (<i class="fa fa-times text-danger" ng-click="filterText=''" title='Clear filter text'></i>)
+  </span>
+
+  <i
+    class="fa fa-question-circle fa-lg text-warning"
+    title="
+This page allows you to view the results of your various crawls.
+The x's and check marks in each pin allow you to mark interest or disinterest in a webpage.
+This will help to train the crawler and provide scores to these websites.
+If some results on this page are not scored (a pin will have a 'score' field once scoring has taken place),
+that is because scoring must be triggered by the user whenever webpages are added to the system.
+But don't worry, it's really easy, just train the crawler by clicking x's and checks,
+then head on over to the Score Results link in the navigation bar.
+    "
+  ></i>
+</div>

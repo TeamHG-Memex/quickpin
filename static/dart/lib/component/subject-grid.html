@@ -1,0 +1,32 @@
+<div class="columns" ng-cloak>
+  <div class="empty-placeholder">(no subjects found)</div>
+  <div class="pin" ng-repeat="subject in subjects | filter:{'$':filterText, 'status':(showAll?'':'tracked')} track by subject.username">
+    <img src="{{subject.imageUrl}}" />
+    <p>
+      User: <a href='#/subject/{{subject.username}}'>{{subject.username}}</a>
+      <i class="fa fa-fw fa-circle pull-right" title="{{subject.status}}" ng-class="{
+        'text-info': (subject.status == 'unclassified'),
+        'text-success': (subject.status == 'tracked'),
+        'text-danger': (subject.status == 'ignored')
+      }" ng-click="subject.status = (subject.status == 'tracked') ? 'ignored' : 'tracked'"></i>
+    </p>
+    <p>
+      Description: {{subject.description}}
+    </p>
+    <p>
+      Followers: {{subject.twitter['followerCount']}}<br/>
+      Total tweets: {{subject.twitter['tweetCount']}}<br/>
+      Screen Name:
+      <a href="https://twitter.com/{{subject.twitter['screenName']}}" target="_blank">
+        {{subject.twitter['screenName']}}
+      </a>
+    </p>
+    <p>
+      <a
+        href="http://demo.hyperiongray.com:8081/link-from-quickpin?user={{subject.username}}"
+        class="btn btn-primary"
+        target="_blank"
+      >Send to Profiler</a>
+    </p>
+  </div>
+</div>
