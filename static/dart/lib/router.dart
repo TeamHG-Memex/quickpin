@@ -11,6 +11,8 @@ void QuickPinRouter(Router router, RouteViewFactory views) {
       'index': ngRoute(defaultRoute: true, enter: (_) => router.go('subject.list', {})),
       'list': ngRoute(path: '/list', view: 'web/view/subject/list.html'),
       'add': ngRoute(path: '/add', view: 'web/view/subject/add.html'),
+      'view': ngRoute(path: '/:oid', view: 'web/view/subject/view.html'),
+      'viewByUsername': ngRoute(path: '/byUsername/:username', view: 'web/view/subject/view.html'),
     }),
   });
 }

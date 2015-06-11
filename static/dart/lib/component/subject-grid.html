@@ -1,14 +1,13 @@
 <div class="columns" ng-cloak>
   <div class="empty-placeholder">(no subjects found)</div>
-  <div class="pin" ng-repeat="subject in subjects | filter:{'$':filterText, 'status':(showAll?'':'tracked')} track by subject.username">
+  <div class="pin" ng-repeat="subject in subjects | filter:{'$':filterText, 'status':(showAll?'':'tracked')} track by subject._id">
     <img src="{{subject.imageUrl}}" />
     <p>
-      User: <a href='#/subject/{{subject.username}}'>{{subject.username}}</a>
+      User: <a href='#/subject/byUsername/{{subject.username}}'>{{subject.username}}</a>
       <i class="fa fa-fw fa-circle pull-right" title="{{subject.status}}" ng-class="{
-        'text-info': (subject.status == 'unclassified'),
         'text-success': (subject.status == 'tracked'),
         'text-danger': (subject.status == 'ignored')
-      }" ng-click="subject.status = (subject.status == 'tracked') ? 'ignored' : 'tracked'"></i>
+      }" ng-click="toggleTrack(subject)"></i>
     </p>
     <p>
       Description: {{subject.description}}

@@ -3,6 +3,7 @@ library quickpin_app;
 import 'package:angular/angular.dart';
 
 // import components here
+import 'package:quickpin/component/subject-view.dart';
 import 'package:quickpin/component/subject-search-box.dart';
 import 'package:quickpin/component/subject-grid.dart';
 import 'package:quickpin/component/subject-add.dart';
@@ -14,6 +15,7 @@ import 'router.dart';
 class QuickPin extends Module {
   QuickPin() {
     // bind components here
+    bind(SubjectViewComponent);
     bind(SubjectSearchBoxComponent);
     bind(SubjectGridComponent);
     bind(SubjectAddComponent);

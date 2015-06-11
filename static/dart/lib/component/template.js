@@ -25,7 +25,7 @@ fs.readFile('../app.dart', { 'encoding': 'utf8' }, function (error, data) {
 	var result = data
 		.replace('// import components here', [
 		'// import components here',
-		"import 'packages:quickpin/component/" + componentName.map(toLowerCase).join('-') + ".dart';"
+		"import 'package:quickpin/component/" + componentName.map(toLowerCase).join('-') + ".dart';"
 		].join("\n"))
 		.replace('// bind components here', [
 		'// bind components here',

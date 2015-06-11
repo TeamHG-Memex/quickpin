@@ -1,4 +1,4 @@
-from flask import Blueprint, Flask, render_template, send_from_directory
+from flask import Blueprint, Flask, render_template, send_from_directory, send_file
 from subject import subjectBlueprint
 
 app = Flask(__name__, template_folder='static/dart/web')
@@ -21,6 +21,10 @@ app.register_blueprint(subjectBlueprint, url_prefix='/api/subject')
 @app.route('/')
 def index():
 	return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+	return send_file('static/favicon.ico')
 
 if __name__ == '__main__':
 	app.run(debug=True)
