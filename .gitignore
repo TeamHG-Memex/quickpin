@@ -5,6 +5,7 @@ build
 
 # Python
 *.pyc
+venv
 
 # IDE
 

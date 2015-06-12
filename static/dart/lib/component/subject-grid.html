@@ -9,9 +9,7 @@
         'text-danger': (subject.status == 'ignored')
       }" ng-click="toggleTrack(subject)"></i>
     </p>
-    <p>
-      Description: {{subject.description}}
-    </p>
+    <p>Description: <span ng-bind-html="subject.description"></span></p>
     <p>
       Followers: {{subject.twitter['followerCount']}}<br/>
       Total tweets: {{subject.twitter['tweetCount']}}<br/>

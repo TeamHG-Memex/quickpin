@@ -1,4 +1,4 @@
-from flask import Blueprint, Flask, render_template, send_from_directory, send_file
+from flask import Blueprint, Flask, render_template, send_from_directory, send_file, redirect
 from subject import subjectBlueprint
 
 app = Flask(__name__, template_folder='static/dart/web')
@@ -25,6 +25,10 @@ def index():
 @app.route('/favicon.ico')
 def favicon():
 	return send_file('static/favicon.ico')
+
+@app.route('/hashtag/<string:hashtagString>')
+def hashtag(hashtagString):
+	return redirect('https://twitter.com/hashtag/' + hashtagString, code=301)
 
 if __name__ == '__main__':
 	app.run(debug=True)

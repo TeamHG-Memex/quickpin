@@ -1,0 +1,6 @@
+flask
+pymongo
+scrapely
+scrapy
+requests
+html2text

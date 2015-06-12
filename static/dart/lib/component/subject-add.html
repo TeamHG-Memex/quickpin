@@ -1,15 +1,22 @@
-<form class="container">
+<form class="container" ng-submit="addSubjects()">
   <div class="panel panel-default">
 	<div class="panel-heading">
-      <h3 class="panel-title">Add Twitter Users</h3>
+      <label class="panel-title" for="subject-handles">Add Twitter Users</label>
 	</div>
 	<div class="panel-body">
       <div class="form-group">
-        <textarea id="subject-handles" class="form-control" placeholder="Enter line-separated Twitter usernames" autofocus></textarea>
+        <textarea
+          id="subject-handles"
+          class="form-control"
+          placeholder="Enter line-separated Twitter usernames"
+          autofocus
+          ng-model="screenNames"
+          ng-disabled="saving"
+        ></textarea>
       </div>
 	</div>
 	<div class="panel-footer">
-      <button id="saveButton" class="btn btn-success" type="button" accesskey="s">
+      <button id="saveButton" class="btn btn-success" type="submit" accesskey="s" ng-disabled="saving">
         <u>S</u>ave
       </button>
       <a href="#/subject" class="btn btn-default" accesskey="d">
