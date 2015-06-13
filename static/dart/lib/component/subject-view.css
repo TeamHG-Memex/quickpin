@@ -1,0 +1,15 @@
+div.rows {
+  display: block;
+}
+img {
+  width: 100%;
+}
+pre {
+  word-break: break-all;
+}
+.clear {
+  clear: both;
+}
+.half-width {
+  width: calc(50% - 2px);
+}

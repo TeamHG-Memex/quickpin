@@ -14,9 +14,9 @@ class SubjectAddComponent {
   void addSubjects() {
     saving = true;
     _http.put('/api/subject/', screenNames).then((HttpResponse response) {
+      saving = false;
       if (response.data['success']) {
         screenNames = "";
-        saving = false;
       } else {
         window.console.error(response.data);
       }
