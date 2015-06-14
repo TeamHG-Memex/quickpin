@@ -7,8 +7,8 @@ app = Flask(__name__, template_folder='static/dart/web')
 devBlueprint = Blueprint('dart', __name__, static_url_path='', static_folder='static/dart')
 @devBlueprint.after_request
 def add_header(response):
-    response.cache_control.max_age = 0
-    return response
+	response.cache_control.max_age = 0
+	return response
 @devBlueprint.route('/packages/<path:filename>')
 def fetch_dev_packages(filename):
 	return send_from_directory('static/dart/web/packages', filename)

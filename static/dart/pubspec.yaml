@@ -7,6 +7,7 @@ dependencies:
 transformers:
 - angular:
     html_files:
+      - lib/component/tweet-embedded.html
       - lib/component/subject-view.html
       - lib/component/subject-search-box.html
       - lib/component/subject-grid.html

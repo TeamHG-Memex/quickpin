@@ -3,16 +3,16 @@ from scrapely import Scraper
 def create_and_dump_template(training_url, template_out="twitter_profile.tpl"):
 	s = Scraper()
 	data = {
-		"description": "Dog lover. Tech lead on HG Memex team. Creator of PunkSPIDER. Open source developer. Distributed computing fan and security researcher.",
-		"location": "Concord, NC",
-		"website": "hyperiongray.com",
-		"twitter.screenName": "DotSlashPunk",
-		"twitter.joinedDate": "Joined April 2009",
-		"twitter.tweetCount": "601",
-		"twitter.followingCount": "119",
-		"twitter.followerCount": "3162",
-		"twitter.favoriteCount": "777",
-		"twitter.listCount": "2"
+		"description": "Arrogance",
+		"location": "USA",
+		"website": "buifamily.info/duy",
+		"twitter.screenName": "khuongduybui",
+		"twitter.joinedDate": "Joined August 2008",
+		"twitter.tweetCount": "463",
+		"twitter.followingCount": "20",
+		"twitter.followerCount": "68",
+		"twitter.favoriteCount": "1",
+		"twitter.listCount": "3"
 	}
 
 	s.train(training_url, data)
@@ -20,4 +20,4 @@ def create_and_dump_template(training_url, template_out="twitter_profile.tpl"):
 	s.tofile(f)
 
 if __name__ == "__main__":
-	create_and_dump_template("https://twitter.com/DotSlashPunk")
+	create_and_dump_template("https://twitter.com/khuongduybui")

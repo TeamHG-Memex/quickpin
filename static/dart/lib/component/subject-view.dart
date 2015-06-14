@@ -83,6 +83,7 @@ class SubjectViewComponent {
   }
 
   int calculateFollowingPercentage() {
+    if (subject == null) { return 50; }
     int friends = int.parse(subject['twitter']['followingCount']);
     int followers = int.parse(subject['twitter']['followerCount']);
     int total = friends + followers;

@@ -3,6 +3,7 @@ library quickpin_app;
 import 'package:angular/angular.dart';
 
 // import components here
+import 'package:quickpin/component/tweet-embedded.dart';
 import 'package:quickpin/component/subject-view.dart';
 import 'package:quickpin/component/subject-search-box.dart';
 import 'package:quickpin/component/subject-grid.dart';
@@ -15,6 +16,7 @@ import 'router.dart';
 class QuickPin extends Module {
   QuickPin() {
     // bind components here
+    bind(TweetEmbeddedComponent);
     bind(SubjectViewComponent);
     bind(SubjectSearchBoxComponent);
     bind(SubjectGridComponent);
