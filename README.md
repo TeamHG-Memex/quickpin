@@ -1,5 +1,8 @@
 # Quick Started
 ## Installation
+### Configuration
+- Memory: ```4GB``` or more (EC2 ```t2.medium``` or larger)
+
 ### Applications
 - python 2.7 (*)
 - mongodb 3 (*)
