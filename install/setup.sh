@@ -5,7 +5,7 @@ sudo apt-get install -y mongodb dart python python-pip python-dev libffi-dev lib
 sudo ln -s /usr/lib/dart/bin/pub /usr/bin
 cd ~/quickpin
 sudo pip install virtualenv
-virtualenv/venv
+virtualenv venv
 source venv/bin/activate
 pip install -r install/python-dependencies.txt
 cd ~/quickpin/static/dart
