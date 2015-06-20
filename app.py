@@ -38,4 +38,4 @@ def hashtag(hashtagString):
 	return redirect('https://twitter.com/hashtag/' + hashtagString, code=301)
 
 if __name__ == '__main__':
-	app.run(debug=debug_mode)
+	app.run(debug=debug_mode, host='0.0.0.0' if debug_mode else '127.0.0.1')
