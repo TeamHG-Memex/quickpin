@@ -84,8 +84,9 @@ class SubjectViewComponent {
 
   int calculateFollowingPercentage() {
     if (subject == null) { return 50; }
-    int friends = int.parse(subject['twitter']['followingCount'].replace(/[.,]/g, ''));
-    int followers = int.parse(subject['twitter']['followerCount'].replace(/[.,]/g, ''));
+    RegExp dotcomma = new RegExp(r'[.,]');
+    int friends = int.parse(subject['twitter']['followingCount'].replaceAll(dotcomma, ''));
+    int followers = int.parse(subject['twitter']['followerCount'].replaceAll(dotcomma, ''));
     int total = friends + followers;
     if (total > 0) {
       return (100 * followers / total).round();
