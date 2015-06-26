@@ -1,26 +1,24 @@
 from flask import Blueprint, Flask, render_template, send_from_directory, send_file, redirect
 from subject import subjectBlueprint
-from os import getenv
+from os import getenv, path
 
 # Determine development mode from environment variable
 debug_mode = (getenv('APPLICATION_ENV') == 'development')
+root_path = path.dirname(path.realpath(__file__))
 
-app = Flask(__name__, template_folder='static/dart/web')
+app = Flask(__name__, template_folder=root_path + '/static/dart/web')
 
 # @TODO move paths to config file
-devBlueprint = Blueprint('dart', __name__, static_url_path='', static_folder='static/dart')
+devBlueprint = Blueprint('dart', __name__, static_url_path='', static_folder=root_path + '/static/dart')
 @devBlueprint.after_request
 def add_header(response):
 	response.cache_control.max_age = 0
 	return response
-@devBlueprint.route('/packages/<path:filename>')
-def fetch_dev_packages(filename):
-	return send_from_directory('static/dart/web/packages', filename)
 
-prodBlueprint = Blueprint('js', __name__, static_url_path='', static_folder='static/dart/build')
+prodBlueprint = Blueprint('js', __name__, static_url_path='', static_folder=root_path + '/static/dart/build')
 @prodBlueprint.route('/packages/<path:filename>')
 def fetch_prod_packages(filename):
-	return send_from_directory('static/dart/build/web/packages', filename)
+	return send_from_directory(root_path + '/static/dart/build/web/packages', filename)
 
 app.register_blueprint(devBlueprint if debug_mode else prodBlueprint)
 app.register_blueprint(subjectBlueprint, url_prefix='/api/subject')
@@ -38,4 +36,4 @@ def hashtag(hashtagString):
 	return redirect('https://twitter.com/hashtag/' + hashtagString, code=301)
 
 if __name__ == '__main__':
-	app.run(debug=debug_mode)
+	app.run(debug=debug_mode, host='0.0.0.0' if debug_mode else '127.0.0.1')
