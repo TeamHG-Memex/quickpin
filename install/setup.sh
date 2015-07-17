@@ -7,7 +7,7 @@ sudo ln -s /usr/lib/dart/bin/pub /usr/bin
 cd ~/quickpin
 sudo pip install virtualenv
 virtualenv venv
-source venv/bin/activate
+. venv/bin/activate
 pip install -r install/python-dependencies.txt
 
 cd ~/quickpin/static/dart
@@ -15,8 +15,7 @@ pub get
 pub build
 
 sudo apt-get install -y apache2 libapache2-mod-wsgi
-sudo cp ~/quickpin/install/quickpin.conf /etc/apache2/sites-avaiable/
+sudo cp ~/quickpin/install/quickpin.conf /etc/apache2/sites-available/
 sudo a2dissite 000-default
 sudo a2ensite quickpin
-# echo "Listen 5000" | sudo tee -a /etc/apache2/ports.conf
 sudo service apache2 restart
