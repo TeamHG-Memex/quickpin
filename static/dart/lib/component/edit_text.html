@@ -1,0 +1,19 @@
+<span ng-hide='editing'
+      class='editable'
+      ng-class='{"editing": editing}'
+      ng-click='startEdit()'>
+  {{text}}
+</span>
+
+<input ng-show='editing'
+       ng-keypress='handleKeyPress($event)'
+       value='{{text}}'
+       size='{{size}}'>
+
+<button ng-show='editing' ng-click='saveEdit()' class='btn btn-xs btn-success'>
+  <i class='fa fa-check-circle'></i> Save
+</button>
+
+<button ng-show='editing' ng-click='cancelEdit()' class='btn btn-xs btn-danger'>
+  <i class='fa fa-ban'></i> Cancel
+</button>

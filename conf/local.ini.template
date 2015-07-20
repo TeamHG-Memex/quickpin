@@ -1,0 +1,12 @@
+[database]
+
+; Credentials to access the database.
+
+username = ##DATABASE_USERNAME##
+password = ##DATABASE_PASSWORD##
+
+[flask]
+
+; Generate a random string for Flask to sign cookies.
+
+SECRET_KEY = ##FLASK_SECRET_KEY##

@@ -1,18 +1,65 @@
-library quickpin_router;
-
 import 'package:angular/angular.dart';
+import 'package:quickpin/authentication.dart';
+import 'package:quickpin/redirect.dart';
 
-void QuickPinRouter(Router router, RouteViewFactory views) {
-  views.configure({
-    'index': ngRoute(defaultRoute: true, enter: (_) => router.go('subject', {})),
-    'subject': ngRoute(
-        path: '/subject',
-        mount: {
-      'index': ngRoute(defaultRoute: true, enter: (_) => router.go('subject.list', {})),
-      'list': ngRoute(path: '/list', view: 'web/view/subject/list.html'),
-      'add': ngRoute(path: '/add', view: 'web/view/subject/add.html'),
-      'view': ngRoute(path: '/:oid', view: 'web/view/subject/view.html'),
-      'viewByUsername': ngRoute(path: '/byUsername/:username', view: 'web/view/subject/view.html'),
-    }),
-  });
+/// Configures routes for the application.
+@Injectable()
+class QuickPinRouteInitializer implements Function {
+    AuthenticationController auth;
+
+    QuickPinRouteInitializer(this.auth);
+
+    /// Configures routes for the application.
+    ///
+    /// Although the router allows hierarchical routes, we opted for "flat"
+    /// routes based on discussion on GitHub:
+    /// https://github.com/angular/route.dart/issues/69#issuecomment-81612794
+    void call(Router router, RouteViewFactory views) {
+        views.configure({
+            'background_tasks': ngRoute(
+                path: '/background-tasks',
+                preEnter: auth.requireLogin,
+                viewHtml: '<background-tasks></background-tasks>'
+            ),
+            'home': ngRoute(
+                path: '/',
+                preEnter: auth.requireLogin,
+                viewHtml: '<home></home>'
+            ),
+            'login': ngRoute(
+                path: '/login',
+                preEnter: auth.requireNoLogin,
+                viewHtml: '<login></login>'
+            ),
+            'redirect': ngRoute(
+                path: '/redirect/:url',
+                preEnter: redirect
+            ),
+            'search': ngRoute(
+                path: '/search',
+                preEnter: auth.requireLogin,
+                dontLeaveOnParamChanges: true,
+                viewHtml: '<search></search>'
+            ),
+            'profile_list': ngRoute(
+                path: '/profile',
+                preEnter: auth.requireLogin,
+                dontLeaveOnParamChanges: true,
+                viewHtml: '<profile-list></profile-list>'
+            ),
+            'user_list': ngRoute(
+                path: '/user',
+                preEnter: auth.requireLogin,
+                dontLeaveOnParamChanges: true,
+                viewHtml: '<user-list></user-list>'
+            ),
+            'user_view':ngRoute(
+                path: '/user/:id',
+                preEnter: auth.requireLogin,
+                viewHtml: '<user></user>'
+            ),
+
+        });
+    }
 }
+

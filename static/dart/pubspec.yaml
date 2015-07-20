@@ -1,18 +1,15 @@
 name: quickpin
-version: 1.0.0
+version: 0.1.0
 dependencies:
-  angular: 1.1.0
-  browser: any
-  web_components: any
+    angular: any
+    bootjack: any
+    browser: any
+    collection: any
+    dnd: any
+    intl: any
+    web_components: any
+dependency_overrides:
+    route_hierarchical:
+        path: /opt/route.dart
 transformers:
-- angular:
-    html_files:
-      - lib/component/tweet-embedded.html
-      - lib/component/subject-view.html
-      - lib/component/subject-search-box.html
-      - lib/component/subject-grid.html
-      - lib/component/subject-add.html
-      - lib/component/nav-bar.html
-      - lib/component/quick-pin.html
-      - web/view/subject/list.html
-      - web/view/subject/add.html
+- angular

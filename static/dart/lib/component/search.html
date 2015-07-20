@@ -1,0 +1,352 @@
+<breadcrumbs crumbs=crumbs></breadcrumbs>
+
+<h1>
+  Search
+  <img ng-show='loading' src='/static/img/spinner-blue-on-white.gif'>
+</h1>
+
+<div class='row row-heading'>
+  <div class='search-input'>
+    <input type='search'
+           ng-model='query'
+           ng-keypress='handleSearchKeypress($event)'
+           placeholder='Enter search terms…'>
+
+    <button class='btn btn-primary'
+            ng-click='handleSearchButton()'
+            type='button'>
+      <i class='fa fa-search'></i> Search
+    </button>
+
+    <div class='btn-group'>
+      <button type='button'
+              class='btn btn-primary dropdown-toggle'
+              data-toggle='dropdown'
+              aria-expanded='false'>
+        Sort: {{sortDescription}} <span class='caret'></span>
+      </button>
+      <ul class='dropdown-menu sort-by' role='menu'>
+        <li><a ng-click='sortBy(null)'>Most Relevant</a></li>
+        <li class='divider'></li>
+        <li>
+          <a ng-click='sortBy("-post_date_tdt")'>
+            Post Date <span class='pull-right'>(Newest)</span>
+          </a>
+        </li>
+        <li>
+          <a ng-click='sortBy("post_date_tdt")'>
+            Post Date <span class='pull-right'>(Oldest)</span>
+          </a>
+        </li>
+        <li>
+          <a ng-click='sortBy("site_name_txt_en")'>
+            Site Name <span class='pull-right'>(A → Z)</span>
+          </a>
+        </li>
+        <li>
+          <a ng-click='sortBy("-site_name_txt_en")'>
+            Site Name <span class='pull-right'>(Z → A)</span>
+          </a>
+        </li>
+        <li>
+          <a ng-click='sortBy("username_s")'>
+            Username <span class='pull-right'>(A → Z)</span>
+          </a>
+        </li>
+        <li>
+          <a ng-click='sortBy("-username_s")'>
+            Username <span class='pull-right'>(Z → A)</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class='alert alert-danger' role='alert' ng-hide='error.isEmpty'>
+  <i class='fa fa-exclamation-triangle fa-3x pull-left'></i>
+  <p><strong>{{error}}</strong></p>
+  <div class='clear'></div>
+</div>
+
+<div class='alert alert-info' role='alert' ng-hide='backgroundTask == null'>
+  <i class='fa fa-info-circle fa-3x pull-left'></i>
+  <p>
+    <strong>The search engine is currently updating records in the
+    background.</strong> You may notice some inconsistent results while this
+    process is running.
+  </p>
+  <p class='center'>
+    <progress-bar progress='backgroundTask["progress"] * 100'></progress-bar>
+    {{backgroundTask["description"]}}
+    ({{backgroundTask["progress"] * 100 | number:0}}%)
+  </p>
+  <div class='clear'></div>
+</div>
+
+<div class='row' ng-show='results.length > 0'>
+  <div class='col-sm-4'>
+    <ul class='list-group'>
+      <li class='list-group-item'
+          ng-repeat='facetName in facetNames'
+          ng-show='facets[facetName].length > 0'>
+        <p class='facet-name'>
+          {{facetHumanNames[facetName]}}
+          <span ng-if='allFacets[facetName] != topFacets[facetName]'>
+            <a ng-show='facets[facetName] == topFacets[facetName]'
+               ng-click='facets[facetName] = allFacets[facetName]'>
+              (+{{allFacets[facetName].length - topFacets[facetName].length}} More)
+            </a>
+            <a ng-show='facets[facetName] == allFacets[facetName]'
+               ng-click='facets[facetName] = topFacets[facetName]'>
+              (Fewer <i class='fa fa-caret-up'></i>)
+            </a>
+          </span>
+        </p>
+        <p ng-repeat='facet in facets[facetName]' class='facet'>
+          <input type='checkbox'
+                 id='{{facetName}}_{{$index}}'
+                 ng-change='handleFacet($event, facetName)'
+                 ng-checked='selectedFacets[facetName][facet[0]]'
+                 value='{{facet[0]}}'>
+          <label class='facet-value selectable'
+                 ng-if='facetName != "post_date_tdt"'
+                 for='{{facetName}}_{{$index}}'>
+            {{facetHumanValues[facet[0]] != null ? facetHumanValues[facet[0]] : facet[0]}}
+          </label>
+          <label class='facet-value selectable'
+                 ng-if='facetName == "post_date_tdt"'
+                 for='{{facetName}}_{{$index}}'>
+            {{facet[0] | date:'yMMM'}}
+          </label>
+          <span class='badge pull-right'>{{facet[1]}}</span>
+        </p>
+      </li>
+    </ul>
+  </div>
+
+  <div class='col-sm-8'>
+    <pager pager='pager' disabled='loading'></pager>
+
+    <p ng-show='pager.totalResults != 0' class='showing'>
+      Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+      of {{pager.totalResults | number}} results:
+    </p>
+
+    <div class='search-result selectable'
+         ng-repeat='result in results'
+         ng-switch='result["type"]'>
+
+      <div ng-switch-when='DarkChatMessage'>
+        <p>
+          <span class='content-type'><i class='fa fa-comment'></i> Chat Message</span>
+          …<excerpt text='result["chat"]["body"]'></excerpt>…
+        </p>
+
+        <p>
+          Written by
+          <a href='/dark-user/{{result["user"]["id"]}}'>
+            <excerpt text='result["user"]["username"]'></excerpt></a>
+          in chat room
+          <a href='/dark-chat/{{result["room"]["id"]}}'>
+            <excerpt text='result["room"]["name"]'></excerpt></a>
+          on
+          <a href='/dark-site/{{result["site"]["id"]}}'>
+            <excerpt text='result["site"]["name"]'></excerpt></a>
+          at
+          {{result['chat']['date'] | date:'short'}}.
+        </p>
+      </div>
+
+      <div ng-switch-when='DarkPrivateMessage'>
+        <p>
+          <span class='content-type'><i class='fa fa-envelope'></i> Private Message</span>
+          …<excerpt text='result["pm"]["body"]'></excerpt>…
+        </p>
+
+        <p>
+          Sent by
+          <a href='/dark-user/{{result["user"]["id"]}}'>
+            <excerpt text='result["user"]["username"]'></excerpt></a>
+          in private thread
+          <a href='/dark-thread/{{result["thread"]["id"]}}'>
+            <excerpt text='result["thread"]["title"]'></excerpt></a>
+          on
+          <a href='/dark-site/{{result["site"]["id"]}}'>
+            <excerpt text='result["site"]["name"]'></excerpt></a>
+          at
+          {{result['pm']['date'] | date:'short'}}.
+        </p>
+      </div>
+
+      <div ng-switch-when='DarkPost'>
+        <p>
+          <span class='content-type'><i class='fa fa-file-text-o'></i> Forum Post</span>
+          …<excerpt text='result["post"]["body"]'></excerpt>…
+        </p>
+
+        <p>
+          Posted by
+          <a href='/dark-user/{{result["user"]["id"]}}'>
+            <excerpt text='result["user"]["username"]'></excerpt></a>
+          in thread
+          <a href='/dark-thread/{{result["thread"]["id"]}}'>
+            <excerpt text='result["thread"]["title"]'></excerpt></a>
+          on
+          <a href='/dark-site/{{result["site"]["id"]}}'>
+            <excerpt text='result["site"]["name"]'></excerpt></a>
+          at
+          {{result['post']['date'] | date:'short'}}.
+        </p>
+      </div>
+
+      <div ng-switch-when='DarkSite'>
+        <p>
+          <span class='content-type'><i class='fa fa-sitemap'></i> Web Site</span>
+          <a href='/dark-site/{{result["site"]["id"]}}'>
+            <excerpt text='result["site"]["name"]'></excerpt></a>
+          on <excerpt text='result["site"]["host"]'</excerpt>
+        </p>
+      </div>
+
+      <div ng-switch-when='DarkUser'>
+        <p>
+          <span class='content-type'><i class='fa fa-user'></i> User</span>
+          <a href='/dark-user/{{result["user"]["id"]}}'>
+            <excerpt text='result["user"]["username"]'></excerpt></a>
+          on
+          <a href='/dark-site/{{result["site"]["id"]}}'>
+            <excerpt text='result["site"]["name"]'></excerpt></a>
+        </p>
+      </div>
+
+      <div ng-switch-default>
+        <strong>Error:</strong> no template for displaying this type of search
+        result ({{result['type']}}).
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class='row' ng-show='results == null || results.length == 0'>
+  <div class='col-sm-6'>
+    <div class='tip'>
+      <h3>Basic Search</h3>
+      <p>
+        The search engine will return records that match <em>any of your
+        keywords</em>, and it is <em>case insensitive</em>. It automatically
+        finds words related to your terms. For example, if you search for
+        <code>ship boat</code>, it will match documents containing any of the
+        following words: "ship", "shipped", "shipping", "ships", "boat",
+        "boats", etc.
+      </p>
+      <p>
+        The search engine searches through posts, site names, usernames, etc.
+        and it matches text in <em>any part of a record</em>, such as the
+        title, body, and/or username. (If you want to scope the search to a
+        specific part of the record, see the <em>Advanced Search</em> tips.)
+      </p>
+    </div>
+
+    <div class='tip'>
+      <h3>Advanced Search</h3>
+      <p>
+        Terms can be made mandatory by typing a "+" in front of them, and terms
+        can be excluded by typing "-" in front of them. For example:
+        <code>+boat -schooner</code> would search for all records that contain
+        the word "boat" but <em>do not contain</em> the word "schooner".
+      </p>
+      <p>
+        Search terms can also be <em>scoped</em> to a particular field. For
+        example, <code>body:battleship</code> will match records where
+        "battleship" is contained in the body, but not records where
+        "battleship" is contained only in the title.
+      </p>
+      <p>
+        The following scopes exist:
+      </p>
+      <ul>
+        <li><code>body</code> The body of a post.</li>
+        <li><code>host</code> The hostname of a site, e.g. company.com.</li>
+        <li><code>site</code> The name of the site.</li>
+        <li><code>title</code> The title of a post.</li>
+        <li><code>username</code> The username of the post's author.</li>
+      </ul>
+      <p>
+        Quotation marks may be used in conjunction with scopes:
+        <code>body:"captain of the ship"</code> will match posts that contain
+        the exact phrase "captain of the ship" in the post body. (Quotation
+        marks are ignored when not used in conjunction with a scope.)
+      </p>
+      <p>
+        Finally, there is limited support for wildcards. Wildcards may only
+        be used at the end of a word in order to match all words with the
+        same prefix. For example, <code>username:da*</code> will match all
+        usernames that begin with "da", such as "dan", "darren", "daryl", etc.
+      </p>
+    </div>
+  </div>
+
+  <div class='col-sm-6'>
+    <div class='tip'>
+      <h3>Reading The Results</h3>
+      <p>
+        The type of each record is displayed
+        in gray text next to each result, for example:
+        <span class='content-type'><i class='fa fa-file-text-o'></i> Forum Post</span>
+        indicates a post on a forum web site, while
+        <span class='content-type'><i class='fa fa-user'></i> User</span> indicates
+        a user account on a web site.
+      </p>
+      <p>
+        Matching terms are <span class='mark'>highlighted</span> to make it
+        easy to visually identify the parts of a record that match your query.
+      </p>
+    </div>
+
+    <div class ='tip'>
+      <h3>Sorting</h3>
+      <p>
+        The button to the right of "Search" shows the currently selected sort
+        order (default: "Most Relevant"). You can click the button to select a
+        different sort order.
+      </p>
+      <p>
+        "Relevance" is determined by the number of keywords in your query
+        that are contained in your document, as well as where those words
+        appear. For example, if you search for <code>frigate</code>, posts
+        that use the word "frigate" in the title are deemed more relevant
+        than posts where "frigate" appears only in the body.
+      </p>
+    </div>
+
+    <div class='tip'>
+      <h3>Filtering</h3>
+      <p>
+        A sidebar appears to the left of search results. This sidebar suggests
+        relevant filters that can be applied to the current query to narrow
+        down the results.
+      </p>
+      <p>
+        For example, if you search for
+        <code>steamboat</code> and two users frequently mention "steamboat" in
+        their posts, then the search engine will display filters for each
+        of those users, e.g. <code>john.doe</code> and <code>jane.doe</code>.
+        If you click on one of those filters, then your search
+        will be filtered to only include posts by that user. (You can deselect
+        a filter to get back to the unfiltered results.)
+      </p>
+      <p>
+        A number is displayed next to each filter, e.g.
+        <span class='badge'>{{42}}</span>. If "john.doe" displays 42 next to
+        it, then clicking on "john.doe" will result in 42 search results.
+      </p>
+      <p>
+        You can apply multiple filters at once, but this is
+        <em>limited to one filter per field</em>. For example, you can apply
+        one filter on "Type" and another filter on "Post Date" at the same
+        time, but you cannot apply two different filters on "Post Date" at once.
+      </p>
+    </div>
+  </div>
+</div>

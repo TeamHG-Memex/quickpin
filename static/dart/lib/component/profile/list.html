@@ -1,0 +1,38 @@
+<breadcrumbs crumbs=crumbs></breadcrumbs>
+
+<a class='btn btn-primary btn-sm pull-right add-profile'
+   ng-show='!showAdd'
+   ng-click='showAddDialog()'>
+  <i class='fa fa-user-plus'></i>
+  Add Profiles
+</a>
+
+<h1>
+  Profiles
+  <img ng-show='loading' src='/static/img/spinner-blue-on-white.gif'>
+</h1>
+
+<p ng-show='showAdd' class='add-profile-form'>
+  <input ng-model='newProfile' placeholder='Enter a username and select a site'>
+  <button class='btn btn-success btn-sm'>Add</button>
+  <button class='btn btn-danger btn-sm' ng-click='hideAddDialog()'>Cancel</button>
+</p>
+
+<div class='masonry'>
+  <div ng-repeat='profile in profiles' class='item'>
+    <img class='avatar' src='/static/img/default_user_thumb_large.png'>
+    <p class='profile-name'>
+      <a href='/profile/{{profile.id}}'>{{profile.names[0].name}}</a>
+      <span class='site-name'>
+        {{profile.siteName}}
+        <i class='fa {{profile.iconClass()}}'></i>
+      </span>
+    </p>
+    <p>{{profile.description}}</p>
+    <p><strong>Friends:</strong> {{profile.friendCount}}</p>
+    <p><strong>Followers:</strong> {{profile.followerCount}}</p>
+    <p><strong>Posts:</strong> {{profile.postCount}}</p>
+  </div>
+</div>
+
+<p ng-show='profiles.length == 0'>No profiles found.</p>
