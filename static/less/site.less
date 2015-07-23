@@ -433,24 +433,29 @@ nav {
 profile-list {
   img.avatar {
     width: 100%;
-    // padding-bottom: 1em;
-    margin-bottom:0.75em;
+    margin-bottom: 0.5em;
   }
 
   .add-profile-form {
     text-align: center;
+    margin-top: 1.3em;
 
     input {
-      border: 1px solid #ccc;
-      height: 2.2em;
-      width: 20em;
-      padding: 0.5em 0.5em;
+      width: 20em !important;
     }
   }
 
-  .btn.add-profile {
+  .buttons {
     position: relative;
     top: 0.4em;
+
+    div.btn-group {
+      margin-left: 0.5em;
+    }
+  }
+
+  .loading {
+    text-align: center;
   }
 
   .profile-name {
@@ -464,8 +469,7 @@ profile-list {
   }
 
   .site-name {
-    font-size: 0.9em;
-    padding-top: 0.2em;
+    font-size: 1.3em;
     color: @gray-light;
     float: right;
   }

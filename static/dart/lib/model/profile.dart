@@ -5,6 +5,7 @@ class Profile {
         'twitter': 'fa-twitter',
     };
 
+    List<String> avatarUrls;
     int id;
     String site, siteName;
     String originalId;
@@ -15,7 +16,15 @@ class Profile {
     DateTime lastUpdate;
     List<ProfileName> names;
 
+    Profile(String name, String site) {
+        this.avatarUrls = new List<String>();
+        this.names = new List<ProfileName>();
+        this.names.add(new ProfileName(name));
+        this.site = site;
+    }
+
     Profile.fromJson(Map json) {
+        this.avatarUrls = json['avatar_urls'];
         this.id = json['id'];
         this.site = json['site'];
         this.siteName = json['site_name'];
@@ -38,6 +47,15 @@ class Profile {
         );
     }
 
+    /// Return a URL for this profile's avatar image.
+    String avatarUrl() {
+        if (this.avatarUrls.length > 0) {
+            return this.avatarUrls[0];
+        } else {
+            return '/static/img/default_user_thumb_large.png';
+        }
+    }
+
     /// Return the name of a Font Awesome icon class for this profile's site.
     String iconClass() {
         if (Profile.ICON_CLASSES[this.site] != null) {
@@ -53,6 +71,8 @@ class Profile {
 class ProfileName {
     String name;
     DateTime startDate, endDate;
+
+    ProfileName(this.name);
 
     ProfileName.fromJson(Map json) {
         this.name = json['name'];

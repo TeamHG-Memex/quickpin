@@ -72,7 +72,9 @@ class RestApiController {
         // Create request.
         var responseHandler = (_) {
             var response = new ApiResponse(request.status, request.response);
-            if (request.status == 200) {
+            String statusString = request.status.toString();
+
+            if (statusString.startsWith('2')) {
                 completer.complete(response);
             } else if (request.status == 401) {
                 this.auth.logOut(expired: true);

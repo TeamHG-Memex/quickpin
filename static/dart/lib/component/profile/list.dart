@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:html';
 import 'dart:math';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
-import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/profile.dart';
@@ -26,9 +26,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
     String error;
     bool loading = false;
     String newProfile;
-    Pager pager;
     List<Profile> profiles;
-    bool showAdd = false;
+    bool showAdd = true;
+    bool submittingProfile = false;
 
     InputElement _inputEl;
 
@@ -43,9 +43,35 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Constructor.
     ProfileListComponent(this.auth, this._api, this._element, this._router,
                          this._rp, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this._fetchCurrentPage();
         this._ts.title = 'Profiles';
+    }
+
+    /// Submit a new profile.
+    void addProfile() {
+        this.error = null;
+        this.submittingProfile = true;
+        String pageUrl = '/api/profile/';
+        Map body = {'profiles': [{'name': this.newProfile, 'site': 'twitter'}]};
+        this.profiles.insert(0, new Profile(this.newProfile, 'twitter'));
+
+        this._api
+            .post(pageUrl, body, needsAuth: true)
+            .then((response) {
+                this.newProfile = '';
+                new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {this.submittingProfile = false;});
+    }
+
+    /// Trigger add profile when the user presses enter in the profile input.
+    void handleAddProfileKeypress(Event e) {
+        if (e.charCode == 13) {
+            addProfile();
+        }
     }
 
     /// Show the "add profile" dialog.
@@ -63,11 +89,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
     void showAddDialog() {
         this.showAdd = true;
 
-        window.console.log(this._inputEl);
-
         if (this._inputEl != null) {
-            window.console.log('trying to focus');
-            this._inputEl.focus();
+            // Allow Angular to digest showAdd before trying to focus. (Can't
+            // focus a hidden element.)
+            new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
         }
     }
 
@@ -84,10 +109,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
                     response.data['profiles'].length,
                     (index) => new Profile.fromJson(response.data['profiles'][index])
                 );
-
-                this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
             })
             .catchError((response) {
                 this.error = response.data['message'];

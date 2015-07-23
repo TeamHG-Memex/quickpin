@@ -1,4 +1,5 @@
 agnostic
+beautifulsoup4
 bleach
 cssselect
 flask

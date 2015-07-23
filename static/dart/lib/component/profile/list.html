@@ -1,38 +1,127 @@
 <breadcrumbs crumbs=crumbs></breadcrumbs>
 
-<a class='btn btn-primary btn-sm pull-right add-profile'
-   ng-show='!showAdd'
-   ng-click='showAddDialog()'>
-  <i class='fa fa-user-plus'></i>
-  Add Profiles
-</a>
+<div class='buttons'>
+  <div class='btn-group pull-right'>
+    <button type='button'
+            class='btn btn-primary btn-sm dropdown-toggle'
+            data-toggle='dropdown'
+            aria-expanded='false'>
+      Interest: All Profiles <span class='caret'></span>
+    </button>
+    <ul class='dropdown-menu sort-by' role='menu'>
+      <li><a click=''>All Profiles</a></li>
+      <li class='divider'></li>
+      <li><a lick=''>Interesting</a></li>
+      <li><a lick=''>Not Interesting</a></li>
+      <li><a lick=''>Uncategorized</a></li>
+    </ul>
+  </div>
+
+  <div class='btn-group pull-right'>
+    <button type='button'
+            class='btn btn-primary btn-sm dropdown-toggle'
+            data-toggle='dropdown'
+            aria-expanded='false'>
+      Site: All Sites <span class='caret'></span>
+    </button>
+    <ul class='dropdown-menu sort-by' role='menu'>
+      <li><a click=''>All Sites</a></li>
+      <li class='divider'></li>
+      <li><a lick=''>Instagram</a></li>
+      <li><a lick=''>Twitter</a></li>
+    </ul>
+  </div>
+
+  <div class='btn-group pull-right'>
+    <a class='btn btn-primary btn-sm pull-right'
+       ng-disabled='showAdd'
+       ng-click='showAddDialog()'>
+      <i class='fa fa-user-plus'></i>
+      Add Profiles
+    </a>
+  </div>
+</div>
 
 <h1>
   Profiles
   <img ng-show='loading' src='/static/img/spinner-blue-on-white.gif'>
 </h1>
 
-<p ng-show='showAdd' class='add-profile-form'>
-  <input ng-model='newProfile' placeholder='Enter a username and select a site'>
-  <button class='btn btn-success btn-sm'>Add</button>
-  <button class='btn btn-danger btn-sm' ng-click='hideAddDialog()'>Cancel</button>
-</p>
+<div class='alert alert-danger' role='alert' ng-show='error != null'>
+  {{error}}
+</div>
+
+<form ng-show='showAdd' class='form-inline add-profile-form'>
+  <div class='form-group'>
+    <div class='input-group'>
+      <div class='input-group-addon'><strong>Add Profile</strong></div>
+      <input type='text'
+             id='newProfile'
+             class='form-control'
+             ng-model='newProfile'
+             ng-keypress='handleAddProfileKeypress($event)'
+             ng-disabled='submittingProfile'
+             placeholder='Enter a name and select a site.'>
+    </div>
+  </div>
+
+  <div class='btn-group'>
+    <button type='button'
+            class='btn btn-default dropdown-toggle'
+            data-toggle='dropdown'
+            ng-disabled='submittingProfile'
+            aria-expanded='false'>
+      On Twitter <span class='caret'></span>
+    </button>
+    <ul class='dropdown-menu sort-by' role='menu'>
+      <li><a ng-click=''>Instagram</a></li>
+      <li><a ng-click=''>Twitter</a></li>
+    </ul>
+  </div>
+
+  <button class='btn btn-success'
+          ng-click='addProfile()'
+          ng-disabled='submittingProfile'>
+    <i class='fa fa-user-plus'></i>
+    Add
+  </button>
+
+  <button class='btn btn-danger'
+          ng-click='hideAddDialog()'
+          ng-disabled='submittingProfile'>
+    <i class='fa fa-times'></i>
+    Cancel
+  </button>
+</form>
 
 <div class='masonry'>
   <div ng-repeat='profile in profiles' class='item'>
-    <img class='avatar' src='/static/img/default_user_thumb_large.png'>
+    <img class='avatar' ng-src='{{profile.avatarUrl()}}'>
     <p class='profile-name'>
       <a href='/profile/{{profile.id}}'>{{profile.names[0].name}}</a>
       <span class='site-name'>
-        {{profile.siteName}}
-        <i class='fa {{profile.iconClass()}}'></i>
+        <i class='fa {{profile.iconClass()}}' title='{{profile.siteName}}'></i>
       </span>
     </p>
-    <p>{{profile.description}}</p>
-    <p><strong>Friends:</strong> {{profile.friendCount}}</p>
-    <p><strong>Followers:</strong> {{profile.followerCount}}</p>
-    <p><strong>Posts:</strong> {{profile.postCount}}</p>
+    <div class='loading' ng-show='profile.id == null'>
+      <img src='/static/img/horizontal-loader.gif' alt='Loading…'><br>
+      <em>Loading…</em>
+    </div>
+    <p ng-show='profile.description != null'>
+      {{profile.description}}
+    </p>
+    <p ng-show='profile.friendCount != null'>
+      <strong>Friends:</strong> {{profile.friendCount}}
+    </p>
+    <p ng-show='profile.followerCount != null'>
+      <strong>Followers:</strong> {{profile.followerCount}}
+    </p>
+    <p ng-show='profile.postCount != null'>
+      <strong>Posts:</strong> {{profile.postCount}}
+    </p>
   </div>
 </div>
 
-<p ng-show='profiles.length == 0'>No profiles found.</p>
+<p ng-show='profiles.length == 0'>
+  There are currently no profiles. Try clicking "Add Profiles" to get started.
+</p>

@@ -29,12 +29,6 @@ class File(Base):
     mime = Column(String(255))
     hash = Column(BYTEA(32)) # sha256
 
-    post_id = Column(
-        Integer,
-        ForeignKey('post.id', name='fk_post_attachment'),
-        nullable=False
-    )
-
     def __init__(self, name, mime, content):
         ''' Constructor. '''
 
@@ -50,7 +44,7 @@ class File(Base):
         hash_hex = binascii.hexlify(self.hash).decode('ascii')
         dir1 = os.path.join(data_dir, hash_hex[0])
         dir2 = os.path.join(dir1, hash_hex[1])
-        path = os.path.join(dir1, hash_hex[2:])
+        path = os.path.join(dir2, hash_hex[2:])
 
         if not os.path.isdir(dir1):
             os.mkdir(dir1)
@@ -62,3 +56,11 @@ class File(Base):
             file_ = open(path, 'wb')
             file_.write(content)
             file_.close()
+
+    def relpath(self):
+        ''' Return path to the file relative to the data directory. '''
+
+        data_dir = app.config.get_path('data')
+        hash_ = binascii.hexlify(self.hash).decode('ascii')
+
+        return os.path.join(hash_[0], hash_[1], hash_[2:])

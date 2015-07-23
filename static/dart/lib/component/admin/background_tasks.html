@@ -37,8 +37,11 @@
           <span ng-show='worker["current_job"]["description"] != null'>
             {{worker["current_job"]["description"]}}
           </span>
-          ({{worker["current_job"]["progress"] * 100 | number:0}}%)
-          <progress-bar type='info'
+          <span ng-show='worker["current_job"]["progress"] != null'>
+            ({{worker["current_job"]["progress"] * 100 | number:0}}%)
+          </span>
+          <progress-bar ng-show='worker["current_job"]["progress"] != null'
+                        type='info'
                         progress='worker["current_job"]["progress"] * 100'>
           </progress-bar>
         </div>

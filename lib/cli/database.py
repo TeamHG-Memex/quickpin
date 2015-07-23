@@ -86,27 +86,28 @@ class DatabaseCli(cli.BaseCli):
         ''' Create some sample profiles. '''
 
         session = app.database.get_session(self._db)
+        sample_dir = os.path.join(os.path.dirname(__file__), 'sample-data')
 
-        # John Doe
-        johndoe_twitter = Profile(
+        # Maurice Moss
+        moss_twitter = Profile(
             site='twitter',
             original_id='12345',
-            name=ProfileName('john.doe', start_date='2014-04-01')
+            name=ProfileName('maurice.moss', start_date='2014-04-01')
         )
 
-        johndoe_twitter.names.append(ProfileName(
-            'johnny',
+        moss_twitter.names.append(ProfileName(
+            'maurice',
             start_date='2013-06-01',
             end_date='2014-03-31'
         ))
 
-        johndoe_twitter.names.append(ProfileName(
-            'jonjon',
+        moss_twitter.names.append(ProfileName(
+            'maurie',
             start_date='2013-02-15',
             end_date='2013-05-30'
         ))
 
-        johndoe_twitter.posts.append(Post(
+        moss_twitter.posts.append(Post(
             content='Going to the grocery store.',
             post_date='2015-02-04 12:34:50',
             post_date_is_exact=True,
@@ -124,60 +125,75 @@ class DatabaseCli(cli.BaseCli):
             content='Hello world!'.encode('utf8')
         ))
 
-        johndoe_twitter.posts.append(post)
+        moss_twitter.posts.append(post)
 
-        johndoe_twitter.description = "I'm just a guy on the interwebs…"
-        johndoe_twitter.post_count = 1205
-        johndoe_twitter.friend_count = 1
-        johndoe_twitter.follower_count = 3
-        johndoe_twitter.join_date = dateutil.parser.parse('2013-06-01')
-        johndoe_twitter.join_date_is_exact = False
+        with open(os.path.join(sample_dir, 'moss.jpg'), 'rb') as moss_jpg:
+            moss_twitter.avatars.append(File(
+                name='jen-avatar.jpg',
+                mime='image/jpeg',
+                content=moss_jpg.read()
+            ))
 
-        session.add(johndoe_twitter)
+        moss_twitter.description = "I do IT at Reynholm Industries."
+        moss_twitter.post_count = 1205
+        moss_twitter.friend_count = 1
+        moss_twitter.follower_count = 3
+        moss_twitter.join_date = dateutil.parser.parse('2013-06-01')
+        moss_twitter.join_date_is_exact = False
 
-        # Jane Doe
-        janedoe_twitter = Profile(
+        session.add(moss_twitter)
+
+        # Jen Barber
+        jen_twitter = Profile(
             site='twitter',
             original_id='23456',
-            name=ProfileName('janey', start_date='2013-11-12')
+            name=ProfileName('jen.barber', start_date='2013-11-12')
         )
 
-        janedoe_twitter.names.append(ProfileName(
-            'jane',
+        jen_twitter.names.append(ProfileName(
+            'jenb',
             start_date='2013-06-14',
             end_date='2013-11-12'
         ))
 
-        janedoe_twitter.names.append(ProfileName(
-            'jane.doe',
+        jen_twitter.names.append(ProfileName(
+            'jenny',
             start_date='2013-03-15',
             end_date='2013-06-14'
         ))
 
-        janedoe_twitter.description = "I'm just a gal on the interwebs…"
-        janedoe_twitter.post_count = 1543
-        janedoe_twitter.friend_count = 1
-        janedoe_twitter.follower_count = 1
-        johndoe_twitter.join_date = dateutil.parser.parse('2013-03-15')
-        johndoe_twitter.join_date_is_exact = True
-        johndoe_twitter.followers.append(janedoe_twitter)
+        with open(os.path.join(sample_dir, 'jen.jpg'), 'rb') as jen_jpg:
+            jen_twitter.avatars.append(File(
+                name='moss-avatar.jpg',
+                mime='image/jpeg',
+                content=jen_jpg.read()
+            ))
 
-        session.add(janedoe_twitter)
+        jen_twitter.description = "Relationship Manager for the IT department."
+        jen_twitter.post_count = 1543
+        jen_twitter.friend_count = 1
+        jen_twitter.follower_count = 1
+        jen_twitter.join_date = dateutil.parser.parse('2013-03-15')
+        jen_twitter.join_date_is_exact = True
+
+        moss_twitter.followers.append(jen_twitter)
+
+        session.add(jen_twitter)
 
         # A couple of randos.
-        johndoe_twitter.followers.append(Profile(
+        moss_twitter.followers.append(Profile(
             site='twitter',
             original_id='345678',
             name='franky'
         ))
 
-        johndoe_twitter.followers.append(Profile(
+        moss_twitter.followers.append(Profile(
             site='twitter',
             original_id='456789',
-            name='jenny'
+            name='jane'
         ))
 
-        janedoe_twitter.followers.append(Profile(
+        jen_twitter.followers.append(Profile(
             site='twitter',
             original_id='567890',
             name='joey'

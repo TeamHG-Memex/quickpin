@@ -20,6 +20,7 @@ def get_int_arg(name, arg, optional=False):
 
     return arg
 
+
 def get_paging_arguments(args):
     ''' Get a standard pair of paging arguments from a request.args object. '''
 

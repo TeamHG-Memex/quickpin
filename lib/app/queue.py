@@ -9,3 +9,4 @@ _config = app.config.get_config()
 _redis = app.database.get_redis(dict(_config.items('redis')))
 
 index_queue = Queue('index', connection=_redis)
+scrape_queue = Queue('scrape', connection=_redis)

@@ -11,9 +11,11 @@ from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from app.authorization import login_required
 import app.database
+from app.queue import scrape_queue
 from app.rest import get_int_arg, get_paging_arguments, get_sort_arguments, \
                      heatmap_column, url_for
 from model import Profile, ProfileName
+import worker.scrape
 
 
 class ProfileView(FlaskView):
@@ -119,75 +121,82 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-                "max_images": 187,
-                "max_pms": 106,
-                "max_posts": 144,
-                "total_count": 3758,
-                "users": [
+                "profiles": [
                     {
-                        "id": 208,
-                        "chat_activity": [5,1,0,6,10,40,30,90,19,45,101,201],
-                        "chat_count": 633,
-                        "image_activity": [0,0,0,12,22,81,56,187,38,49,168,134],
-                        "image_count": 747,
-                        "pm_activity": [16,30,30,29,59,36,100,48,79,106,72,100],
-                        "pm_count": 810,
-                        "post_activity": [144,16,30,30,29,59,36,100,48,79,106,72],
-                        "post_count": 975,
-                        "site": {
-                            "id": 1,
-                            "name": "Boy Vids",
-                            "url": "https://avatar/api/dark-site/1"
-                        },
-                        "url": "https://avatar/api/dark-user/208",
-                        "username": "petar"
+                        "description": "I'm just a guy on the interwebs…",
+                        "follower_count": 3,
+                        "friend_count": 1,
+                        "id": 1,
+                        "join_date": "2013-03-15T00:00:00",
+                        "join_date_is_exact": true,
+                        "last_update": null,
+                        "names": [
+                            {
+                                "end_date": null,
+                                "name": "john.doe",
+                                "start_date": "2014-04-01T00:00:00"
+                            },
+                            {
+                                "end_date": "2014-03-31T00:00:00",
+                                "name": "johnny",
+                                "start_date": "2013-06-01T00:00:00"
+                            },
+                            {
+                                "end_date": "2013-05-30T00:00:00",
+                                "name": "jonjon",
+                                "start_date": "2013-02-15T00:00:00"
+                            }
+                        ],
+                        "original_id": "12345",
+                        "post_count": 1205,
+                        "site": "twitter",
+                        "site_name": "Twitter",
+                        "url": "http://quickpin:5000/api/profile/1"
                     },
-                    ...
-                ]
+                ],
+                "total_count": 5
             }
 
         :<header Content-Type: application/json
         :<header X-Auth: the client's auth token
         :query page: the page number to display (default: 1)
         :query rpp: the number of results per page (default: 10)
-        :query site_id: only list users belonging to this site
-        :query sort: field name to sort by: "images", "pms", "posts", "site", or
-            "username". defaults to ascending sort, but a '-' prefix indicates
-            descending sort. (default: "-posts")
 
         :>header Content-Type: application/json
-        :>json int max_images: the maximum image_activity value across all users
-            (useful as a scale for Y axis)
-        :>json int max_pms: the maximum pm_activity value across all users
-            (useful as a scale for Y axis)
-        :>json int max_posts: the maximum post_activity value across all users
-            (useful as a scale for Y axis)
-        :>json int total_count: the total number of all users (not just the ones
-            on the current page)
-        :>json list users: a list of user objects
-        :>json int users[n].id: unique user identifier
-        :>json list users[n].chat_activity: counts of chat messages per month
-            for the last 12 months
-        :>json int users[n].chat_count: total count of chat messages by this
-            user
-        :>json list users[n].image_activity: counts of images posted per month
-            for the last 12 months
-        :>json int users[n].image_count: total count of images posted by this
-            user
-        :>json list users[n].pm_activity: counts of private messages per month
-            for the last 12 months
-        :>json int users[n].pm_count: total count of private messages by this
-            user
-        :>json list users[n].post_activity: counts of posts per month for the
-            last 12 months
-        :>json int users[n].post_count: total count of posts by this user
-        :>json str post_url: API endpoint for this user's posts
-        :>json object users[n].site: the site this username is registered on
-        :>json int users[n].site.id: unique site identifier
-        :>json str users[n].site.name: the name of this site
-        :>json str users[n].site.url: API endpoint for data about this site
-        :>json str users[n].url: API endpoint for data about this user
-        :>json str users[n].username: this user's username
+        :>json list profiles: a list of profile objects
+        :>json str profiles[n].description: profile description
+        :>json int profiles[n].follower_count: number of followers
+        :>json int profiles[n].friend_count: number of friends (a.k.a.
+            followees)
+        :>json int profiles[n].id: unique identifier for profile
+        :>json str profiles[n].join_date: the date this profile joined its
+            social network (ISO-8601)
+        :>json bool profiles[n].join_date_is_exact: true if the ``join_date`` is
+            known with precision, false if it is just an estimate
+        :>json str profiles[n].last_update: the last time that information about
+            this profile was retrieved from the social media site (ISO-8601)
+        :>json list profiles[n].names: a list of usernames that this profile is
+            using or has used (some social sites allow users to change their
+            username)
+        :>json str profiles[n].names[n].end_date: the last (approximate) date
+            that this name was used for this profile (null if name is still in
+            use or end date is not known) (ISO-8601)
+        :>json str profiles[n].names[n].name: a username used with this profile
+        :>json str profiles[n].names[n].start_date: the first (approximate)
+            date that this name was used for this profile (null if start date is
+            not known) (ISO-8601)
+        :>json str profiles[n].original_id: the user ID assigned by the social
+            site
+        :>json int profiles[n].post_count: the number of posts made by this
+            profile
+        :>json str profiles[n].site: machine-readable site name that this
+            profile belongs to
+        :>json str profiles[n].site_name: human-readable site name that this
+            profile belongs to
+        :>json str profiles[n].url: URL endpoint for retriving more data about
+            this profile
+        :>json int total_count: count of all profile objects, not just those on
+            the current page
 
         :status 200: ok
         :status 400: invalid argument[s]
@@ -195,13 +204,11 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
-        sort = get_sort_arguments(request.args, '-follower-count', ProfileView.SORT_FIELDS)
 
         total_count = g.db.query(Profile).count()
 
         query = g.db.query(Profile) \
-                    .join(Profile.names) \
-                    .order_by(*sort) \
+                    .order_by(Profile.last_update.desc()) \
                     .limit(results_per_page) \
                     .offset((page - 1) * results_per_page)
 
@@ -227,12 +234,18 @@ class ProfileView(FlaskView):
                     'start_date': start_date,
                 })
 
+            avatar_urls = list()
+
+            for avatar in profile.avatars:
+                avatar_urls.append(url_for('FileView:get', id_=avatar.id))
+
             if profile.join_date is not None:
                 join_date = profile.join_date.isoformat()
             else:
                 join_date = None
 
             profiles.append({
+                'avatar_urls': avatar_urls,
                 'description': profile.description,
                 'id': profile.id,
                 'follower_count': profile.follower_count,
@@ -252,3 +265,78 @@ class ProfileView(FlaskView):
             profiles=profiles,
             total_count=total_count
         )
+
+    def post(self):
+        '''
+        Request creation of new profiles.
+
+        We don't know if a profile exists until we contact its social media
+        site, and we don't want to do that on the main request thread. Instead,
+        profiles are processed in the background and notifications are sent as
+        profiles are discovered and scraped. Therefore, this endpoint does not
+        return any new entities.
+
+        **Example Request**
+
+        .. sourcecode:: json
+
+            {
+                "profiles": [
+                    {"name": "johndoe", "site": "instagram"},
+                    {"name": "janedoe", "site": "twitter"},
+                    ...
+                ]
+            }
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+                "message": "21 new profiles submitted."
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :>json list profiles: a list of profiles to create
+        :>json str profiles[n].name: name of profile to create
+        :>json str profiles[n].site: machine-readable name of social media site
+
+        :>header Content-Type: application/json
+        :>json int id: unique identifier for new profile
+        :>json str name: name of new profile
+        :>json str site: machine-readable name of profile's social media site
+        :>json str site_name: human-readable name of profile's social media site
+        :>json str url: URL endpoint for more information about this profile
+
+        :status 202: accepted for background processing
+        :status 400: invalid request body
+        :status 401: authentication required
+        '''
+
+        request_json = request.get_json()
+
+        for profile in request_json['profiles']:
+            if 'name' not in profile or profile['name'].strip() == '':
+                raise BadRequest('Name is required for all profiles.')
+
+            if 'site' not in profile or profile['site'].strip() == '':
+                raise BadRequest('Site is required for all profiles.')
+
+        for profile in request_json['profiles']:
+            site = profile['site']
+            name = profile['name']
+
+            job = scrape_queue.enqueue(
+                worker.scrape.scrape_account, site, name, timeout=60
+            )
+
+            job.meta['description'] = 'Scraping bio for "{}" on "{}"'.format(name, site)
+            job.meta['type'] = 'scrape'
+            job.save()
+
+        message = "{} new profiles submitted.".format(len(request_json['profiles']))
+        response = jsonify(message=message)
+        response.status_code = 202
+
+        return response

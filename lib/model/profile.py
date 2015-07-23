@@ -18,6 +18,14 @@ SOCIAL_SITES = {
 }
 
 
+file_join_profile = Table(
+    'file_join_profile',
+    Base.metadata,
+    Column('file_id', Integer, ForeignKey('file.id'), primary_key=True),
+    Column('profile_id', Integer, ForeignKey('profile.id'), primary_key=True),
+)
+
+
 profile_join_self = Table(
     'profile_join_self',
     Base.metadata,
@@ -57,6 +65,12 @@ class Profile(Base):
         'Post',
         backref='author',
         cascade='all,delete-orphan'
+    )
+
+    # A profile has 0-n avatar images.
+    avatars = relationship(
+        'File',
+        secondary=file_join_profile
     )
 
     # A profile can follow other profiles. We use the Twitter nomenclature and

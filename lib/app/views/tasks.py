@@ -204,9 +204,11 @@ class TasksView(FlaskView):
         :>json object workers[n]["current_job"]["description"]: description of
             the current job (optional)
         :>json object workers[n]["current_job"]["progress"]: the percentage of
-            records processed by this job, expressed as a decimal
+            records processed by this job, expressed as a decimal (null if
+            progress is indeterminate)
         :>json object workers[n]["current_job"]["total"]: the total number of
-            records expected to be processed by this job
+            records expected to be processed by this job (null if progess is
+            indeterminate)
         :>json object workers[n]["current_job"]["type"]: the type of this job,
             indicating what subsystem it belongs to (optional)
         :>json str workers[n]["name"]: name of the worker process
@@ -236,11 +238,20 @@ class TasksView(FlaskView):
                         else:
                             description = None
 
+                        if 'current' in job.meta and 'total' in job.meta:
+                            current = job.meta['current']
+                            total = job.meta['total']
+                            progress = current / total
+                        else:
+                            current = None
+                            progress = None
+                            total = None
+
                         job_json = {
-                            'current': job.meta['current'],
+                            'current': current,
                             'description': description,
-                            'progress': job.meta['current']  / job.meta['total'],
-                            'total': job.meta['total'],
+                            'progress': progress,
+                            'total': total,
                             'type': job.meta['type'] if 'type' in job.meta else None
                         }
 

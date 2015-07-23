@@ -12,6 +12,14 @@ import app.config
 from model import Base
 
 
+file_join_post = Table(
+    'file_join_post',
+    Base.metadata,
+    Column('file_id', Integer, ForeignKey('file.id'), primary_key=True),
+    Column('post_id', Integer, ForeignKey('post.id'), primary_key=True),
+)
+
+
 class Post(Base):
     ''' Data model for a social media post. '''
 
@@ -32,8 +40,8 @@ class Post(Base):
     # A post has 0-n file attachments.
     attachments = relationship(
         'File',
-        backref='post',
-        cascade='all,delete-orphan'
+        backref='posts',
+        secondary=file_join_post
     )
 
     def __init__(self, content, post_date, post_date_is_exact):
