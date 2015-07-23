@@ -16,6 +16,8 @@ class FileView(FlaskView):
     in &lt;img&gt; tags.
     '''
 
+    decorators = [login_required]
+
     def get(self, id_):
         '''
         Get a file identified by ``id_``.

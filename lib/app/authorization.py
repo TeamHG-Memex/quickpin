@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import wraps
+import urllib.parse
 
 import dateutil.parser
 from flask import g, request
@@ -17,7 +18,7 @@ def login_optional(original_function):
 
     @wraps(original_function)
     def wrapper(*args, **kwargs):
-        g.user = _get_user_from_auth_header(required=False)
+        g.user = _get_user_from_request(required=False)
         return original_function(*args, **kwargs)
 
     return wrapper
@@ -33,7 +34,7 @@ def login_required(original_function):
 
     @wraps(original_function)
     def wrapper(*args, **kwargs):
-        g.user = _get_user_from_auth_header(required=True)
+        g.user = _get_user_from_request(required=True)
         return original_function(*args, **kwargs)
 
     return wrapper
@@ -50,7 +51,7 @@ def admin_required(original_function):
 
     @wraps(original_function)
     def wrapper(*args, **kwargs):
-        user = _get_user_from_auth_header(required=True)
+        user = _get_user_from_request(required=True)
 
         if not user.is_admin:
             raise Forbidden("This request requires administrator privileges.")
@@ -61,21 +62,32 @@ def admin_required(original_function):
 
     return wrapper
 
-def _get_user_from_auth_header(required=True):
+def _get_user_from_request(required=True):
     '''
     Verify auth token is valid (not tampered with) and matches real user.
 
     Returns the current user object if auth token is valid and matches a real
     user.
 
+    Note that the authentication token can be passed as a header (preferred) or
+    in the query string. Passing in the query string is only recommended for
+    situations where headers cannot be controlled, such as `<img src='...'>`
+    or EventSource('...').
+
     If token is invalid or is valid but no user matches, then:
     1. If `required` is True, raise 401 HTTP exception.
     2. If `required` is False, return None.
     '''
 
-    try:
-        token = g.unsign(request.headers['X-Auth']).decode('ascii').split('|')
+    if 'X-Auth' in request.headers:
+        xauth = request.headers['X-Auth']
+    elif 'xauth' in request.args:
+        xauth = request.args['xauth']
+    else:
+        xauth = None
 
+    try:
+        token = g.unsign(xauth).decode('ascii').split('|')
         user_id = int(token[0])
         expires = dateutil.parser.parse(token[1])
 

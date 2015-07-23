@@ -122,7 +122,7 @@ class DatabaseCli(cli.BaseCli):
         post.attachments.append(File(
             name='helloworld.txt',
             mime='text/plain',
-            content='Hello world!'.encode('utf8')
+            content='Hello world!\n\n'.encode('utf8')
         ))
 
         moss_twitter.posts.append(post)

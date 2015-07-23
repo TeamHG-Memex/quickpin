@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:html';
-import 'dart:math';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
@@ -9,6 +9,7 @@ import 'package:quickpin/component/title.dart';
 import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
+import 'package:quickpin/sse.dart';
 
 /// A component for listing profiles.
 @Component(
@@ -17,7 +18,7 @@ import 'package:quickpin/rest_api.dart';
     useShadowDom: false
 )
 class ProfileListComponent extends Object with CurrentPageMixin
-                           implements ShadowRootAware {
+                           implements ScopeAware, ShadowRootAware {
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
         new Breadcrumb('Profiles'),
@@ -27,7 +28,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
     bool loading = false;
     String newProfile;
     List<Profile> profiles;
-    bool showAdd = true;
+    Map<String, Profile> nameProfilesMap;
+    Map<num, Profile> idProfilesMap;
+    Scope scope;
+    bool showAdd = false;
     bool submittingProfile = false;
 
     InputElement _inputEl;
@@ -36,15 +40,52 @@ class ProfileListComponent extends Object with CurrentPageMixin
     final RestApiController _api;
     final Element _element;
     final int _resultsPerPage = 10;
-    final Router _router;
-    final RouteProvider _rp;
+    final SseController _sse;
     final TitleService _ts;
 
     /// Constructor.
-    ProfileListComponent(this.auth, this._api, this._element, this._router,
-                         this._rp, this._ts) {
+    ProfileListComponent(this.auth, this._api, this._element, this._sse,
+                         this._ts) {
         this._fetchCurrentPage();
         this._ts.title = 'Profiles';
+        this._sse.addEventListener('avatar', this.avatarListener);
+        this._sse.addEventListener('profile', this.profileListener);
+
+        this.idProfilesMap = new Map<num, Profile>();
+        this.nameProfilesMap = new Map<String, Profile>();
+    }
+
+    void avatarListener(Event e) {
+        window.console.log('new avatar!');
+        window.console.log(e.data);
+        window.console.log(e.data.runtimeType);
+        Map json = JSON.decode(e.data);
+
+        this.idProfilesMap[json['id']].avatarUrls.add(json['url']);
+
+        if (this.scope != null) {
+            scope.apply();
+        }
+    }
+
+    void profileListener(Event e) {
+        window.console.log('new profile!');
+        window.console.log(e.data);
+        Map json = JSON.decode(e.data);
+
+        Profile profile = this.nameProfilesMap[json['name']];
+        profile.id = json['id'];
+        profile.description = json['description'];
+        profile.friendCount = json['friend_count'];
+        profile.followerCount = json['follower_count'];
+        profile.postCount = json['post_count'];
+
+        this.idProfilesMap[json['id']] = profile;
+        window.console.log(this.idProfilesMap);
+
+        if (this.scope != null) {
+            scope.apply();
+        }
     }
 
     /// Submit a new profile.
@@ -53,7 +94,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.submittingProfile = true;
         String pageUrl = '/api/profile/';
         Map body = {'profiles': [{'name': this.newProfile, 'site': 'twitter'}]};
-        this.profiles.insert(0, new Profile(this.newProfile, 'twitter'));
+        Profile profile = new Profile(this.newProfile, 'twitter');
+        this.profiles.insert(0, profile);
+        this.nameProfilesMap[this.newProfile] = profile;
+        window.console.log(this.nameProfilesMap);
 
         this._api
             .post(pageUrl, body, needsAuth: true)
@@ -65,6 +109,17 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.submittingProfile = false;});
+    }
+
+    /// Return a URL for a profile's avatar image.
+    String avatarUrl(profile) {
+        if (profile.avatarUrls.length > 0) {
+            return profile.avatarUrls[0] +
+                   '?xauth=' +
+                   Uri.encodeFull(this.auth.token);
+        } else {
+            return '/static/img/default_user_thumb_large.png';
+        }
     }
 
     /// Trigger add profile when the user presses enter in the profile input.
@@ -94,6 +149,11 @@ class ProfileListComponent extends Object with CurrentPageMixin
             // focus a hidden element.)
             new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
         }
+    }
+
+    /// Called via ScopeAware interface.
+    void setScope(Scope scope) {
+        this.scope = scope;
     }
 
     /// Fetch a page of profiles.

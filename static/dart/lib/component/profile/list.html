@@ -96,7 +96,7 @@
 
 <div class='masonry'>
   <div ng-repeat='profile in profiles' class='item'>
-    <img class='avatar' ng-src='{{profile.avatarUrl()}}'>
+    <img class='avatar' ng-src='{{avatarUrl(profile)}}'>
     <p class='profile-name'>
       <a href='/profile/{{profile.id}}'>{{profile.names[0].name}}</a>
       <span class='site-name'>

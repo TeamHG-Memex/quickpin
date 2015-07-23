@@ -34,6 +34,7 @@ import 'package:quickpin/decorator/current_route.dart';
 import 'package:quickpin/formatter/large_number.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/router.dart';
+import 'package:quickpin/sse.dart';
 
 /// The main application module.
 class QuickPinApplication extends Module {
@@ -75,6 +76,7 @@ class QuickPinApplication extends Module {
         bind(SearchComponent);
         bind(SortComponent);
         bind(SparklineComponent);
+        bind(SseController);
         bind(TitleComponent);
         bind(TitleService);
         bind(UserComponent);

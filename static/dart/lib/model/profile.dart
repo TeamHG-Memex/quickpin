@@ -47,15 +47,6 @@ class Profile {
         );
     }
 
-    /// Return a URL for this profile's avatar image.
-    String avatarUrl() {
-        if (this.avatarUrls.length > 0) {
-            return this.avatarUrls[0];
-        } else {
-            return '/static/img/default_user_thumb_large.png';
-        }
-    }
-
     /// Return the name of a Font Awesome icon class for this profile's site.
     String iconClass() {
         if (Profile.ICON_CLASSES[this.site] != null) {

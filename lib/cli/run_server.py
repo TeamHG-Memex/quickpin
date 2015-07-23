@@ -46,4 +46,4 @@ class RunServerCli(cli.BaseCli):
 
         # Disable secure cookies for the development server.
         flask_app.config["SESSION_COOKIE_SECURE"] = False
-        flask_app.run(host=args.ip)
+        flask_app.run(host=args.ip, threaded=True)

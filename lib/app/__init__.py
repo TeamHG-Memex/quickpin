@@ -95,7 +95,7 @@ def init_errors(flask_app, config):
         if mimetype.startswith('application/json'):
             response = jsonify(message=description)
         else:
-            response = make_response(description)
+            response = make_response(description + '\n\n')
             response.headers['Content-type'] = 'text/plain'
 
         response.status_code = error.code
@@ -221,6 +221,9 @@ def init_views(flask_app, config):
 
     from app.views.file import FileView
     FileView.register(flask_app, route_base='/api/file/')
+
+    from app.views.notification import NotificationView
+    NotificationView.register(flask_app, route_base='/api/notification/')
 
     from app.views.profile import ProfileView
     ProfileView.register(flask_app, route_base='/api/profile/')

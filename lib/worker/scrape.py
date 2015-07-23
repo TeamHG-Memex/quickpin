@@ -3,6 +3,7 @@
 import bs4
 from datetime import datetime
 import hashlib
+import json
 import pickle
 import urllib.parse
 
@@ -19,6 +20,8 @@ import worker
 def scrape_account(site, name):
     ''' Scrape a twitter account. '''
 
+    redis = worker.get_redis()
+
     account_scrapers = {
         'twitter': _scrape_twitter_account,
     }
@@ -26,7 +29,9 @@ def scrape_account(site, name):
     session = worker.get_session()
 
     if site in account_scrapers:
-        account_scrapers[site](name)
+        profile = account_scrapers[site](name)
+        redis.publish('profile', json.dumps(profile))
+
     else:
         raise ValueError('No scraper exists for site "{}"'.format(site))
 
@@ -62,25 +67,32 @@ def _scrape_twitter_account(username):
                             .filter(Profile.original_id==user_id) \
                             .one()
 
+    data = {'name': username, 'site': 'twitter'}
+
     bio_el = html.select('.ProfileHeaderCard-bio')[0]
+    data['description'] = bio_el.get_text()
     profile.description = bio_el.get_text()
 
     post_count_el = html.select('.ProfileNav-item--tweets .ProfileNav-value')[0]
+    data['post_count'] = int(post_count_el.get_text().replace(',', ''))
     profile.post_count = int(post_count_el.get_text().replace(',', ''))
 
     friend_count_el = html.select('.ProfileNav-item--following .ProfileNav-value')[0]
+    data['friend_count'] = int(friend_count_el.get_text().replace(',', ''))
     profile.friend_count = int(friend_count_el.get_text().replace(',', ''))
 
     follower_count_el = html.select('.ProfileNav-item--followers .ProfileNav-value')[0]
+    data['follower_count'] = int(follower_count_el.get_text().replace(',', ''))
     profile.follower_count = int(follower_count_el.get_text().replace(',', ''))
 
     avatar_el = html.select('.ProfileAvatar-image')[0]
     avatar_url = avatar_el['src']
     scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
 
-    profile.last_update = datetime.now()
-
     db_session.commit()
+    data['id'] = profile.id
+
+    return data
 
 
 def scrape_twitter_avatar(id_, url):
@@ -89,6 +101,7 @@ def scrape_twitter_avatar(id_, url):
     ``id_``.
     '''
 
+    redis = worker.get_redis()
     db_session = worker.get_session()
 
     # Download image. (Twitter doesn't require authentication for static assets.)
@@ -111,9 +124,11 @@ def scrape_twitter_avatar(id_, url):
         mime = 'application/octet-stream'
 
     content = response.raw.read()
-    profile.avatars.append(File(name=name, mime=mime, content=content))
+    file_ = File(name=name, mime=mime, content=content)
+    profile.avatars.append(file_)
 
     db_session.commit()
+    redis.publish('avatar', json.dumps({'id': id_, 'url': '/api/file/' + str(file_.id)}))
 
 
 def _login_twitter():
