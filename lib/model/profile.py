@@ -4,7 +4,7 @@ import dateutil.parser
 import os
 import re
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, \
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, func, \
                        Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -51,7 +51,7 @@ class Profile(Base):
     follower_count = Column(Integer)
     join_date = Column(DateTime)
     join_date_is_exact = Column(Boolean)
-    last_update = Column(DateTime)
+    last_update = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
 
     # One profile has 1-n names.
     names = relationship(
