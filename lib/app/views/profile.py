@@ -23,13 +23,6 @@ class ProfileView(FlaskView):
 
     decorators = [login_required]
 
-    SORT_FIELDS = {
-        'friend-count': Profile.friend_count,
-        'follower-count': Profile.follower_count,
-        'site': Profile.site,
-        'name': ProfileName.name,
-    }
-
     def get(self, id_):
         '''
         Get the profile identified by `id`.
@@ -83,6 +76,17 @@ class ProfileView(FlaskView):
         :>json str url: API endpoint for data about this user
         :>json str username: this user's username
 
+        :>json list profiles[n].names: a list of all names that this profile is
+            using or has used (some social sites allow users to change their
+            username)
+        :>json str profiles[n].names[n].end_date: the last (approximate) date
+            that this name was used for this profile (null if name is still in
+            use or end date is not known) (ISO-8601)
+        :>json str profiles[n].names[n].name: a username used with this profile
+        :>json str profiles[n].names[n].start_date: the first (approximate)
+            date that this name was used for this profile (null if start date is
+            not known) (ISO-8601)
+
         :status 200: ok
         :status 400: invalid argument[s]
         :status 401: authentication required
@@ -90,26 +94,51 @@ class ProfileView(FlaskView):
         '''
 
         id_ = get_int_arg('id_', id_)
-        user = g.db.query(DarkUser).filter(DarkUser.id == id_).first()
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
-        if user is None:
-            raise NotFound("User '%s' does not exist." % id_)
+        if profile is None:
+            raise NotFound("Profile '%s' does not exist." % id_)
+
+        names = list()
+
+        for profile_name in profile.names:
+            if profile_name.end_date is not None:
+                end_date = profile_name.end_date.isoformat()
+            else:
+                end_date = None
+
+            if profile_name.start_date is not None:
+                start_date = profile_name.start_date.isoformat()
+            else:
+                start_date = None
+
+            names.append({
+                'end_date': end_date,
+                'name': profile_name.name,
+                'start_date': start_date,
+            })
+
+        if profile.join_date is not None:
+            join_date = profile.join_date.isoformat()
+        else:
+            join_date = None
 
         return jsonify(
-            id=user.id,
-            chat_activity=user.chat_activity,
-            chat_count=user.chat_count,
-            image_activity=user.image_activity,
-            image_count=user.image_count,
-            pm_activity=user.pm_activity,
-            pm_count=user.pm_count,
-            post_activity=user.post_activity,
-            post_count=user.post_count,
-            site={'id': user.site.id,
-                  'name': user.site.name,
-                  'url': url_for('DarkSiteView:get', id_=user.site.id)},
-            url=url_for('DarkSiteView:get', id_=user.id),
-            username=user.username,
+            avatar_urls=[url_for('FileView:get', id_=av.id) for av in profile.avatars],
+            description=profile.description,
+            id=profile.id,
+            follower_count=profile.follower_count,
+            friend_count=profile.friend_count,
+            join_date=join_date,
+            join_date_is_exact=profile.join_date_is_exact,
+            last_update=profile.last_update,
+            name=profile.name,
+            names=names,
+            original_id=profile.original_id,
+            post_count=profile.post_count,
+            site=profile.site,
+            site_name=profile.site_name(),
+            url=url_for('ProfileView:get', id_=profile.id)
         )
 
     def index(self):
@@ -130,23 +159,7 @@ class ProfileView(FlaskView):
                         "join_date": "2013-03-15T00:00:00",
                         "join_date_is_exact": true,
                         "last_update": null,
-                        "names": [
-                            {
-                                "end_date": null,
-                                "name": "john.doe",
-                                "start_date": "2014-04-01T00:00:00"
-                            },
-                            {
-                                "end_date": "2014-03-31T00:00:00",
-                                "name": "johnny",
-                                "start_date": "2013-06-01T00:00:00"
-                            },
-                            {
-                                "end_date": "2013-05-30T00:00:00",
-                                "name": "jonjon",
-                                "start_date": "2013-02-15T00:00:00"
-                            }
-                        ],
+                        "name": "john.doe",
                         "original_id": "12345",
                         "post_count": 1205,
                         "site": "twitter",
@@ -175,16 +188,8 @@ class ProfileView(FlaskView):
             known with precision, false if it is just an estimate
         :>json str profiles[n].last_update: the last time that information about
             this profile was retrieved from the social media site (ISO-8601)
-        :>json list profiles[n].names: a list of usernames that this profile is
-            using or has used (some social sites allow users to change their
-            username)
-        :>json str profiles[n].names[n].end_date: the last (approximate) date
-            that this name was used for this profile (null if name is still in
-            use or end date is not known) (ISO-8601)
-        :>json str profiles[n].names[n].name: a username used with this profile
-        :>json str profiles[n].names[n].start_date: the first (approximate)
-            date that this name was used for this profile (null if start date is
-            not known) (ISO-8601)
+        :>json str profiles[n].name: the current name being used for this
+            profile
         :>json str profiles[n].original_id: the user ID assigned by the social
             site
         :>json int profiles[n].post_count: the number of posts made by this
@@ -215,25 +220,6 @@ class ProfileView(FlaskView):
         profiles = list()
 
         for profile in query:
-            names = list()
-
-            for profile_name in profile.names:
-                if profile_name.end_date is not None:
-                    end_date = profile_name.end_date.isoformat()
-                else:
-                    end_date = None
-
-                if profile_name.start_date is not None:
-                    start_date = profile_name.start_date.isoformat()
-                else:
-                    start_date = None
-
-                names.append({
-                    'end_date': end_date,
-                    'name': profile_name.name,
-                    'start_date': start_date,
-                })
-
             avatar_urls = list()
 
             for avatar in profile.avatars:
@@ -253,7 +239,7 @@ class ProfileView(FlaskView):
                 'join_date': join_date,
                 'join_date_is_exact': profile.join_date_is_exact,
                 'last_update': profile.last_update,
-                'names': names,
+                'name': profile.name,
                 'original_id': profile.original_id,
                 'post_count': profile.post_count,
                 'site': profile.site,

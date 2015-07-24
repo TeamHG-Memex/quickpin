@@ -14,6 +14,7 @@ class Profile {
     DateTime joinDate;
     bool joinDateIsExact;
     DateTime lastUpdate;
+    String name;
     List<ProfileName> names;
 
     // Errors related to creating or loading this profile.
@@ -21,20 +22,27 @@ class Profile {
 
     Profile(String name, String site) {
         this.avatarUrls = new List<String>();
-        this.names = new List<ProfileName>();
-        this.names.add(new ProfileName(name));
+        this.name = name;
         this.site = site;
     }
 
     Profile.fromJson(Map json) {
         this.avatarUrls = json['avatar_urls'];
-        this.id = json['id'];
-        this.site = json['site'];
-        this.siteName = json['site_name'];
-        this.originalId = json['original_id'];
         this.description = json['description'];
         this.friendCount = json['friend_count'];
         this.followerCount = json['follower_count'];
+        this.id = json['id'];
+        this.lastUpdate = json['last_update'];
+        this.name = json['name'];
+
+        if (json['names'] != null) {
+            this.names = new List.generate(
+                json['names'].length,
+                (index) => new ProfileName.fromJson(json['names'][index])
+            );
+        }
+
+        this.originalId = json['original_id'];
         this.postCount = json['post_count'];
 
         if (json['join_date'] != null) {
@@ -42,12 +50,9 @@ class Profile {
         }
 
         this.joinDateIsExact = json['join_date_is_exact'];
-        this.lastUpdate = json['last_update'];
+        this.site = json['site'];
+        this.siteName = json['site_name'];
 
-        this.names = new List.generate(
-            json['names'].length,
-            (index) => new ProfileName.fromJson(json['names'][index])
-        );
     }
 
     /// Return the name of a Font Awesome icon class for this profile's site.

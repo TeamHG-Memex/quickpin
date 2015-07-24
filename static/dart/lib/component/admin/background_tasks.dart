@@ -5,6 +5,7 @@ import 'package:angular/angular.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/rest_api.dart';
+import 'package:quickpin/sse.dart';
 
 /// A controller for administering the application.
 @Component(
@@ -27,19 +28,23 @@ class BackgroundTasksComponent {
 
     final RestApiController _api;
     final RouteProvider _rp;
+    final SseController _sse;
     final TitleService _ts;
 
     /// Constructor.
-    BackgroundTasksComponent(this._api, this._rp, this._ts) {
+    BackgroundTasksComponent(this._api, this._rp, this._sse, this._ts) {
         this._fetchWorkers();
         this._fetchQueues();
         this._fetchFailedTasks();
         this._ts.title = 'Background Tasks';
 
-        Timer refresh = new Timer.periodic(
-            new Duration(seconds: 3),
-            (_) => this._fetchWorkers()
-        );
+        // This is ported from Avatar, where we have long running tasks. We
+        // don't need it in QuickPin (yet) so it's commented out. When
+        // re-enabled, it should be ported to use SSE instead of polling.
+        // Timer refresh = new Timer.periodic(
+        //     new Duration(seconds: 3),
+        //     (_) => this._fetchWorkers()
+        // );
 
         // Clean up the timer when we leave the route.
         RouteHandle rh = this._rp.route.newHandle();

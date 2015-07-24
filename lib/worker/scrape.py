@@ -5,10 +5,10 @@ from datetime import datetime
 import hashlib
 import json
 import pickle
-from urllib.error import HTTPError
 import urllib.parse
 
 import requests
+import requests.exceptions
 from sqlalchemy.exc import IntegrityError
 
 import app.database
@@ -34,13 +34,19 @@ def scrape_account(site, name):
         try:
             profile = account_scrapers[site](name)
             redis.publish('profile', json.dumps(profile))
-        except HTTPError as he:
-            message = {'name': name, 'site': site, 'error_code': he.code}
-            if he.code == 404:
-                message['error'] = 'Profile not found.'
+
+        except requests.exceptions.HTTPError as he:
+            response = he.response
+            message = {'name': name, 'site': site, 'code': response.status_code}
+
+            if response.status_code == 404:
+                message['error'] = 'Does not exist on Twitter.'
             else:
-                message['error'] = 'Error while communicating with {}.'.format(site)
+                message['error'] = 'Cannot communicate with Twitter ({})' \
+                                   .format(response.status_code)
+
             redis.publish('profile', json.dumps(message))
+
         except Exception as e:
             message = {
                 'name': name,
@@ -62,12 +68,7 @@ def _scrape_twitter_account(username):
     twitter_url = 'https://twitter.com'
     home_url = '{}/{}'.format(twitter_url, username)
     response = twitter_session.get(home_url)
-
-    if response.status_code != 200:
-        message = 'Not able to get home page for "{}" ({})' \
-                  .format(username, response.status_code)
-        raise HTTPError(code=response.status_code, message=message)
-
+    response.raise_for_status()
     html = bs4.BeautifulSoup(response.text, 'html.parser')
 
     # Get Twitter ID and upsert the profile.

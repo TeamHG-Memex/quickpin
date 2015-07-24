@@ -57,9 +57,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Listen for avatar image updates.
     void avatarListener(Event e) {
-        window.console.log('new avatar!');
-        window.console.log(e.data);
-        window.console.log(e.data.runtimeType);
         Map json = JSON.decode(e.data);
 
         this.idProfilesMap[json['id']].avatarUrls.add(json['url']);
@@ -129,8 +126,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Listen for profile updates.
     void profileListener(Event e) {
-        window.console.log('new profile!');
-        window.console.log(e.data);
         Map json = JSON.decode(e.data);
         List key = _makeKey(json['name'], json['site']);
         Profile profile = this.newProfilesMap[key];

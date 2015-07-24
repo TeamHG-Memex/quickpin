@@ -96,13 +96,15 @@
 
 <div class='masonry'>
   <div ng-repeat='profile in profiles' class='item'>
-    <img class='avatar' ng-src='{{avatarUrl(profile)}}'>
+    <a ng-href='{{profile.id != null ? "/profile/" + profile.id : ""}}'>
+      <img class='avatar' ng-src='{{avatarUrl(profile)}}'>
+    </a>
     <p class='profile-name'>
       <a ng-show='profile.id != null' href='/profile/{{profile.id}}'>
-        {{profile.names[0].name}}
+        {{profile.name}}
       </a>
       <span ng-show='profile.id == null'>
-        {{profile.names[0].name}}
+        {{profile.name}}
       </span>
       <span class='site-name'>
         <i class='fa {{profile.iconClass()}}' title='{{profile.siteName}}'></i>

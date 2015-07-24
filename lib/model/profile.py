@@ -43,6 +43,7 @@ class Profile(Base):
     )
 
     id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
     site = Column(Enum(*SOCIAL_SITES.keys(), name='social_site'), nullable=False)
     original_id = Column(String(255), nullable=False) # ID assigned by social site
     description = Column(Text)
@@ -90,17 +91,19 @@ class Profile(Base):
         secondaryjoin=(id==profile_join_self.c.follower_id)
     )
 
-    def __init__(self, site, original_id, name):
+    def __init__(self, site, original_id, profile_name):
         ''' Constructor. '''
 
         self.site = site
         self.original_id = original_id
         self.last_updated = datetime.now()
 
-        if isinstance(name, ProfileName):
+        if isinstance(profile_name, ProfileName):
+            self.name = profile_name.name
             self.names.append(name)
         else:
-            self.names.append(ProfileName(name))
+            self.name = profile_name
+            self.names.append(ProfileName(profile_name))
 
     def site_name(self):
         ''' Human readable name for site. '''
