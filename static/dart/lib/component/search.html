@@ -1,3 +1,4 @@
+
 <breadcrumbs crumbs=crumbs></breadcrumbs>
 
 <h1>
@@ -29,33 +30,23 @@
         <li><a ng-click='sortBy(null)'>Most Relevant</a></li>
         <li class='divider'></li>
         <li>
-          <a ng-click='sortBy("-post_date_tdt")'>
-            Post Date <span class='pull-right'>(Newest)</span>
-          </a>
-        </li>
-        <li>
-          <a ng-click='sortBy("post_date_tdt")'>
-            Post Date <span class='pull-right'>(Oldest)</span>
-          </a>
-        </li>
-        <li>
-          <a ng-click='sortBy("site_name_txt_en")'>
+          <a ng-click='sortBy("site_name_s")'>
             Site Name <span class='pull-right'>(A → Z)</span>
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("-site_name_txt_en")'>
+          <a ng-click='sortBy("-site_name_s")'>
             Site Name <span class='pull-right'>(Z → A)</span>
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("username_s")'>
-            Username <span class='pull-right'>(A → Z)</span>
+          <a ng-click='sortBy("profile_name_s")'>
+            Profile Name <span class='pull-right'>(A → Z)</span>
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("-username_s")'>
-            Username <span class='pull-right'>(Z → A)</span>
+          <a ng-click='sortBy("-profile_name_s")'>
+            Profile Name <span class='pull-right'>(Z → A)</span>
           </a>
         </li>
       </ul>
@@ -110,12 +101,12 @@
                  ng-checked='selectedFacets[facetName][facet[0]]'
                  value='{{facet[0]}}'>
           <label class='facet-value selectable'
-                 ng-if='facetName != "post_date_tdt"'
+                 ng-if='facetName != "join_date_tdt"'
                  for='{{facetName}}_{{$index}}'>
             {{facetHumanValues[facet[0]] != null ? facetHumanValues[facet[0]] : facet[0]}}
           </label>
           <label class='facet-value selectable'
-                 ng-if='facetName == "post_date_tdt"'
+                 ng-if='facetName == "join_date_tdt"'
                  for='{{facetName}}_{{$index}}'>
             {{facet[0] | date:'yMMM'}}
           </label>
@@ -137,86 +128,16 @@
          ng-repeat='result in results'
          ng-switch='result["type"]'>
 
-      <div ng-switch-when='DarkChatMessage'>
+      <div ng-switch-when='Profile'>
         <p>
-          <span class='content-type'><i class='fa fa-comment'></i> Chat Message</span>
-          …<excerpt text='result["chat"]["body"]'></excerpt>…
-        </p>
-
-        <p>
-          Written by
-          <a href='/dark-user/{{result["user"]["id"]}}'>
-            <excerpt text='result["user"]["username"]'></excerpt></a>
-          in chat room
-          <a href='/dark-chat/{{result["room"]["id"]}}'>
-            <excerpt text='result["room"]["name"]'></excerpt></a>
+          <span class='content-type'><i class='fa fa-user'></i> Profile</span>
+          <a href='/dark-user/{{result["id"]}}'>
+            <excerpt text='result["profile_name"]'></excerpt></a>
           on
           <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]["name"]'></excerpt></a>
-          at
-          {{result['chat']['date'] | date:'short'}}.
-        </p>
-      </div>
-
-      <div ng-switch-when='DarkPrivateMessage'>
-        <p>
-          <span class='content-type'><i class='fa fa-envelope'></i> Private Message</span>
-          …<excerpt text='result["pm"]["body"]'></excerpt>…
-        </p>
-
-        <p>
-          Sent by
-          <a href='/dark-user/{{result["user"]["id"]}}'>
-            <excerpt text='result["user"]["username"]'></excerpt></a>
-          in private thread
-          <a href='/dark-thread/{{result["thread"]["id"]}}'>
-            <excerpt text='result["thread"]["title"]'></excerpt></a>
-          on
-          <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]["name"]'></excerpt></a>
-          at
-          {{result['pm']['date'] | date:'short'}}.
-        </p>
-      </div>
-
-      <div ng-switch-when='DarkPost'>
-        <p>
-          <span class='content-type'><i class='fa fa-file-text-o'></i> Forum Post</span>
-          …<excerpt text='result["post"]["body"]'></excerpt>…
-        </p>
-
-        <p>
-          Posted by
-          <a href='/dark-user/{{result["user"]["id"]}}'>
-            <excerpt text='result["user"]["username"]'></excerpt></a>
-          in thread
-          <a href='/dark-thread/{{result["thread"]["id"]}}'>
-            <excerpt text='result["thread"]["title"]'></excerpt></a>
-          on
-          <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]["name"]'></excerpt></a>
-          at
-          {{result['post']['date'] | date:'short'}}.
-        </p>
-      </div>
-
-      <div ng-switch-when='DarkSite'>
-        <p>
-          <span class='content-type'><i class='fa fa-sitemap'></i> Web Site</span>
-          <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]["name"]'></excerpt></a>
-          on <excerpt text='result["site"]["host"]'</excerpt>
-        </p>
-      </div>
-
-      <div ng-switch-when='DarkUser'>
-        <p>
-          <span class='content-type'><i class='fa fa-user'></i> User</span>
-          <a href='/dark-user/{{result["user"]["id"]}}'>
-            <excerpt text='result["user"]["username"]'></excerpt></a>
-          on
-          <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]["name"]'></excerpt></a>
+            <excerpt text='result["site"]'></excerpt></a>
+          <span class='content-type'>Description:</span>
+          <excerpt text='result["description"]'></excerpt></a>
         </p>
       </div>
 
@@ -293,10 +214,10 @@
       <p>
         The type of each record is displayed
         in gray text next to each result, for example:
-        <span class='content-type'><i class='fa fa-file-text-o'></i> Forum Post</span>
-        indicates a post on a forum web site, while
-        <span class='content-type'><i class='fa fa-user'></i> User</span> indicates
-        a user account on a web site.
+        <span class='content-type'><i class='fa fa-file-text-o'></i> Post</span>
+        indicates a post on a social media site, while
+        <span class='content-type'><i class='fa fa-user'></i> Profile</span>
+        indicates an account on a social media site.
       </p>
       <p>
         Matching terms are <span class='mark'>highlighted</span> to make it

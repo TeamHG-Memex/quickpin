@@ -20,20 +20,16 @@ class SearchComponent {
     String error = '';
     bool loading = false;
     Map allFacets, facets, topFacets;
-    List facetNames = ['type_s', 'site_name_s', 'post_date_tdt', 'username_s'];
+    List facetNames = ['type_s', 'site_name_s', 'profile_name_s', 'join_date_tdt'];
     Map facetHumanNames = {
-        'pm_date_tdt': 'PM Date',
-        'post_date_tdt': 'Post Date',
+        'join_date_tdt': 'Joined Date',
+        'profile_name_s': 'Profile Name',
         'site_name_s': 'Site Name',
         'type_s': 'Type',
-        'username_s': 'Username',
     };
     Map facetHumanValues = {
-        'DarkChatMessage': 'Chat Message',
-        'DarkPrivateMessage': 'Private Message',
-        'DarkPost': 'Forum Post',
-        'DarkSite': 'Site',
-        'DarkUser': 'User',
+        'Profile': 'Profile',
+        'Post': 'Post',
     };
     int selectedFacetCount = 0;
     Map<String, Map> selectedFacets;
@@ -59,11 +55,14 @@ class SearchComponent {
             this._fetchSearchResults();
         }
 
-        this._checkBackgroundTask();
-        Timer refreshBackgroundTask = new Timer.periodic(
-            new Duration(seconds: 3),
-            (_) => this._checkBackgroundTask()
-        );
+        // Ported from avatar but the search engine in quickpin doesn't have
+        // any long running tasks, yet, so it's commented out. When re-enabled,
+        // this needs to be ported to use SSE instead of polling.
+        // this._checkBackgroundTask();
+        // Timer refreshBackgroundTask = new Timer.periodic(
+        //     new Duration(seconds: 3),
+        //     (_) => this._checkBackgroundTask()
+        // );
 
         // ...and pay attention to new parameters announced in the URL.
         RouteHandle rh = route.newHandle();
@@ -275,10 +274,10 @@ class SearchComponent {
 
         // Parse facet URL args.
         this.selectedFacets = {
-            'post_date_tdt': {},
+            'join_date_tdt': {},
             'site_name_s': {},
             'type_s': {},
-            'username_s': {},
+            'profile_name_s': {},
         };
 
         this.selectedFacetCount = 0;
@@ -314,12 +313,10 @@ class SearchComponent {
         this.sort = this._getQPString(qp['sort']);
 
         Map sortDescriptions = {
-            'post_date_tdt': 'Post Date (Oldest)',
-            '-post_date_tdt': 'Post Date (Newest)',
-            'site_name_txt_en': 'Site Name (A→Z)',
-            '-site_name_txt_en': 'Site Name (Z→A)',
-            'username_s': 'Username (A→Z)',
-            '-username_s': 'Username (Z→A)',
+            'site_name_s': 'Site Name (A→Z)',
+            '-site_name_s': 'Site Name (Z→A)',
+            'profile_name_s': 'Profile Name (A→Z)',
+            '-profile_name_s': 'Profile Name (Z→A)',
         };
 
         if (sortDescriptions.containsKey(this.sort)) {

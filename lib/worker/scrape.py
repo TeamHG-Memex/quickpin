@@ -13,9 +13,10 @@ from sqlalchemy.exc import IntegrityError
 
 import app.database
 import app.index
-from app.queue import scrape_queue
+import app.queue
 from model import File, Profile
 import worker
+import worker.index
 
 
 def scrape_account(site, name):
@@ -34,15 +35,20 @@ def scrape_account(site, name):
             profile = account_scrapers[site](name)
             redis.publish('profile', json.dumps(profile))
         except HTTPError as he:
-            message = {'name': name, 'site': site}
+            message = {'name': name, 'site': site, 'error_code': he.code}
             if he.code == 404:
                 message['error'] = 'Profile not found.'
             else:
-                message['error'] = 'Not able to fetch profile.'
+                message['error'] = 'Error while communicating with {}.'.format(site)
             redis.publish('profile', json.dumps(message))
         except Exception as e:
-            message = {'name': name, 'site': site, 'error': 'Profile not found.'}
+            message = {
+                'name': name,
+                'site': site,
+                'error': 'Unknown error while fetching profile.'
+            }
             redis.publish('profile', json.dumps(message))
+            raise
 
     else:
         raise ValueError('No scraper exists for site "{}"'.format(site))
@@ -103,7 +109,9 @@ def _scrape_twitter_account(username):
 
     db_session.commit()
 
-    scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
+    app.queue.scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
+    app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
+
     data['id'] = profile.id
 
     return data

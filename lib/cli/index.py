@@ -10,180 +10,33 @@ import app
 import app.config
 import app.index
 import cli
-from model import DarkChatMessage, DarkChatRoom, DarkPrivateMessage, \
-                  DarkPrivateMessageThread, DarkPost, DarkSite, DarkThread, \
-                  DarkUser
+from model import Profile
 
 
 class IndexCli(cli.BaseCli):
     ''' Manages the search indexes. '''
 
-    def add_dark_chats(self, db, solr):
-        ''' Add all DarkChatMessage records from `db` into the index. '''
+    def add_profiles(self, db, solr):
+        ''' Add all Profile records from `db` into the index. '''
 
         session = app.database.get_session(db)
-        query = session.query(DarkChatMessage, DarkSite, DarkChatRoom, DarkUser) \
-                       .join(DarkChatMessage.room) \
-                       .join(DarkChatMessage.site) \
-                       .join(DarkChatMessage.author) \
-                       .order_by(DarkChatMessage.id)
+        query = session.query(Profile) \
+                       .order_by(Profile.id)
 
         total_count = query.count()
         progress = 0
-        self._logger.info("Adding %d chat messages to the index." % total_count)
+        self._logger.info("Adding %d profiles to the index." % total_count)
 
         if sys.stdout.isatty():
-            pbar = self._progress_bar('Chat Messages', total_count)
+            pbar = self._progress_bar('Profiles', total_count)
         else:
             pbar = None
 
-        for chunk in app.database.query_chunks(query, DarkChatMessage.id):
+        for chunk in app.database.query_chunks(query, Profile.id):
             docs = list()
 
             for record in chunk:
-                docs.append(app.index.make_dark_chat_doc(*record))
-
-            solr.add(docs)
-            solr.commit()
-
-            if pbar is not None:
-                progress += len(chunk)
-                if progress > total_count:
-                    break
-                pbar.update(progress)
-
-        if pbar is not None:
-            pbar.finish()
-
-    def add_dark_pms(self, db, solr):
-        ''' Add all DarkPrivateMessage records from `db` into the index. '''
-
-        session = app.database.get_session(db)
-        query = session.query(DarkPrivateMessage, DarkPrivateMessageThread, DarkSite, DarkUser) \
-                       .join(DarkPrivateMessage.thread) \
-                       .join(DarkPrivateMessage.site) \
-                       .join(DarkPrivateMessage.author) \
-                       .order_by(DarkPrivateMessage.id)
-
-        total_count = query.count()
-        progress = 0
-        self._logger.info("Adding %d private messages to the index." % total_count)
-
-        if sys.stdout.isatty():
-            pbar = self._progress_bar('Private Messages', total_count)
-        else:
-            pbar = None
-
-        for chunk in app.database.query_chunks(query, DarkPrivateMessage.id):
-            docs = list()
-
-            for record in chunk:
-                docs.append(app.index.make_dark_pm_doc(*record))
-
-            solr.add(docs)
-            solr.commit()
-
-            if pbar is not None:
-                progress += len(chunk)
-                if progress > total_count:
-                    break
-                pbar.update(progress)
-
-        if pbar is not None:
-            pbar.finish()
-
-    def add_dark_posts(self, db, solr):
-        ''' Add all DarkPost records from `db` into the index. '''
-
-        session = app.database.get_session(db)
-        query = session.query(DarkPost, DarkSite, DarkThread, DarkUser) \
-                       .join(DarkPost.thread) \
-                       .join(DarkPost.site) \
-                       .join(DarkPost.author) \
-                       .order_by(DarkPost.id)
-
-        total_count = query.count()
-        progress = 0
-        self._logger.info("Adding %d forum posts to the index." % total_count)
-
-        if sys.stdout.isatty():
-            pbar = self._progress_bar('Forum Posts', total_count)
-        else:
-            pbar = None
-
-        for chunk in app.database.query_chunks(query, DarkPost.id):
-            docs = list()
-
-            for record in chunk:
-                docs.append(app.index.make_dark_post_doc(*record))
-
-            solr.add(docs)
-            solr.commit()
-
-            if pbar is not None:
-                progress += len(chunk)
-                if progress > total_count:
-                    break
-                pbar.update(progress)
-
-        if pbar is not None:
-            pbar.finish()
-
-    def add_dark_sites(self, db, solr):
-        ''' Add all DarkSite records from `db` into the index. '''
-
-        session = app.database.get_session(db)
-        query = session.query(DarkSite).order_by(DarkSite.id)
-
-        total_count = query.count()
-        progress = 0
-        self._logger.info("Adding %d web sites to the index." % total_count)
-
-        if sys.stdout.isatty():
-            pbar = self._progress_bar('Web Sites', total_count)
-        else:
-            pbar = None
-
-        for chunk in app.database.query_chunks(query, DarkSite.id):
-            docs = list()
-
-            for record in chunk:
-                docs.append(app.index.make_dark_site_doc(record))
-
-            solr.add(docs)
-            solr.commit()
-
-            if pbar is not None:
-                progress += len(chunk)
-                if progress > total_count:
-                    break
-                pbar.update(progress)
-
-        if pbar is not None:
-            pbar.finish()
-
-    def add_dark_users(self, db, solr):
-        ''' Add all DarkUser records from `db` into the index. '''
-
-        session = app.database.get_session(db)
-        query = session.query(DarkUser, DarkSite) \
-                       .join(DarkUser.site) \
-                       .order_by(DarkUser.id)
-
-        total_count = query.count()
-        progress = 0
-        self._logger.info("Adding %d dark users to the index." % total_count)
-
-        if sys.stdout.isatty():
-            pbar = self._progress_bar('Users', total_count)
-        else:
-            pbar = None
-
-        for chunk in app.database.query_chunks(query, DarkUser.id):
-            docs = list()
-
-            for record in chunk:
-                docs.append(app.index.make_dark_user_doc(*record))
+                docs.append(app.index.make_profile_doc(record))
 
             solr.add(docs)
             solr.commit()
@@ -201,11 +54,7 @@ class IndexCli(cli.BaseCli):
         ''' Add all documents from `db` into the index. '''
 
         model_fns = {
-            'DarkChat': self.add_dark_chats,
-            'DarkPrivateMessage': self.add_dark_pms,
-            'DarkPost': self.add_dark_posts,
-            'DarkSite': self.add_dark_sites,
-            'DarkUser': self.add_dark_users,
+            'Profile': self.add_profiles,
         }
 
         if models is None:
@@ -243,8 +92,7 @@ class IndexCli(cli.BaseCli):
             'models',
             nargs='?',
             help='If adding or deleting specific models, supply a comma'
-                 ' delimited list of models, e.g. '
-                 ' DarkChat,DarkPrivateMessage,DarkPost,DarkSite,DarkUser.'
+                 ' delimited list of models, e.g.  Profile,Post.'
         )
 
     def _run(self, args, config):

@@ -39,11 +39,9 @@ class SearchView(FlaskView):
 
         The following are highlighted:
 
-        * Post Body
-        * Post Title
-        * Thread Title
+        * Profile Description
+        * Profile Name
         * Site Name
-        * Username
 
         Highlighted fields are returned in this format:
 
@@ -73,7 +71,7 @@ class SearchView(FlaskView):
 
             {
                 "facets": {
-                    "post_date_tdt": [
+                    "join_date_tdt": [
                         ["2014-03-01T00:00:00Z", 51],
                         ["2014-04-01T00:00:00Z", 1],
                         ["2014-05-01T00:00:00Z", 10],
@@ -81,91 +79,38 @@ class SearchView(FlaskView):
                         ["2014-08-01T00:00:00Z", 4],
                         ...
                     ],
-                    "site_name_s": [
-                        ["Boy Vids", 181]
-                    ],
-                    "username_s": [
-                        ["Aneston_5*", 46],
-                        ["Samuel", 30],
-                        ["BaterMaster", 17],
-                        ["StandByMe", 15],
-                        ["arasuperup", 8],
+                    "profile_name_s": [
+                        ["johndoe", 46],
+                        ["janedoe", 30],
+                        ["maurice.moss", 17],
+                        ["jen.barber", 15],
                         ...
-                    ]
+                    ],
+                    "site_name_s": [
+                        ["twitter", 181],
+                        ["instagram", 90]
+                    ],
                 },
                 "results": [
                     {
-                        "post": {
-                            "body": {
-                                "highlighted": [false, true, false],
-                                "text": ["Does anyone know ",
-                                         "anything",
-                                         " more about this?"]
-                            },
-                            "date": "2014-10-22T11:01:00Z",
-                            "id": 23978,
-                            "title": {
-                                "highlighted": [false, true, false],
-                                "text": ["Re: ", "FARM", " BOY"]
-                            }
+                        "description": {
+                            "highlighted": [false, true, false],
+                            "text": ["My ", "unique", " description"]
+                        },
+                        "follower_count": 70,
+                        "friend_count": 213,
+                        "id": "Profile:1",
+                        "post_count": 1653,
+                        "profile_name": {
+                            "highlighted": [false],
+                            "text": ["mehaase"]
                         },
                         "site": {
-                            "id": 1,
-                            "name": {
-                                "highlighted": [true, false],
-                                "text": ["Boy", " Vids"]
-                            },
-                            "url": "https://quickpin/api/dark-site/1"
-                        },
-                        "thread": {
-                            "id": 4443,
-                            "title": {
-                                "highlighted": [true, false],
-                                "text": ["FARM", " BOY"]
-                            }
-                            "url": "https://quickpin/api/dark-thread/4443"
-                        },
-                        "type": "DarkPost",
-                        "user": {
-                            "id": 122,
-                            "url": "https://quickpin/api/dark-user/122",
-                            "username": {
-                                "highlighted": [false],
-                                "text": ["Jamie"]
-                            },
+                            "highlighted": [false],
+                            "text": ["twitter"]
                         }
                     },
-                    {
-                        "site": {
-                            id": 1,
-                            "name": {
-                                "highlighted": [true, false],
-                                "text": ["Boy", " Vids"]
-                            },
-                            "url": "https://quickpin/api/dark-site/1"
-                        },
-                        "type": "DarkSite"
-                    },
-                    {
-                        "site": {
-                            "id": 1,
-                            "name": {
-                                "highlighted": [true, false],
-                                "text": ["Boy", " Vids"]
-                            },
-                            "url": "https://quickpin/api/dark-site/1"
-                        },
-                        "type": "DarkUser",
-                        "user": {
-                            "id": 226,
-                            "url": "https://quickpin/api/dark-user/226",
-                            "username": {
-                                "highlighted": [true],
-                                "text": ["Jamie"]
-                            },
-                        }
-                    },
-
+                    ...
                 ],
                 "total_count": 65
             }
@@ -179,10 +124,11 @@ class SearchView(FlaskView):
             post date, while "-username" sorts descending by username
         :query query: search query
         :query rpp: the number of results per page (default: 10)
-        :query type: type of document to match, e.g. DarkPost,
-            DarkSite, DarkUser, etc. (optional)
+        :query type: type of document to match, e.g. Profile, Post, etc.
+            (optional)
 
         :>header Content-Type: application/json
+        :>json dict facets: dictionary of facet names and facet values/counts
         :>json list results: array of search hits, each of which has a 'type'
             key that indicates what fields it will contain
         :>json int total_count: total number of documents that match the query,
@@ -192,11 +138,7 @@ class SearchView(FlaskView):
         '''
 
         formatters = {
-            'DarkChatMessage': self._format_dark_chat,
-            'DarkPrivateMessage': self._format_dark_pm,
-            'DarkPost': self._format_dark_post,
-            'DarkSite': self._format_dark_site,
-            'DarkUser': self._format_dark_user,
+            'Profile': self._format_profile,
         }
 
         query = request.args.get('query')
@@ -207,16 +149,9 @@ class SearchView(FlaskView):
         start_row = (page - 1) * results_per_page
 
         highlight_fields = [
-            'chat_body_txt_en',
-            'host_s',
-            'pm_body_txt_en',
-            'pm_title_txt_en',
-            'post_body_txt_en',
-            'post_title_txt_en',
-            'room_name_txt_en',
-            'site_name_txt_en',
-            'thread_title_txt_en',
-            'username_s',
+            'description_txt_en',
+            'profile_name_s',
+            'site_name_s',
         ]
 
         highlight_options = {
@@ -229,22 +164,17 @@ class SearchView(FlaskView):
         # allows a single alias to refer to multiple fields, so the fields are
         # specified as a list.
         aliases = {
-            'body': ['chat_body_txt_en', 'pm_body_txt_en', 'post_body_txt_en'],
-            'date': ['chat_message_date_tdt', 'pm_date_tdt', 'post_date_tdt'],
-            'host': ['host_s'],
-            'site': ['site_name_txt_en'],
-            'title': ['pm_title_txt_en', 'post_title_txt_en', 'thread_title_txt_en'],
-            'username': ['username_s'],
+            'description': ['description_txt_en'],
+            'joined': ['join_date_tdt'],
+            'site': ['site_name_s'],
+            'profile': ['profile_name_s'],
         }
 
         # Boost fields. E.g. a match to a post title ranks a result higher
         # than a match to the post body.
         boosts = {
-            'username_s': 3,
-            'pm_title_txt_en': 2,
-            'post_title_txt_en': 2,
-            'post_body_txt_en': 1,
-            'chat_body_txt_en': 1,
+            'profile_name_s': 3,
+            'description_txt_en': 2,
         }
 
         search = g.solr.query(DismaxString(query)) \
@@ -288,9 +218,8 @@ class SearchView(FlaskView):
 
         # Tell Solr to generate facets on these fields.
         query = query.facet_by('site_name_s', mincount=1) \
-                     .facet_by('type_s', mincount=1) \
-                     .facet_by('username_s', mincount=1) \
-                     .facet_range(fields='post_date_tdt',
+                     .facet_by('profile_name_s', mincount=1) \
+                     .facet_range(fields='join_date_tdt',
                                   start='NOW-120MONTHS/MONTH',
                                   end='NOW/MONTH',
                                   gap='+1MONTH',
@@ -309,131 +238,37 @@ class SearchView(FlaskView):
                 raise BadRequest("Invalid facet list.")
 
             for field, value in facets.items():
-                if field == 'post_date_tdt':
+                if field == 'join_date_tdt':
                     date_range = '[%s/MONTH TO %s+1MONTHS/MONTH]' % (value,value)
-                    query = query.filter(post_date_tdt=DismaxString(date_range))
+                    query = query.filter(join_date_tdt=DismaxString(date_range))
                 else:
                     query = query.filter(**{field: value})
 
         return query
 
-    def _format_dark_chat(self, doc, highlights):
-        ''' Take a Solr doc and format it as a dark chat search hit. '''
+    def _format_profile(self, doc, highlights):
+        ''' Take a Solr doc and format it as a profile search hit. '''
 
         id_ = doc['id']
-        chat_body = self._highlight(doc, highlights[id_], 'chat_body_txt_en')
-        room_name = self._highlight(doc, highlights[id_], 'room_name_txt_en')
+        description = self._highlight(doc, highlights[id_], 'description_txt_en')
+        profile_name = self._highlight(doc, highlights[id_], 'profile_name_s')
+        site_name = self._highlight(doc, highlights[id_], 'site_name_s')
 
-        return {
-            'chat': {
-                'body': chat_body,
-                'date': doc['chat_date_tdt'],
-                'id': doc['chat_id_i'],
-            },
-            'room': {
-                'id': doc['room_id_i'],
-                'name': room_name,
-                'url': url_for('DarkChatView:get', id_=doc['room_id_i']),
-            },
-            'site': self._format_dark_site_fragment(doc, highlights),
-            'type': doc['type_s'],
-            'user': self._format_dark_user_fragment(doc, highlights),
-        }
-
-    def _format_dark_pm(self, doc, highlights):
-        '''
-        Take a Solr doc and format it as a dark private message search hit.
-        '''
-
-        id_ = doc['id']
-        pm_body = self._highlight(doc, highlights[id_], 'pm_body_txt_en')
-        pm_title = self._highlight(doc, highlights[id_], 'pm_title_txt_en')
-        thread_title = self._highlight(doc, highlights[id_], 'thread_title_txt_en')
-
-        return {
-            'pm': {
-                'body': pm_body,
-                'date': doc['pm_date_tdt'],
-                'id': doc['pm_id_i'],
-                'title': pm_title,
-            },
-            'site': self._format_dark_site_fragment(doc, highlights),
-            'thread': {
-                'id': doc['thread_id_i'],
-                'title': thread_title,
-                'url': url_for('DarkThreadView:get', id_=doc['thread_id_i']),
-            },
-            'type': doc['type_s'],
-            'user': self._format_dark_user_fragment(doc, highlights),
-        }
-
-    def _format_dark_post(self, doc, highlights):
-        ''' Take a Solr doc and format it as a dark post search hit. '''
-
-        id_ = doc['id']
-        post_body = self._highlight(doc, highlights[id_], 'post_body_txt_en')
-        post_title = self._highlight(doc, highlights[id_], 'post_title_txt_en')
-        thread_title = self._highlight(doc, highlights[id_], 'thread_title_txt_en')
-
-        return {
-            'post': {
-                'body': post_body,
-                'date': doc['post_date_tdt'],
-                'id': doc['post_id_i'],
-                'title': post_title,
-            },
-            'site': self._format_dark_site_fragment(doc, highlights),
-            'thread': {
-                'id': doc['thread_id_i'],
-                'title': thread_title,
-                'url': url_for('DarkThreadView:get', id_=doc['thread_id_i']),
-            },
-            'type': doc['type_s'],
-            'user': self._format_dark_user_fragment(doc, highlights),
-        }
-
-    def _format_dark_site(self, doc, highlights):
-        ''' Take a Solr doc and format it as a dark site search hit. '''
-
-        return {
-            'site': self._format_dark_site_fragment(doc, highlights),
+        formatted = {
+            'description': description,
+            'friend_count': doc['friend_count_i'],
+            'follower_count': doc['follower_count_i'],
+            'id': id_,
+            'profile_name': profile_name,
+            'post_count': doc['post_count_i'],
+            'site': site_name,
             'type': doc['type_s'],
         }
 
-    def _format_dark_user(self, doc, highlights):
-        ''' Take a Solr doc and format it as a dark user search hit. '''
+        if 'join_date_tdt' in doc:
+            formated['joined'] = doc['join_date_tdt'],
 
-        return {
-            'site': self._format_dark_site_fragment(doc, highlights),
-            'type': doc['type_s'],
-            'user': self._format_dark_user_fragment(doc, highlights),
-        }
-
-    def _format_dark_site_fragment(self, doc, highlights):
-        ''' Format the 'site' part of a search hit. '''
-
-        id_ = doc['id']
-        host_name = self._highlight(doc, highlights[id_], 'host_s')
-        site_name = self._highlight(doc, highlights[id_], 'site_name_txt_en')
-
-        return {
-            'id': doc['site_id_i'],
-            'host': host_name,
-            'name': site_name,
-            'url': url_for('DarkSiteView:get', id_=doc['site_id_i']),
-        }
-
-    def _format_dark_user_fragment(self, doc, highlights):
-        ''' Format the 'user' part of a search hit. '''
-
-        id_ = doc['id']
-        username = self._highlight(doc, highlights[id_], 'username_s')
-
-        return {
-            'id': doc['user_id_i'],
-            'username': username,
-            'url': url_for('DarkUserView:get', id_=doc['user_id_i']),
-        }
+        return formatted
 
     def _highlight(self, doc, highlights, field, chars=100):
         '''
