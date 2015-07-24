@@ -28,10 +28,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
     bool loading = false;
     String newProfile;
     List<Profile> profiles;
-    Map<String, Profile> nameProfilesMap;
+    Map<List, Profile> newProfilesMap;
     Map<num, Profile> idProfilesMap;
     Scope scope;
-    bool showAdd = false;
+    bool showAdd = true;
     bool submittingProfile = false;
 
     InputElement _inputEl;
@@ -52,9 +52,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this._sse.addEventListener('profile', this.profileListener);
 
         this.idProfilesMap = new Map<num, Profile>();
-        this.nameProfilesMap = new Map<String, Profile>();
+        this.newProfilesMap = new Map<List, Profile>();
     }
 
+    /// Listen for avatar image updates.
     void avatarListener(Event e) {
         window.console.log('new avatar!');
         window.console.log(e.data);
@@ -62,26 +63,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map json = JSON.decode(e.data);
 
         this.idProfilesMap[json['id']].avatarUrls.add(json['url']);
-
-        if (this.scope != null) {
-            scope.apply();
-        }
-    }
-
-    void profileListener(Event e) {
-        window.console.log('new profile!');
-        window.console.log(e.data);
-        Map json = JSON.decode(e.data);
-
-        Profile profile = this.nameProfilesMap[json['name']];
-        profile.id = json['id'];
-        profile.description = json['description'];
-        profile.friendCount = json['friend_count'];
-        profile.followerCount = json['follower_count'];
-        profile.postCount = json['post_count'];
-
-        this.idProfilesMap[json['id']] = profile;
-        window.console.log(this.idProfilesMap);
 
         if (this.scope != null) {
             scope.apply();
@@ -96,8 +77,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map body = {'profiles': [{'name': this.newProfile, 'site': 'twitter'}]};
         Profile profile = new Profile(this.newProfile, 'twitter');
         this.profiles.insert(0, profile);
-        this.nameProfilesMap[this.newProfile] = profile;
-        window.console.log(this.nameProfilesMap);
+        String key = _makeKey(this.newProfile, 'twitter');
+        this.newProfilesMap[key] = profile;
 
         this._api
             .post(pageUrl, body, needsAuth: true)
@@ -122,6 +103,12 @@ class ProfileListComponent extends Object with CurrentPageMixin
         }
     }
 
+    /// Remove a profile at the specified index. (Usually done because of an
+    /// error creating or fetching the profile.)
+    void dismissProfileAtIndex(int index) {
+        this.profiles.removeAt(index);
+    }
+
     /// Trigger add profile when the user presses enter in the profile input.
     void handleAddProfileKeypress(Event e) {
         if (e.charCode == 13) {
@@ -138,6 +125,31 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Get a reference to this element.
     void onShadowRoot(ShadowRoot shadowRoot) {
         this._inputEl = this._element.querySelector('.add-profile-form input');
+    }
+
+    /// Listen for profile updates.
+    void profileListener(Event e) {
+        window.console.log('new profile!');
+        window.console.log(e.data);
+        Map json = JSON.decode(e.data);
+        List key = _makeKey(json['name'], json['site']);
+        Profile profile = this.newProfilesMap[key];
+
+        if (json['error'] == null) {
+            profile.id = json['id'];
+            profile.description = json['description'];
+            profile.friendCount = json['friend_count'];
+            profile.followerCount = json['follower_count'];
+            profile.postCount = json['post_count'];
+
+            this.idProfilesMap[json['id']] = profile;
+        } else {
+            profile.error = json['error'];
+        }
+
+        if (this.scope != null) {
+            scope.apply();
+        }
     }
 
     /// Show the "add profile" dialog.
@@ -174,5 +186,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.loading = false;});
+    }
+
+    /// Make a map key from a username and site name.
+    String _makeKey(String user, String site) {
+        return '{{user}\0{{site}}';
     }
 }

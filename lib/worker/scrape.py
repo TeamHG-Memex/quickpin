@@ -5,6 +5,7 @@ from datetime import datetime
 import hashlib
 import json
 import pickle
+from urllib.error import HTTPError
 import urllib.parse
 
 import requests
@@ -29,8 +30,19 @@ def scrape_account(site, name):
     session = worker.get_session()
 
     if site in account_scrapers:
-        profile = account_scrapers[site](name)
-        redis.publish('profile', json.dumps(profile))
+        try:
+            profile = account_scrapers[site](name)
+            redis.publish('profile', json.dumps(profile))
+        except HTTPError as he:
+            message = {'name': name, 'site': site}
+            if he.code == 404:
+                message['error'] = 'Profile not found.'
+            else:
+                message['error'] = 'Not able to fetch profile.'
+            redis.publish('profile', json.dumps(message))
+        except Exception as e:
+            message = {'name': name, 'site': site, 'error': 'Profile not found.'}
+            redis.publish('profile', json.dumps(message))
 
     else:
         raise ValueError('No scraper exists for site "{}"'.format(site))
@@ -46,8 +58,9 @@ def _scrape_twitter_account(username):
     response = twitter_session.get(home_url)
 
     if response.status_code != 200:
-        raise ValueError('Not able to get home page for "{}" ({})'
-                         .format(username, response.status_code))
+        message = 'Not able to get home page for "{}" ({})' \
+                  .format(username, response.status_code)
+        raise HTTPError(code=response.status_code, message=message)
 
     html = bs4.BeautifulSoup(response.text, 'html.parser')
 
@@ -87,9 +100,10 @@ def _scrape_twitter_account(username):
 
     avatar_el = html.select('.ProfileAvatar-image')[0]
     avatar_url = avatar_el['src']
-    scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
 
     db_session.commit()
+
+    scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
     data['id'] = profile.id
 
     return data

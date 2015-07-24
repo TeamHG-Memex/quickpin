@@ -16,6 +16,9 @@ class Profile {
     DateTime lastUpdate;
     List<ProfileName> names;
 
+    // Errors related to creating or loading this profile.
+    String error;
+
     Profile(String name, String site) {
         this.avatarUrls = new List<String>();
         this.names = new List<ProfileName>();
