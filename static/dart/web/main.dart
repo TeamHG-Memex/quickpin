@@ -8,6 +8,8 @@ import 'package:logging/logging.dart';
 
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/admin/background_tasks.dart';
+import 'package:quickpin/component/admin/credential.dart';
+import 'package:quickpin/component/admin/index.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/busy_button.dart';
 import 'package:quickpin/component/d3/grip.dart';
@@ -50,10 +52,12 @@ class QuickPinApplication extends Module {
             ..allowElement('i', attributes: ['class'])
             ..allowElement('img', attributes: ['alt', 'src']);
 
+        bind(AdminIndexComponent);
         bind(AuthenticationController);
         bind(BackgroundTasksComponent);
         bind(BreadcrumbsComponent);
         bind(BusyButtonComponent);
+        bind(CredentialListComponent);
         bind(CurrentRoute);
         bind(EditSelectComponent);
         bind(EditTextComponent);

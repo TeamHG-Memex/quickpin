@@ -14,9 +14,16 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import File, Profile
+from model import Credential, File, Profile
 import worker
 import worker.index
+
+
+class ScrapeException(Exception):
+    ''' Represents a user-facing exception. '''
+
+    def __init__(self, message):
+        self.message = message
 
 
 def scrape_account(site, name):
@@ -47,11 +54,19 @@ def scrape_account(site, name):
 
             redis.publish('profile', json.dumps(message))
 
+        except ScrapeException as se:
+            message = {
+                'name': name,
+                'site': site,
+                'error': se.message,
+            }
+            redis.publish('profile', json.dumps(message))
+
         except Exception as e:
             message = {
                 'name': name,
                 'site': site,
-                'error': 'Unknown error while fetching profile.'
+                'error': 'Unknown error while fetching profile.',
             }
             redis.publish('profile', json.dumps(message))
             raise
@@ -64,7 +79,15 @@ def _scrape_twitter_account(username):
     ''' Scrape twitter bio data and create (or update) a profile. '''
 
     db_session = worker.get_session()
-    twitter_session = _login_twitter()
+
+    credential = db_session.query(Credential) \
+                           .filter(Credential.site=='twitter') \
+                           .first()
+
+    if credential is None:
+        raise ScrapeException('No credentials available for scraping Twitter.')
+
+    twitter_session = _login_twitter(credential.public, credential.secret)
     twitter_url = 'https://twitter.com'
     home_url = '{}/{}'.format(twitter_url, username)
     response = twitter_session.get(home_url)
@@ -154,7 +177,7 @@ def scrape_twitter_avatar(id_, url):
     redis.publish('avatar', json.dumps({'id': id_, 'url': '/api/file/' + str(file_.id)}))
 
 
-def _login_twitter():
+def _login_twitter(username, password):
     ''' Log into a Twitter account. '''
 
     redis = worker.get_redis()
@@ -192,11 +215,10 @@ def _login_twitter():
     # value, so we arbitrarily take the first one.
     csrf_token = csrf_elements[0]['value']
     login_url = '{}/sessions'.format(twitter_url)
-
     payload = {
         'authenticity_token': csrf_token,
-        'session[username_or_email]': 'testomctester',
-        'session[password]': 'Rwtvdw56eegntnO',
+        'session[username_or_email]': username,
+        'session[password]': password,
         'remember_me': '1',
         'return_to_ssl': 'true',
     }

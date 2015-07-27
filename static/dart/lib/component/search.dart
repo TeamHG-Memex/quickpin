@@ -77,11 +77,11 @@ class SearchComponent {
             }
         });
 
-        // Clean up the event listener when we leave the route.
-        rh.onLeave.take(1).listen((e) {
-            refreshBackgroundTask.cancel();
-            subscription.cancel();
-        });
+        // Commented out -- see comment above.
+        // rh.onLeave.take(1).listen((e) {
+        //     refreshBackgroundTask.cancel();
+        //     subscription.cancel();
+        // });
     }
 
     /// Handle the selection of a facet.

@@ -16,6 +16,7 @@ import 'package:quickpin/sse.dart';
 class BackgroundTasksComponent {
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
+        new Breadcrumb('Administration', '/admin'),
         new Breadcrumb('Background Tasks'),
     ];
 
@@ -47,10 +48,10 @@ class BackgroundTasksComponent {
         // );
 
         // Clean up the timer when we leave the route.
-        RouteHandle rh = this._rp.route.newHandle();
-        StreamSubscription subscription = rh.onLeave.take(1).listen((e) {
-            refresh.cancel();
-        });
+        // RouteHandle rh = this._rp.route.newHandle();
+        // StreamSubscription subscription = rh.onLeave.take(1).listen((e) {
+        //     refresh.cancel();
+        // });
     }
 
     /// Handle a button press to remove a single task.

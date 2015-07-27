@@ -219,6 +219,9 @@ def init_views(flask_app, config):
     from app.views.authenticate import AuthenticationView
     AuthenticationView.register(flask_app, route_base='/api/authentication/')
 
+    from app.views.credential import CredentialView
+    CredentialView.register(flask_app, route_base='/api/credential/')
+
     from app.views.file import FileView
     FileView.register(flask_app, route_base='/api/file/')
 

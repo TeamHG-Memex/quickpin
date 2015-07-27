@@ -100,7 +100,7 @@ class Profile(Base):
 
         if isinstance(profile_name, ProfileName):
             self.name = profile_name.name
-            self.names.append(name)
+            self.names.append(profile_name)
         else:
             self.name = profile_name
             self.names.append(ProfileName(profile_name))

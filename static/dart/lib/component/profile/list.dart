@@ -31,7 +31,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     Map<List, Profile> newProfilesMap;
     Map<num, Profile> idProfilesMap;
     Scope scope;
-    bool showAdd = true;
+    bool showAdd = false;
     bool submittingProfile = false;
 
     InputElement _inputEl;

@@ -13,7 +13,7 @@ from sqlalchemy.schema import DropConstraint, DropTable, ForeignKeyConstraint, \
 from app.config import get_path
 import app.database
 import cli
-from model import Base, File, Post, Profile, ProfileName, User
+from model import Base, Credential, File, Post, Profile, ProfileName, User
 import model.user
 
 
@@ -80,7 +80,21 @@ class DatabaseCli(cli.BaseCli):
     def _create_samples(self, config):
         ''' Create sample data. '''
 
+        self._create_sample_credentials(config)
         self._create_sample_profiles(config)
+
+    def _create_sample_credentials(self, config):
+        ''' Create some sample credentials. '''
+
+        session = app.database.get_session(self._db)
+
+        instagram_cred = Credential('instagram', 'scraper-guy', 'mypassword')
+        session.add(instagram_cred)
+
+        twitter_cred = Credential('twitter', 'scraper-guy', 'mypassword')
+        session.add(twitter_cred)
+
+        session.commit()
 
     def _create_sample_profiles(self, config):
         ''' Create some sample profiles. '''
@@ -92,7 +106,7 @@ class DatabaseCli(cli.BaseCli):
         moss_twitter = Profile(
             site='twitter',
             original_id='12345',
-            name=ProfileName('maurice.moss', start_date='2014-04-01')
+            profile_name=ProfileName('maurice.moss', start_date='2014-04-01')
         )
 
         moss_twitter.names.append(ProfileName(
@@ -147,7 +161,7 @@ class DatabaseCli(cli.BaseCli):
         jen_twitter = Profile(
             site='twitter',
             original_id='23456',
-            name=ProfileName('jen.barber', start_date='2013-11-12')
+            profile_name=ProfileName('jen.barber', start_date='2013-11-12')
         )
 
         jen_twitter.names.append(ProfileName(
@@ -184,19 +198,19 @@ class DatabaseCli(cli.BaseCli):
         moss_twitter.followers.append(Profile(
             site='twitter',
             original_id='345678',
-            name='franky'
+            profile_name='franky'
         ))
 
         moss_twitter.followers.append(Profile(
             site='twitter',
             original_id='456789',
-            name='jane'
+            profile_name='jane'
         ))
 
         jen_twitter.followers.append(Profile(
             site='twitter',
             original_id='567890',
-            name='joey'
+            profile_name='joey'
         ))
 
         session.commit()

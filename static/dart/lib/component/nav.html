@@ -36,7 +36,13 @@
           </li>
           <li class="divider"></li>
           <li ng-if='auth.isAdmin()'>
-            <a href='/background-tasks'>Background Tasks</a>
+            <a href='/admin'>Admin Overview</a>
+          </li>
+          <li ng-if='auth.isAdmin()'>
+            <a href='/admin/background-tasks'>Background Tasks</a>
+          </li>
+          <li ng-if='auth.isAdmin()'>
+            <a href='/admin/credential'>Scraping Credentials</a>
           </li>
           <li class="divider" ng-if='auth.isAdmin()'></li>
           <li><a ng-click='auth.logOut()'>Log Out</a></li>

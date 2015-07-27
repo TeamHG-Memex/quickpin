@@ -9,12 +9,7 @@ from model import File
 
 
 class FileView(FlaskView):
-    '''
-    Manipulate files.
-
-    These endpoints are not authenticated so that they can be used as hrefs
-    in &lt;img&gt; tags.
-    '''
+    ''' Manipulate files. '''
 
     decorators = [login_required]
 

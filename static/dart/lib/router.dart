@@ -16,10 +16,20 @@ class QuickPinRouteInitializer implements Function {
     /// https://github.com/angular/route.dart/issues/69#issuecomment-81612794
     void call(Router router, RouteViewFactory views) {
         views.configure({
+            'admin': ngRoute(
+                path: '/admin',
+                preEnter: auth.requireLogin,
+                viewHtml: '<admin-index></admin-index>'
+            ),
             'background_tasks': ngRoute(
-                path: '/background-tasks',
+                path: '/admin/background-tasks',
                 preEnter: auth.requireLogin,
                 viewHtml: '<background-tasks></background-tasks>'
+            ),
+            'credentials': ngRoute(
+                path: '/admin/credential',
+                preEnter: auth.requireLogin,
+                viewHtml: '<credential-list></credential-list>'
             ),
             'home': ngRoute(
                 path: '/',
