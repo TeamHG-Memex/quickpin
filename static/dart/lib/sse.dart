@@ -6,25 +6,24 @@ import 'package:quickpin/authentication.dart';
 /// Handles server-sent events.
 @Injectable()
 class SseController {
+    Stream<Event> onAvatar;
+    Stream<Event> onProfile;
+
     AuthenticationController _auth;
     EventSource _eventSource;
+    RouteProvider _rp;
 
     /// Constructor
-    SseController(this._auth) {
+    SseController(this._auth, this._rp) {
         String url = '/api/notification/?xauth=' + Uri.encodeFull(this._auth.token);
         this._eventSource = new EventSource(url);
+
         this._eventSource.onError.listen((Event e) {
             window.console.log('Error connecting to SSE!');
         });
-    }
 
-    /// Wrapper around the event source's addEventListener.
-    void addEventListener(String type, EventListener listener, [bool useCapture]) {
-        this._eventSource.addEventListener(type, listener, useCapture);
-    }
-
-    /// Wrapper around the event source's removeEventListener.
-    void removeEventListener(String type, EventListener listener, [bool useCapture]) {
-        this._eventSource.removeEventListener(type, listener, useCapture);
+        // Set up event streams.
+        this.onAvatar = this._eventSource.on['avatar'];
+        this.onProfile = this._eventSource.on['profile'];
     }
 }

@@ -40,19 +40,28 @@ class ProfileListComponent extends Object with CurrentPageMixin
     final RestApiController _api;
     final Element _element;
     final int _resultsPerPage = 10;
+    final RouteProvider _rp;
     final SseController _sse;
     final TitleService _ts;
 
     /// Constructor.
-    ProfileListComponent(this.auth, this._api, this._element, this._sse,
-                         this._ts) {
+    ProfileListComponent(this.auth, this._api, this._element, this._rp,
+                         this._sse, this._ts) {
         this._fetchCurrentPage();
         this._ts.title = 'Profiles';
-        this._sse.addEventListener('avatar', this.avatarListener);
-        this._sse.addEventListener('profile', this.profileListener);
-
         this.idProfilesMap = new Map<num, Profile>();
         this.newProfilesMap = new Map<List, Profile>();
+
+        // Add event listeners...
+        StreamSubscription avatarSub = this._sse.onAvatar.listen(this.avatarListener);
+        StreamSubscription profileSub = this._sse.onProfile.listen(this.profileListener);
+
+        // ...and remove event listeners when we leave this route.
+        RouteHandle rh = this._rp.route.newHandle();
+        rh.onLeave.take(1).listen((e) {
+            avatarSub.cancel();
+            profileSub.cancel();
+        });
     }
 
     /// Listen for avatar image updates.
