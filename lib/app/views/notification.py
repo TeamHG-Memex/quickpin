@@ -25,6 +25,12 @@ class NotificationView(FlaskView):
     )
 
     decorators = [login_required]
+    __should_quit = False
+
+    @classmethod
+    def quit_notifications(cls):
+        '''A helper function to end long-running notification threads. '''
+        cls.__should_quit = True
 
     def index(self):
         ''' Open an SSE stream. '''
@@ -33,7 +39,6 @@ class NotificationView(FlaskView):
             redis = app.database.get_redis(dict(g.config.items('redis')))
             pubsub = redis.pubsub(ignore_subscribe_messages=True)
             pubsub.subscribe(*self.__class__.CHANNELS)
-            # headers = {'Transfer-Encoding': 'chunked'}
 
             return Response(self._stream(pubsub), content_type='text/event-stream')
         else:
@@ -51,8 +56,18 @@ class NotificationView(FlaskView):
         # Now send real events from the Redis pubsub channel.
         event_id = 1
 
-        for message in pubsub.listen():
-            channel = message['channel'].decode('utf8')
-            data = message['data'].decode('utf8')
-            yield 'id: {}\nevent: {}\ndata: {}\n\n'.format(event_id, channel, data)
-            event_id += 1
+        while True:
+            if self.__class__.__should_quit:
+                break
+
+            message = pubsub.get_message()
+
+            if message is not None:
+                channel = message['channel'].decode('utf8')
+                data = message['data'].decode('utf8')
+                message_args = event_id, channel, data
+                yield 'id: {}\nevent: {}\ndata: {}\n\n'.format(*message_args)
+                event_id += 1
+            else:
+                time.sleep(0.2)
+

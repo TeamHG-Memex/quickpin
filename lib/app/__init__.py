@@ -36,6 +36,23 @@ class MyFlask(Flask):
         "comment_end_string":   "#]",
     })
 
+    __atexit = list()
+
+    @classmethod
+    def atexit(cls, function):
+        ''' Register a function to run before Flask shuts down. '''
+        cls.__atexit.append(function)
+
+    def run(self, *args, **kwargs):
+        ''' Override run() so we can run callbacks during SystemExit. '''
+
+        try:
+            super().run(*args, **kwargs)
+        except SystemExit:
+            for function in self.__class__.__atexit:
+                function()
+            raise
+
 
 @failsafe
 def bootstrap(debug=False, debug_db=False, latency=None, log_level=None):
@@ -227,6 +244,7 @@ def init_views(flask_app, config):
 
     from app.views.notification import NotificationView
     NotificationView.register(flask_app, route_base='/api/notification/')
+    flask_app.atexit(NotificationView.quit_notifications)
 
     from app.views.profile import ProfileView
     ProfileView.register(flask_app, route_base='/api/profile/')
