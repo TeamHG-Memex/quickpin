@@ -21,6 +21,7 @@ import 'package:quickpin/component/excerpt.dart';
 import 'package:quickpin/component/home.dart';
 import 'package:quickpin/component/login.dart';
 import 'package:quickpin/component/markdown.dart';
+import 'package:quickpin/component/masonry.dart';
 import 'package:quickpin/component/modal.dart';
 import 'package:quickpin/component/nav.dart';
 import 'package:quickpin/component/pager.dart';
@@ -68,6 +69,7 @@ class QuickPinApplication extends Module {
         bind(LargeNumberFormatter);
         bind(LoginComponent);
         bind(MarkdownComponent);
+        bind(MasonryComponent);
         bind(ModalComponent);
         bind(NavComponent);
         bind(PagerComponent);

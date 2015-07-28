@@ -377,17 +377,21 @@ markdown {
 
 // Masonry ====================================================================
 
-.masonry {
-  -webkit-column-width: 13em;
-  -webkit-column-gap: 1em;
-  margin: 1.5em 0;
+masonry {
+  display: block;
+  position: relative; // So we can position children absolutely.
+  margin-top: 2em;
 
   .item {
     background-color: @gray-lighter;
-    display: inline-block;
+    border: 1px solid #ccc;
     padding: 1em;
-    margin: 0 0 1em;
     width: 100%;
+    transition: box-shadow 0.5s;
+
+    &:hover {
+      box-shadow: 0 0 10px @gray-light;
+    }
   }
 }
 
