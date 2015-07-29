@@ -72,6 +72,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (this.scope != null) {
             scope.apply();
+            this.scope.broadcast('masonry.layout');
         }
     }
 
@@ -85,6 +86,13 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.profiles.insert(0, profile);
         String key = _makeKey(this.newProfile, 'twitter');
         this.newProfilesMap[key] = profile;
+
+        // Update layout after Angular finishes next digest cycle.
+        new Timer(new Duration(milliseconds: 100), () {
+            if (this.scope != null) {
+                this.scope.broadcast('masonry.layout');
+            }
+        });
 
         this._api
             .post(pageUrl, body, needsAuth: true)
@@ -153,6 +161,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (this.scope != null) {
             scope.apply();
+            this.scope.broadcast('masonry.layout');
         }
     }
 
@@ -165,11 +174,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
             // focus a hidden element.)
             new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
         }
-    }
-
-    /// Called via ScopeAware interface.
-    void setScope(Scope scope) {
-        this.scope = scope;
     }
 
     /// Fetch a page of profiles.
@@ -185,6 +189,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
                     response.data['profiles'].length,
                     (index) => new Profile.fromJson(response.data['profiles'][index])
                 );
+
+                if (this.scope != null) {
+                    this.scope.broadcast('masonry.layout');
+                }
             })
             .catchError((response) {
                 this.error = response.data['message'];

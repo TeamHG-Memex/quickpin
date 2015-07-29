@@ -95,7 +95,7 @@
 </form>
 
 <masonry column-width='250' column-gap='25'>
-  <div ng-repeat='profile in profiles' class='item'>
+  <div ng-repeat='profile in profiles' class='masonry-item'>
     <a ng-href='{{profile.id != null ? "/profile/" + profile.id : ""}}'>
       <img class='avatar' ng-src='{{avatarUrl(profile)}}'>
     </a>
