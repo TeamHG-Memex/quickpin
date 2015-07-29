@@ -42,6 +42,7 @@ class CredentialView(FlaskView):
 
         g.db.query(Credential).filter(Credential.site==site).delete()
         g.db.commit()
+        self._clear_cache(site)
 
         return jsonify(message='Credential deleted.')
 
@@ -182,5 +183,18 @@ class CredentialView(FlaskView):
                 credential.secret = secret
 
         g.db.commit()
+        self._clear_cache(site)
 
         return jsonify(message='Credential saved.')
+
+    def _clear_cache(self, site):
+        '''
+        Clear credential/session cache.
+
+        Some scrapers can cache credentials and/or authenticated sessions in
+        Redis. Those credentials/sessions need to be cleared from cache when a
+        user deletes or modifies them.
+        '''
+
+        if site == 'twitter':
+            g.redis.delete('twitter_session')
