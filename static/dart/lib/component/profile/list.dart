@@ -28,7 +28,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     bool loading = false;
     String newProfile;
     List<Profile> profiles;
-    Map<List, Profile> newProfilesMap;
+    Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
     Scope scope;
     bool showAdd = false;
@@ -50,7 +50,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this._fetchCurrentPage();
         this._ts.title = 'Profiles';
         this.idProfilesMap = new Map<num, Profile>();
-        this.newProfilesMap = new Map<List, Profile>();
+        this.newProfilesMap = new Map<String, Map<String, Profile>>();
 
         // Add event listeners...
         StreamSubscription avatarSub = this._sse.onAvatar.listen(this.avatarListener);
@@ -84,8 +84,12 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map body = {'profiles': [{'name': this.newProfile, 'site': 'twitter'}]};
         Profile profile = new Profile(this.newProfile, 'twitter');
         this.profiles.insert(0, profile);
-        String key = _makeKey(this.newProfile, 'twitter');
-        this.newProfilesMap[key] = profile;
+
+        if (this.newProfilesMap['twitter'] == null) {
+            this.newProfilesMap['twitter'] = new Map<String, Profile>();
+        }
+
+        this.newProfilesMap['twitter'][this.newProfile] = profile;
 
         // Update layout after Angular finishes next digest cycle.
         new Timer(new Duration(milliseconds: 100), () {
@@ -144,8 +148,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Listen for profile updates.
     void profileListener(Event e) {
         Map json = JSON.decode(e.data);
-        List key = _makeKey(json['name'], json['site']);
-        Profile profile = this.newProfilesMap[key];
+        Profile profile = this.newProfilesMap[json['site']][json['name']];
 
         if (json['error'] == null) {
             profile.id = json['id'];
@@ -154,7 +157,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.followerCount = json['follower_count'];
             profile.postCount = json['post_count'];
 
+            print('profile listener adding id=${json["id"]}');
             this.idProfilesMap[json['id']] = profile;
+            this.newProfilesMap[json['site']].remove(json['name']);
         } else {
             profile.error = json['error'];
         }
@@ -198,10 +203,5 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.loading = false;});
-    }
-
-    /// Make a map key from a username and site name.
-    String _makeKey(String user, String site) {
-        return '{{user}\0{{site}}';
     }
 }
