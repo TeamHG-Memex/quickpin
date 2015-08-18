@@ -81,7 +81,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.error = null;
         this.submittingProfile = true;
         String pageUrl = '/api/profile/';
-        Map body = {'profiles': [{'name': this.newProfile, 'site': 'twitter'}]};
+        Map body = {'profiles': [{'username': this.newProfile, 'site': 'twitter'}]};
         Profile profile = new Profile(this.newProfile, 'twitter');
         this.profiles.insert(0, profile);
 
@@ -148,7 +148,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Listen for profile updates.
     void profileListener(Event e) {
         Map json = JSON.decode(e.data);
-        Profile profile = this.newProfilesMap[json['site']][json['name']];
+        Profile profile = this.newProfilesMap[json['site']][json['username']];
 
         if (json['error'] == null) {
             profile.id = json['id'];
@@ -159,7 +159,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
             print('profile listener adding id=${json["id"]}');
             this.idProfilesMap[json['id']] = profile;
-            this.newProfilesMap[json['site']].remove(json['name']);
+            this.newProfilesMap[json['site']].remove(json['username']);
         } else {
             profile.error = json['error'];
         }

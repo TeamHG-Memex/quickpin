@@ -62,8 +62,8 @@ class ProfileComponent {
             .get('/api/profile/${this.id}', needsAuth: true)
             .then((response) {
                 this.profile = new Profile.fromJson(response.data);
-                this.crumbs[this.crumbs.length-1] = new Breadcrumb(this.profile.name);
-                this._ts.title = this.profile.name;
+                this.crumbs[this.crumbs.length-1] = new Breadcrumb(this.profile.username);
+                this._ts.title = this.profile.username;
             })
             .whenComplete(() {
                 this.loading--;

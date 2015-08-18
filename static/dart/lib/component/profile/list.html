@@ -61,7 +61,7 @@
              ng-model='newProfile'
              ng-keypress='handleAddProfileKeypress($event)'
              ng-disabled='submittingProfile'
-             placeholder='Enter a name and select a site.'>
+             placeholder='Enter a username and select a site.'>
     </div>
   </div>
 
@@ -101,10 +101,10 @@
     </a>
     <p class='profile-name'>
       <a ng-show='profile.id != null' href='/profile/{{profile.id}}'>
-        {{profile.name}}
+        {{profile.username}}
       </a>
       <span ng-show='profile.id == null'>
-        {{profile.name}}
+        {{profile.username}}
       </span>
       <span class='site-name'>
         <i class='fa {{profile.iconClass()}}' title='{{profile.siteName}}'></i>
@@ -130,13 +130,16 @@
       {{profile.description}}
     </p>
     <p ng-show='profile.friendCount != null'>
-      <strong>Friends:</strong> {{profile.friendCount}}
+      <strong>Friends:</strong>
+      {{profile.friendCount | largeNumber:1}}
     </p>
     <p ng-show='profile.followerCount != null'>
-      <strong>Followers:</strong> {{profile.followerCount}}
+      <strong>Followers:</strong>
+      {{profile.followerCount | largeNumber:1}}
     </p>
     <p ng-show='profile.postCount != null'>
-      <strong>Posts:</strong> {{profile.postCount}}
+      <strong>Posts:</strong>
+      {{profile.postCount | largeNumber:1}}
     </p>
   </div>
 </masonry>

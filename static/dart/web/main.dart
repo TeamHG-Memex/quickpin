@@ -8,7 +8,7 @@ import 'package:logging/logging.dart';
 
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/admin/background_tasks.dart';
-import 'package:quickpin/component/admin/credential.dart';
+import 'package:quickpin/component/admin/configuration.dart';
 import 'package:quickpin/component/admin/index.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/busy_button.dart';
@@ -58,7 +58,7 @@ class QuickPinApplication extends Module {
         bind(BackgroundTasksComponent);
         bind(BreadcrumbsComponent);
         bind(BusyButtonComponent);
-        bind(CredentialListComponent);
+        bind(ConfigurationListComponent);
         bind(CurrentRoute);
         bind(EditSelectComponent);
         bind(EditTextComponent);

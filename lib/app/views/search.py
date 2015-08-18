@@ -266,7 +266,7 @@ class SearchView(FlaskView):
         }
 
         if 'join_date_tdt' in doc:
-            formated['joined'] = doc['join_date_tdt'],
+            formatted['joined'] = doc['join_date_tdt'],
 
         return formatted
 

@@ -14,7 +14,7 @@ import app.database
 from app.queue import scrape_queue
 from app.rest import get_int_arg, get_paging_arguments, get_sort_arguments, \
                      heatmap_column, url_for
-from model import Profile, ProfileName
+from model import Profile
 import worker.scrape
 
 
@@ -32,60 +32,66 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-                "id": 208,
-                "chat_activity": [5,1,0,6,10,40,30,90,19,45,101,201],
-                "chat_count": 633,
-                "image_activity": [0,0,0,12,22,81,56,187,38,49,168,134],
-                "image_count": 747,
-                "pm_activity": [16,30,30,29,59,36,100,48,79,106,72,110],
-                "pm_count": 810,
-                "post_activity": [144,16,30,30,29,59,36,100,48,79,106,72],
-                "post_count": 975,
-                "site": {
-                    "id": 1,
-                    "name": "Boy Vids",
-                    "url": "https://avatar/api/dark-site/1"
-                },
-                "url": "https://avatar/api/dark-user/208",
-                "username": "petar"
+                "avatar_urls": ["https://quickpin/api/file/1", ...],
+                "description": "A human being.",
+                "follower_count": 71,
+                "friend_count": 28,
+                "id": 1,
+                "join_date": "2012-01-30T15:11:35",
+                "last_update": "2015-08-18T10:51:16",
+                "location": "Washington, DC",
+                "name": "John Doe",
+                "post_count": 1666,
+                "private": false,
+                "site": "twitter",
+                "site_name": "Twitter",
+                "time_zone": "Central Time (US & Canada)",
+                "upstream_id": "11009418",
+                "url": "https://quickpin/api/profile/1",
+                "username": "mehaase",
+                "usernames": [
+                    {
+                        "end_date": "2012-06-30T15:00:00",,
+                        "start_date": "2012-01-01T12:00:00",,
+                        "username": "mehaase"
+                    },
+                    ...
+                ]
             }
 
         :<header Content-Type: application/json
         :<header X-Auth: the client's auth token
 
         :>header Content-Type: application/json
-        :>json int id: unique user identifier
-        :>json list chat_activity: counts of chat messages per month
-            for the last 12 months
-        :>json int chat_count: total count of chat messages by this
-            user
-        :>json list image_activity: counts of images posted per month
-            for the last 12 months
-        :>json int image_count: total count of images posted by this
-            user
-        :>json list pm_activity: counts of private messages per month for the
-            last 12 months
-        :>json int pm_count: total count of private messages by this user
-        :>json list post_activity: counts of posts per month for the
-            last 12 months
-        :>json int post_count: total count of posts by this user
-        :>json object site: the site this username is registered on
-        :>json int site.id: unique site identifier
-        :>json str site.name: the name of this site
-        :>json str site.url: API endpoint for data about this site
-        :>json str url: API endpoint for data about this user
-        :>json str username: this user's username
-
-        :>json list profiles[n].names: a list of all names that this profile is
-            using or has used (some social sites allow users to change their
-            username)
-        :>json str profiles[n].names[n].end_date: the last (approximate) date
-            that this name was used for this profile (null if name is still in
-            use or end date is not known) (ISO-8601)
-        :>json str profiles[n].names[n].name: a username used with this profile
-        :>json str profiles[n].names[n].start_date: the first (approximate)
-            date that this name was used for this profile (null if start date is
-            not known) (ISO-8601)
+        :>json str avatar_urls: a list of URLs that represent avatar images used
+            by this profile
+        :>json str description: profile description
+        :>json int follower_count: number of followers
+        :>json int friend_count: number of friends (a.k.a. followees)
+        :>json int id: unique identifier for profile
+        :>json str join_date: the date this profile joined its social network
+            (ISO-8601)
+        :>json str last_update: the last time that information about this
+            profile was retrieved from the social media site (ISO-8601)
+        :>json str location: geographic location provided by the user, as free
+            text
+        :>json str name: the full name provided by this user
+        :>json int post_count: the number of posts made by this profile
+        :>json bool private: true if this is a private account (i.e. not world-
+            readable)
+        :>json str site: machine-readable site name that this profile belongs to
+        :>json str site_name: human-readable site name that this profile belongs
+            to
+        :>json str time_zone: the user's provided time zone as free text
+        :>json str upstream_id: the user ID assigned by the social site
+        :>json str url: URL endpoint for retriving more data about this profile
+        :>json str username: the current username for this profile
+        :>json list usernames: list of known usernames for this profile
+        :>json str usernames[n].end_date: the last known date this username was
+            used for this profile
+        :>json str usernames[n].start_date: the first known date this username
+            was used for this profile
+        :>json str usernames[n].username: a username used for this profile
 
         :status 200: ok
         :status 400: invalid argument[s]
@@ -93,53 +99,48 @@ class ProfileView(FlaskView):
         :status 404: user does not exist
         '''
 
+        # Get profile.
         id_ = get_int_arg('id_', id_)
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
         if profile is None:
             raise NotFound("Profile '%s' does not exist." % id_)
 
-        names = list()
+        response = profile.as_dict()
+        response['url'] = url_for('ProfileView:get', id_=profile.id)
 
-        for profile_name in profile.names:
-            if profile_name.end_date is not None:
-                end_date = profile_name.end_date.isoformat()
+        # Create usernames list.
+        usernames = list()
+
+        for username in profile.usernames:
+            if username.end_date is not None:
+                end_date = username.end_date.isoformat()
             else:
                 end_date = None
 
-            if profile_name.start_date is not None:
-                start_date = profile_name.start_date.isoformat()
+            if username.start_date is not None:
+                start_date = username.start_date.isoformat()
             else:
                 start_date = None
 
-            names.append({
+            usernames.append({
                 'end_date': end_date,
-                'name': profile_name.name,
+                'username': username.username,
                 'start_date': start_date,
             })
 
-        if profile.join_date is not None:
-            join_date = profile.join_date.isoformat()
-        else:
-            join_date = None
+        response['usernames'] = usernames
 
-        return jsonify(
-            avatar_urls=[url_for('FileView:get', id_=av.id) for av in profile.avatars],
-            description=profile.description,
-            id=profile.id,
-            follower_count=profile.follower_count,
-            friend_count=profile.friend_count,
-            join_date=join_date,
-            join_date_is_exact=profile.join_date_is_exact,
-            last_update=profile.last_update,
-            name=profile.name,
-            names=names,
-            original_id=profile.original_id,
-            post_count=profile.post_count,
-            site=profile.site,
-            site_name=profile.site_name(),
-            url=url_for('ProfileView:get', id_=profile.id)
-        )
+        # Create avatars list.
+        avatars = list()
+
+        for avatar in profile.avatars:
+            avatars.append(url_for('FileView:get', id_=avatar.id))
+
+        response['avatar_urls'] = avatars
+
+        # Send response.
+        return jsonify(**response)
 
     def index(self):
         '''
@@ -152,20 +153,26 @@ class ProfileView(FlaskView):
             {
                 "profiles": [
                     {
-                        "description": "I'm just a guy on the interwebs…",
-                        "follower_count": 3,
-                        "friend_count": 1,
-                        "id": 1,
-                        "join_date": "2013-03-15T00:00:00",
-                        "join_date_is_exact": true,
-                        "last_update": null,
-                        "name": "john.doe",
-                        "original_id": "12345",
-                        "post_count": 1205,
+                        "avatar_urls": [
+                            "https://quickpin/api/file/5"
+                        ],
+                        "description": "A human being.",
+                        "follower_count": 12490,
+                        "friend_count": 294,
+                        "id": 5,
+                        "join_date": "2010-01-30T18:21:35",
+                        "last_update": "2015-08-18T10:51:16",
+                        "location": "Washington, DC",
+                        "name": "John Q. Doe",
+                        "post_count": 230,
+                        "private": false,
                         "site": "twitter",
-                        "site_name": "Twitter",
-                        "url": "http://quickpin:5000/api/profile/1"
+                        "time_zone": "Central Time (US & Canada)",
+                        "upstream_id": "123456",
+                        "url": "https://quickpin/api/profile/5",
+                        "username": "johndoe"
                     },
+                    ...
                 ],
                 "total_count": 5
             }
@@ -177,6 +184,8 @@ class ProfileView(FlaskView):
 
         :>header Content-Type: application/json
         :>json list profiles: a list of profile objects
+        :>json str profiles[n].avatar_urls: a list of URLs that represent avatar
+            images used by this profile
         :>json str profiles[n].description: profile description
         :>json int profiles[n].follower_count: number of followers
         :>json int profiles[n].friend_count: number of friends (a.k.a.
@@ -184,22 +193,26 @@ class ProfileView(FlaskView):
         :>json int profiles[n].id: unique identifier for profile
         :>json str profiles[n].join_date: the date this profile joined its
             social network (ISO-8601)
-        :>json bool profiles[n].join_date_is_exact: true if the ``join_date`` is
-            known with precision, false if it is just an estimate
         :>json str profiles[n].last_update: the last time that information about
             this profile was retrieved from the social media site (ISO-8601)
-        :>json str profiles[n].name: the current name being used for this
-            profile
-        :>json str profiles[n].original_id: the user ID assigned by the social
-            site
+        :>json str profiles[n].location: geographic location provided by the
+            user, as free text
+        :>json str profiles[n].name: the full name provided by this user
         :>json int profiles[n].post_count: the number of posts made by this
             profile
+        :>json bool profiles[n].private: true if this is a private account (i.e.
+            not world-readable)
         :>json str profiles[n].site: machine-readable site name that this
             profile belongs to
         :>json str profiles[n].site_name: human-readable site name that this
             profile belongs to
+        :>json str profiles[n].time_zone: the user's provided time zone as free
+            text
+        :>json str profiles[n].upstream_id: the user ID assigned by the social
+            site
         :>json str profiles[n].url: URL endpoint for retriving more data about
             this profile
+        :>json str profiles[n].username: the current username for this profile
         :>json int total_count: count of all profile objects, not just those on
             the current page
 
@@ -225,27 +238,11 @@ class ProfileView(FlaskView):
             for avatar in profile.avatars:
                 avatar_urls.append(url_for('FileView:get', id_=avatar.id))
 
-            if profile.join_date is not None:
-                join_date = profile.join_date.isoformat()
-            else:
-                join_date = None
+            data = profile.as_dict()
+            data['avatar_urls'] = avatar_urls
+            data['url'] = url_for('ProfileView:get', id_=profile.id)
 
-            profiles.append({
-                'avatar_urls': avatar_urls,
-                'description': profile.description,
-                'id': profile.id,
-                'follower_count': profile.follower_count,
-                'friend_count': profile.friend_count,
-                'join_date': join_date,
-                'join_date_is_exact': profile.join_date_is_exact,
-                'last_update': profile.last_update,
-                'name': profile.name,
-                'original_id': profile.original_id,
-                'post_count': profile.post_count,
-                'site': profile.site,
-                'site_name': profile.site_name(),
-                'url': url_for('ProfileView:get', id_=profile.id),
-            })
+            profiles.append(data)
 
         return jsonify(
             profiles=profiles,
@@ -268,8 +265,8 @@ class ProfileView(FlaskView):
 
             {
                 "profiles": [
-                    {"name": "johndoe", "site": "instagram"},
-                    {"name": "janedoe", "site": "twitter"},
+                    {"username": "johndoe", "site": "instagram"},
+                    {"username": "janedoe", "site": "twitter"},
                     ...
                 ]
             }
@@ -285,12 +282,12 @@ class ProfileView(FlaskView):
         :<header Content-Type: application/json
         :<header X-Auth: the client's auth token
         :>json list profiles: a list of profiles to create
-        :>json str profiles[n].name: name of profile to create
+        :>json str profiles[n].username: username of profile to create
         :>json str profiles[n].site: machine-readable name of social media site
 
         :>header Content-Type: application/json
         :>json int id: unique identifier for new profile
-        :>json str name: name of new profile
+        :>json str username: username of new profile
         :>json str site: machine-readable name of profile's social media site
         :>json str site_name: human-readable name of profile's social media site
         :>json str url: URL endpoint for more information about this profile
@@ -303,21 +300,22 @@ class ProfileView(FlaskView):
         request_json = request.get_json()
 
         for profile in request_json['profiles']:
-            if 'name' not in profile or profile['name'].strip() == '':
-                raise BadRequest('Name is required for all profiles.')
+            if 'username' not in profile or profile['username'].strip() == '':
+                raise BadRequest('Username is required for all profiles.')
 
             if 'site' not in profile or profile['site'].strip() == '':
                 raise BadRequest('Site is required for all profiles.')
 
         for profile in request_json['profiles']:
             site = profile['site']
-            name = profile['name']
+            username = profile['username']
 
             job = scrape_queue.enqueue(
-                worker.scrape.scrape_account, site, name, timeout=60
+                worker.scrape.scrape_account, site, username, timeout=60
             )
 
-            job.meta['description'] = 'Scraping bio for "{}" on "{}"'.format(name, site)
+            job.meta['description'] = 'Scraping bio for "{}" on "{}"' \
+                                      .format(username, site)
             job.meta['type'] = 'scrape'
             job.save()
 

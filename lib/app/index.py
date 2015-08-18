@@ -11,7 +11,7 @@ def make_profile_doc(profile):
         'description_txt_en': profile.description,
         'follower_count_i': profile.follower_count,
         'friend_count_i': profile.friend_count,
-        'profile_name_s': [n.name for n in profile.names],
+        'profile_username_s': [n.username for n in profile.usernames],
         'id': 'Profile:%d' % profile.id,
         'type_s': 'Profile',
         'post_count_i': profile.post_count,

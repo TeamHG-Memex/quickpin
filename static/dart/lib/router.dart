@@ -26,10 +26,10 @@ class QuickPinRouteInitializer implements Function {
                 preEnter: auth.requireLogin,
                 viewHtml: '<background-tasks></background-tasks>'
             ),
-            'credentials': ngRoute(
-                path: '/admin/credential',
+            'configuration': ngRoute(
+                path: '/admin/configuration',
                 preEnter: auth.requireLogin,
-                viewHtml: '<credential-list></credential-list>'
+                viewHtml: '<configuration-list></configuration-list>'
             ),
             'home': ngRoute(
                 path: '/',

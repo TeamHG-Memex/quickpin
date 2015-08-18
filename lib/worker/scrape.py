@@ -2,6 +2,7 @@
 
 import bs4
 from datetime import datetime
+import dateutil.parser
 import hashlib
 import json
 import pickle
@@ -14,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Credential, File, Profile
+from model import Configuration, File, Profile
 import worker
 import worker.index
 
@@ -26,77 +27,76 @@ class ScrapeException(Exception):
         self.message = message
 
 
-def scrape_account(site, name):
+def scrape_account(site, username):
     ''' Scrape a twitter account. '''
 
     redis = worker.get_redis()
 
-    account_scrapers = {
-        'twitter': _scrape_twitter_account,
-    }
+    try:
+        profile = _scrape_twitter_account(username)
+        redis.publish('profile', json.dumps(profile))
 
-    session = worker.get_session()
+    except requests.exceptions.HTTPError as he:
+        response = he.response
+        message = {'username': username, 'site': site, 'code': response.status_code}
 
-    if site in account_scrapers:
-        try:
-            profile = account_scrapers[site](name)
-            redis.publish('profile', json.dumps(profile))
+        if response.status_code == 404:
+            message['error'] = 'Does not exist on Twitter.'
+        else:
+            message['error'] = 'Cannot communicate with Twitter ({})' \
+                               .format(response.status_code)
 
-        except requests.exceptions.HTTPError as he:
-            response = he.response
-            message = {'name': name, 'site': site, 'code': response.status_code}
+        redis.publish('profile', json.dumps(message))
 
-            if response.status_code == 404:
-                message['error'] = 'Does not exist on Twitter.'
-            else:
-                message['error'] = 'Cannot communicate with Twitter ({})' \
-                                   .format(response.status_code)
+    except ScrapeException as se:
+        message = {
+            'username': username,
+            'site': site,
+            'error': se.message,
+        }
+        redis.publish('profile', json.dumps(message))
 
-            redis.publish('profile', json.dumps(message))
-
-        except ScrapeException as se:
-            message = {
-                'name': name,
-                'site': site,
-                'error': se.message,
-            }
-            redis.publish('profile', json.dumps(message))
-
-        except Exception as e:
-            message = {
-                'name': name,
-                'site': site,
-                'error': 'Unknown error while fetching profile.',
-            }
-            redis.publish('profile', json.dumps(message))
-            raise
-
-    else:
-        raise ValueError('No scraper exists for site "{}"'.format(site))
+    except Exception as e:
+        message = {
+            'username': username,
+            'site': site,
+            'error': 'Unknown error while fetching profile.',
+        }
+        redis.publish('profile', json.dumps(message))
+        raise
 
 
 def _scrape_twitter_account(username):
-    ''' Scrape twitter bio data and create (or update) a profile. '''
+    '''
+    Scrape twitter bio data and create (or update) a profile.
 
+    TODO The API call used here supports up to 100 usernames at a time. We
+    could easily modify this function to populate many profiles at once.
+    '''
+
+    # Request from Twitter API.
     db_session = worker.get_session()
 
-    credential = db_session.query(Credential) \
-                           .filter(Credential.site=='twitter') \
-                           .first()
+    piscina_url = db_session.query(Configuration) \
+                            .filter(Configuration.key=='piscina_proxy_url') \
+                            .first()
 
-    if credential is None:
-        raise ScrapeException('No credentials available for scraping Twitter.')
+    if piscina_url is None or piscina_url.value.strip() == '':
+        raise ScrapeException('No Piscina server configured.')
 
-    twitter_session = _login_twitter(credential.public, credential.secret)
-    twitter_url = 'https://twitter.com'
-    home_url = '{}/{}'.format(twitter_url, username)
-    response = twitter_session.get(home_url)
+    proxies = {
+        'http': piscina_url.value,
+        'https': piscina_url.value,
+    }
+
+    api_url = 'https://api.twitter.com/1.1/users/lookup.json'
+    params = {'screen_name': username}
+    response = requests.get(api_url, params=params, proxies=proxies, verify=False)
     response.raise_for_status()
-    html = bs4.BeautifulSoup(response.text, 'html.parser')
 
     # Get Twitter ID and upsert the profile.
-    profile_el = html.select('.ProfileNav-item--userActions .user-actions')[0]
-    user_id = profile_el['data-user-id']
+    data = response.json()[0] # TODO Only supports getting 1 profile right now...
+    user_id = data['id_str']
     profile = Profile('twitter', user_id, username)
     db_session.add(profile)
 
@@ -107,38 +107,38 @@ def _scrape_twitter_account(username):
         db_session.rollback()
         profile = db_session.query(Profile) \
                             .filter(Profile.site=='twitter') \
-                            .filter(Profile.original_id==user_id) \
+                            .filter(Profile.upstream_id==user_id) \
                             .one()
 
-    data = {'name': username, 'site': 'twitter'}
-
-    bio_el = html.select('.ProfileHeaderCard-bio')[0]
-    data['description'] = bio_el.get_text()
-    profile.description = bio_el.get_text()
-
-    post_count_el = html.select('.ProfileNav-item--tweets .ProfileNav-value')[0]
-    data['post_count'] = int(post_count_el.get_text().replace(',', ''))
-    profile.post_count = int(post_count_el.get_text().replace(',', ''))
-
-    friend_count_el = html.select('.ProfileNav-item--following .ProfileNav-value')[0]
-    data['friend_count'] = int(friend_count_el.get_text().replace(',', ''))
-    profile.friend_count = int(friend_count_el.get_text().replace(',', ''))
-
-    follower_count_el = html.select('.ProfileNav-item--followers .ProfileNav-value')[0]
-    data['follower_count'] = int(follower_count_el.get_text().replace(',', ''))
-    profile.follower_count = int(follower_count_el.get_text().replace(',', ''))
-
-    avatar_el = html.select('.ProfileAvatar-image')[0]
-    avatar_url = avatar_el['src']
+    profile.description = data['description']
+    profile.follower_count = data['followers_count']
+    profile.friend_count = data['friends_count']
+    profile.join_date = dateutil.parser.parse(data['created_at'])
+    profile.location = data['location']
+    profile.name = data['name']
+    profile.username = data['screen_name']
+    profile.post_count = data['statuses_count']
+    profile.private = data['protected']
+    profile.time_zone = data['time_zone']
 
     db_session.commit()
 
-    app.queue.scrape_queue.enqueue(scrape_twitter_avatar, profile.id, avatar_url)
-    app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
+    # Schedule follow up jobs.
+    avatar_job = app.queue.scrape_queue.enqueue(
+        scrape_twitter_avatar,
+        profile.id,
+        data['profile_image_url_https']
+    )
+    avatar_job.meta['description'] = 'Getting avatar image for "{}" on "{}"' \
+                                     .format(username, 'twitter')
+    avatar_job.save()
 
-    data['id'] = profile.id
+    index_job = app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
+    index_job.meta['description'] = 'Indexing profile "{}" on "{}"' \
+                                     .format(username, 'twitter')
+    index_job.save()
 
-    return data
+    return profile.as_dict()
 
 
 def scrape_twitter_avatar(id_, url):
@@ -149,6 +149,12 @@ def scrape_twitter_avatar(id_, url):
 
     redis = worker.get_redis()
     db_session = worker.get_session()
+
+    # Twitter points you to a scaled image by default, but we can get the
+    # original resolution by removing "_normal" from the URL.
+    #
+    # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
+    url = url.replace('_normal', '')
 
     # Download image. (Twitter doesn't require authentication for static assets.)
     response = requests.get(url, stream=True)
@@ -175,72 +181,3 @@ def scrape_twitter_avatar(id_, url):
 
     db_session.commit()
     redis.publish('avatar', json.dumps({'id': id_, 'url': '/api/file/' + str(file_.id)}))
-
-
-def _login_twitter(username, password):
-    ''' Log into a Twitter account. '''
-
-    redis = worker.get_redis()
-    saved_session = redis.get('twitter_session')
-
-    if saved_session is not None:
-        try:
-            session = pickle.loads(saved_session)
-            return session
-        except:
-            pass
-
-    session = requests.Session()
-    twitter_url = 'https://twitter.com'
-    home_url = '{}/login'.format(twitter_url)
-    home_response = session.get(home_url)
-
-    if home_response.status_code != 200:
-        raise ValueError(
-            'Not able to fetch Twitter login page ({})'
-            .format(home_response.status_code)
-        )
-
-    page = bs4.BeautifulSoup(home_response.text, 'html.parser')
-    csrf_selector = 'input[name=authenticity_token]'
-    csrf_elements = page.select(csrf_selector)
-
-    if len(csrf_elements) == 0:
-        raise ValueError(
-            'Expected >=1 elements matching selector "{}", found 0 instead.'
-            .format(csrf_selector)
-        )
-
-    # There may be more than one CSRF element but they should all have the same
-    # value, so we arbitrarily take the first one.
-    csrf_token = csrf_elements[0]['value']
-    login_url = '{}/sessions'.format(twitter_url)
-    payload = {
-        'authenticity_token': csrf_token,
-        'session[username_or_email]': username,
-        'session[password]': password,
-        'remember_me': '1',
-        'return_to_ssl': 'true',
-    }
-
-    login_response = session.post(login_url,
-                                  data=payload,
-                                  allow_redirects=False)
-
-    if login_response.status_code != 302:
-        raise ValueError(
-            'Not able to log in to Twitter {}'
-            .format(login_response.status_code)
-        )
-    elif login_response.headers['Location'].startswith(home_url):
-        # This indicates that we're being redirected to the login form, e.g.
-        # an unsuccessful login attemp.
-        raise click.ClickException(
-            'Not able to log in to Twitter: probably a bad username or password ({})'
-            .format(login_response.status_code)
-        )
-
-    saved_session = pickle.dumps(session)
-    redis.set('twitter_session', saved_session)
-
-    return session

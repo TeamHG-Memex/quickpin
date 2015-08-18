@@ -39,24 +39,29 @@ class Profile(Base):
 
     __tablename__ = 'profile'
     __table_args__ = (
-        UniqueConstraint('site', 'original_id', name='uk_site_original_id'),
+        UniqueConstraint('site', 'upstream_id', name='uk_site_upstream_id'),
     )
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
     site = Column(Enum(*SOCIAL_SITES.keys(), name='social_site'), nullable=False)
-    original_id = Column(String(255), nullable=False) # ID assigned by social site
-    description = Column(Text)
-    post_count = Column(Integer)
-    friend_count = Column(Integer)
-    follower_count = Column(Integer)
-    join_date = Column(DateTime)
-    join_date_is_exact = Column(Boolean)
-    last_update = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    upstream_id = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=False)
 
-    # One profile has 1-n names.
-    names = relationship(
-        'ProfileName',
+    description = Column(Text)
+    follower_count = Column(Integer)
+    friend_count = Column(Integer)
+    join_date = Column(DateTime)
+    last_update = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    lang = Column(String(255))
+    location = Column(Text)
+    name = Column(String(255))
+    post_count = Column(Integer)
+    private = Column(Boolean)
+    time_zone = Column(Text)
+
+    # One profile has 1-n usernames.
+    usernames = relationship(
+        'ProfileUsername',
         backref='profile',
         cascade='all,delete-orphan'
     )
@@ -91,19 +96,39 @@ class Profile(Base):
         secondaryjoin=(id==profile_join_self.c.follower_id)
     )
 
-    def __init__(self, site, original_id, profile_name):
+    def __init__(self, site, upstream_id, username):
         ''' Constructor. '''
 
         self.site = site
-        self.original_id = original_id
-        self.last_updated = datetime.now()
+        self.upstream_id = upstream_id
 
-        if isinstance(profile_name, ProfileName):
-            self.name = profile_name.name
-            self.names.append(profile_name)
+        if isinstance(username, ProfileUsername):
+            self.username = username.username
+            self.usernames.append(username)
         else:
-            self.name = profile_name
-            self.names.append(ProfileName(profile_name))
+            self.username = username
+            self.usernames.append(ProfileUsername(username))
+
+    def as_dict(self):
+        ''' Return dictionary representation of this profile. '''
+
+        return {
+            'description': self.description,
+            'follower_count': self.follower_count,
+            'friend_count': self.friend_count,
+            'id': self.id,
+            'join_date': self.join_date and self.join_date.isoformat(),
+            'last_update': self.last_update.replace(microsecond=0).isoformat(),
+            'location': self.location,
+            'name': self.name,
+            'post_count': self.post_count,
+            'private': self.private,
+            'site': self.site,
+            'site_name': self.site_name(),
+            'upstream_id': self.upstream_id,
+            'username': self.username,
+            'time_zone': self.time_zone,
+        }
 
     def site_name(self):
         ''' Human readable name for site. '''
@@ -111,29 +136,29 @@ class Profile(Base):
         return SOCIAL_SITES[self.site]
 
 
-class ProfileName(Base):
-    ''' A name for a profile. (A profile can have many names.) '''
+class ProfileUsername(Base):
+    ''' A profile can have many usernames. '''
 
-    __tablename__ = 'profile_name'
+    __tablename__ = 'profile_username'
     __table_args__ = (
-        UniqueConstraint('name', 'profile_id', name='uk_name_profile_id'),
+        UniqueConstraint('username', 'profile_id', name='uk_username_profile_id'),
     )
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    username = Column(String(255))
     start_date = Column(DateTime)
     end_date = Column(DateTime)
 
     profile_id = Column(
         Integer,
-        ForeignKey('profile.id', name='fk_profile_name'),
+        ForeignKey('profile.id', name='fk_profile_username_id'),
         nullable=False
     )
 
-    def __init__(self, name, start_date=None, end_date=None):
+    def __init__(self, username, start_date=None, end_date=None):
         ''' Constructor. '''
 
-        self.name = name
+        self.username = username
 
         if start_date is not None:
             if isinstance(start_date, datetime):

@@ -8,51 +8,58 @@ class Profile {
     List<String> avatarUrls;
     int id;
     String site, siteName;
-    String originalId;
     String description;
-    int friendCount, followerCount, postCount;
+    int followerCount;
+    int friendCount;
     DateTime joinDate;
-    bool joinDateIsExact;
     DateTime lastUpdate;
     String name;
-    List<ProfileName> names;
+    int postCount;
+    bool private;
+    String timeZone;
+    String upstreamId;
+    String username;
+    List<ProfileUsername> usernames;
 
     // Errors related to creating or loading this profile.
     String error;
 
-    Profile(String name, String site) {
+    Profile(String username, String site) {
         this.avatarUrls = new List<String>();
-        this.name = name;
+        this.username = username;
         this.site = site;
     }
 
     Profile.fromJson(Map json) {
         this.avatarUrls = json['avatar_urls'];
         this.description = json['description'];
-        this.friendCount = json['friend_count'];
         this.followerCount = json['follower_count'];
+        this.friendCount = json['friend_count'];
         this.id = json['id'];
-        this.lastUpdate = json['last_update'];
-        this.name = json['name'];
-
-        if (json['names'] != null) {
-            this.names = new List.generate(
-                json['names'].length,
-                (index) => new ProfileName.fromJson(json['names'][index])
-            );
-        }
-
-        this.originalId = json['original_id'];
-        this.postCount = json['post_count'];
 
         if (json['join_date'] != null) {
             this.joinDate = DateTime.parse(json['join_date']);
         }
 
-        this.joinDateIsExact = json['join_date_is_exact'];
+        if (json['last_update'] != null) {
+            this.lastUpdate = DateTime.parse(json['last_update']);
+        }
+
+        this.name = json['name'];
+        this.postCount = json['post_count'];
+        this.private = json['private'];
         this.site = json['site'];
         this.siteName = json['site_name'];
+        this.timeZone = json['time_zone'];
+        this.upstreamId = json['original_id'];
+        this.username = json['username'];
 
+        if (json['usernames'] != null) {
+            this.usernames = new List.generate(
+                json['usernames'].length,
+                (index) => new ProfileUsername.fromJson(json['usernames'][index])
+            );
+        }
     }
 
     /// Return the name of a Font Awesome icon class for this profile's site.
@@ -65,16 +72,16 @@ class Profile {
     }
 }
 
-/// A profile can have multiple names. This class encapsulates attributes of
-/// a profile name.
-class ProfileName {
-    String name;
+/// A profile can have multiple usernames. This class encapsulates attributes of
+/// a profile username.
+class ProfileUsername {
+    String username;
     DateTime startDate, endDate;
 
-    ProfileName(this.name);
+    ProfileUsername(this.username);
 
-    ProfileName.fromJson(Map json) {
-        this.name = json['name'];
+    ProfileUsername.fromJson(Map json) {
+        this.username = json['username'];
 
         if (json['start_date'] != null) {
             this.startDate = DateTime.parse(json['start_date']);

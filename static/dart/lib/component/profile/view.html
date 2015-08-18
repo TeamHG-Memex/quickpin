@@ -2,7 +2,7 @@
 
 <h1>
   <span ng-show='profile == null'>Loading profile</span>
-  <span ng-show='profile != null'>{{profile.name}}</span>
+  <span ng-show='profile != null'>{{profile.username}}</span>
   <small ng-show='profile != null'>on {{profile.site}}</small>
   <img ng-show='loading > 0' src='/static/img/spinner-blue-on-white.gif'>
 </h1>
@@ -13,7 +13,7 @@
       <figure class='avatar'>
         <img ng-src='{{avatarUrl(profile)}}'>
         <figcaption>
-          <strong>{{profile.name}}</strong>
+          <strong>{{profile.username}}</strong>
           on
           <strong>{{profile.site}}</strong>
         </figcaption>
@@ -23,32 +23,32 @@
     <div class='col-md-8'>
       <p>
         <strong>Description:</strong> {{profile.description}}<br>
-        <strong>Friend Count:</strong> {{profile.friendCount}}<br>
-        <strong>Follower Count:</strong> {{profile.followerCount}}<br>
-        <strong>Post Count:</strong> {{profile.postCount}}
+        <strong>Friend Count:</strong> {{profile.friendCount | number}}<br>
+        <strong>Follower Count:</strong> {{profile.followerCount | number}}<br>
+        <strong>Post Count:</strong> {{profile.postCount | number}}
       </p>
 
       <p>
-        <em>This profile is associated with the following names:</em>
+        <em>This profile is associated with the following usernames:</em>
       </p>
 
       <table class='table table-striped'>
         <thead>
           <tr>
-            <th>Name</th>
+            <th>Usernames</th>
             <th>Start Date</th>
             <th>End Date</th>
           </tr>
         </thead>
         <tbody>
-          <tr ng-show='profile.names.length == 0'>
-            <td colspan='100' class='no-rows'>No names found.</td>
+          <tr ng-show='profile.usernames.length == 0'>
+            <td colspan='100' class='no-rows'>No usernames found.</td>
           </tr>
 
-          <tr ng-repeat='profileName in profile.names'>
-            <td>{{profileName.name }}</td>
-            <td>{{profileName.startDate != null ? (profileName.startDate | date) : 'N/A'}}</td>
-            <td>{{profileName.endDate != null ? (profileName.endDate | date) : 'N/A'}}</td>
+          <tr ng-repeat='profileUsername in profile.usernames'>
+            <td>{{profileUsername.username }}</td>
+            <td>{{profileUsername.startDate != null ? (profileUsername.startDate | date) : 'N/A'}}</td>
+            <td>{{profileUsername.endDate != null ? (profileUsername.endDate | date) : 'N/A'}}</td>
           </tr>
         </tbody>
       </table>

@@ -14,12 +14,15 @@ class LargeNumberFormatter {
     };
 
     String call(num numberToFormat, [num decimals=0]) {
-        num intermediate;
+        if (numberToFormat == null) {
+            return null;
+        }
 
         for (num size in LargeNumberFormatter.suffixes.keys) {
             if (numberToFormat > size) {
-                intermediate = (numberToFormat / size).toStringAsFixed(decimals);
-                return intermediate + LargeNumberFormatter.suffixes[size];
+                num round = (numberToFormat / size).toStringAsFixed(decimals);
+                String suffix = LargeNumberFormatter.suffixes[size];
+                return '$round$suffix';
             }
         }
 
