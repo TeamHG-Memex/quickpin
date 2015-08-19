@@ -89,7 +89,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
             this.newProfilesMap['twitter'] = new Map<String, Profile>();
         }
 
-        this.newProfilesMap['twitter'][this.newProfile] = profile;
+        this.newProfilesMap['twitter'][this.newProfile.toLowerCase()] = profile;
 
         // Update layout after Angular finishes next digest cycle.
         new Timer(new Duration(milliseconds: 100), () {
@@ -148,7 +148,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Listen for profile updates.
     void profileListener(Event e) {
         Map json = JSON.decode(e.data);
-        Profile profile = this.newProfilesMap[json['site']][json['username']];
+        String username = json['username'].toLowerCase();
+        Profile profile = this.newProfilesMap[json['site']][username];
 
         if (json['error'] == null) {
             profile.id = json['id'];
@@ -156,10 +157,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.friendCount = json['friend_count'];
             profile.followerCount = json['follower_count'];
             profile.postCount = json['post_count'];
+            profile.username = json['username'];
 
-            print('profile listener adding id=${json["id"]}');
             this.idProfilesMap[json['id']] = profile;
-            this.newProfilesMap[json['site']].remove(json['username']);
+            this.newProfilesMap[json['site']].remove(username);
         } else {
             profile.error = json['error'];
         }
