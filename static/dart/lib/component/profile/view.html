@@ -11,23 +11,71 @@
   <div class='row'>
     <div class='col-md-4'>
       <figure class='avatar'>
-        <img ng-src='{{avatarUrl(profile)}}'>
+        <a href='{{avatarUrl(profile)}}'
+           target='_blank'
+           title='Click to download avatar image.'>
+          <img ng-src='{{avatarUrl(profile)}}'>
+        </a>
         <figcaption>
-          <strong>{{profile.username}}</strong>
-          on
-          <strong>{{profile.site}}</strong>
+          <p>
+            {{profile.description}}
+          </p>
         </figcaption>
       </figure>
     </div>
 
     <div class='col-md-8'>
-      <p>
-        <strong>Description:</strong> {{profile.description}}<br>
-        <strong>Friend Count:</strong> {{profile.friendCount | number}}<br>
-        <strong>Follower Count:</strong> {{profile.followerCount | number}}<br>
-        <strong>Post Count:</strong> {{profile.postCount | number}}
-      </p>
+      <div class='row'>
+        <div class='col-sm-4'>
+          <div class='card blue'>
+            <div class='content'>{{profile.friendCount | number}}</div>
+            <div class='legend'>Friends</div>
+            <i class='fa fa-asterisk'></i>
+          </div>
+        </div>
+        <div class='col-sm-4'>
+          <div class='card green'>
+            <div class='content'>{{profile.followerCount | number}}</div>
+            <div class='legend'>Followers</div>
+            <i class='fa fa-group'></i>
+          </div>
+        </div>
+        <div class='col-sm-4'>
+          <div class='card red'>
+            <div class='content'>{{profile.postCount | number}}</div>
+            <div class='legend'>Posts</div>
+            <i class='fa fa-quote-right'></i>
+          </div>
+        </div>
+      </div>
+      <div class='row'>
+        <div class='col-sm-4'>
+          <div class='card yellow'>
+            <div class='content small'>{{profile.name}}</div>
+            <div class='legend'>Name</div>
+            <i class='fa fa-lock'></i>
+          </div>
+        </div>
+        <div class='col-sm-4'>
+          <div class='card blue'>
+            <div class='content small'>{{profile.location}}</div>
+            <div class='legend'>Location</div>
+            <i class='fa fa-map-marker'></i>
+          </div>
+        </div>
+        <div class='col-sm-4'>
+          <div class='card green'>
+            <div class='content small'>{{profile.joinDate | date:"MMM d, yyyy"}}</div>
+            <div class='legend'>Joined</div>
+            <i class='fa fa-heart'></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  <div class='row'>
+    <div class='col-sm-12'>
       <p>
         <em>This profile is associated with the following usernames:</em>
       </p>
@@ -46,7 +94,7 @@
           </tr>
 
           <tr ng-repeat='profileUsername in profile.usernames'>
-            <td>{{profileUsername.username }}</td>
+            <td>{{profileUsername.username}}</td>
             <td>{{profileUsername.startDate != null ? (profileUsername.startDate | date) : 'N/A'}}</td>
             <td>{{profileUsername.endDate != null ? (profileUsername.endDate | date) : 'N/A'}}</td>
           </tr>
@@ -90,7 +138,7 @@
       <table class='table table-striped'>
         <thead>
           <tr>
-            <th>Follwers</th>
+            <th>Followers</th>
           </tr>
         </thead>
         <tbody>

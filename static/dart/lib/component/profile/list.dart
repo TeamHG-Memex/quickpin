@@ -125,6 +125,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// error creating or fetching the profile.)
     void dismissProfileAtIndex(int index) {
         this.profiles.removeAt(index);
+        this.scope.broadcast('masonry.layout');
     }
 
     /// Trigger add profile when the user presses enter in the profile input.

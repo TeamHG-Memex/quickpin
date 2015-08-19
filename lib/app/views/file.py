@@ -28,4 +28,5 @@ class FileView(FlaskView):
         if file_ is None:
             raise NotFound('No file exists with id={}'.format(id_))
 
-        return send_from_directory(data_dir, file_.relpath(), mimetype=file_.mime)
+        return send_from_directory(data_dir, file_.relpath(),
+                                   as_attachment=True, mimetype=file_.mime)

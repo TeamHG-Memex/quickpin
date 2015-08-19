@@ -13,6 +13,7 @@ class Profile {
     int friendCount;
     DateTime joinDate;
     DateTime lastUpdate;
+    String location;
     String name;
     int postCount;
     bool private;
@@ -45,6 +46,7 @@ class Profile {
             this.lastUpdate = DateTime.parse(json['last_update']);
         }
 
+        this.location = json['location'];
         this.name = json['name'];
         this.postCount = json['post_count'];
         this.private = json['private'];

@@ -129,17 +129,20 @@
     <p ng-show='profile.description != null'>
       {{profile.description}}
     </p>
-    <p ng-show='profile.friendCount != null'>
-      <strong>Friends:</strong>
-      {{profile.friendCount | largeNumber:1}}
-    </p>
-    <p ng-show='profile.followerCount != null'>
-      <strong>Followers:</strong>
-      {{profile.followerCount | largeNumber:1}}
-    </p>
-    <p ng-show='profile.postCount != null'>
-      <strong>Posts:</strong>
-      {{profile.postCount | largeNumber:1}}
+    <div class='info' ng-show='profile.location != null'>
+      <strong class='text-muted'>Name:</strong>
+      {{profile.name}}
+    </div>
+    <div class='info' ng-show='profile.location != null'>
+      <strong class='text-muted'>Location:</strong>
+      {{profile.location}}
+    </div>
+    <p>
+      <em>
+        {{profile.friendCount | largeNumber:1}} friends,
+        {{profile.followerCount | largeNumber:1}} followers, and
+        {{profile.postCount | largeNumber:1}} posts.
+      </em>
     </p>
   </div>
 </masonry>
