@@ -34,7 +34,8 @@ import 'package:quickpin/component/title.dart';
 import 'package:quickpin/component/user/list.dart';
 import 'package:quickpin/component/user/view.dart';
 import 'package:quickpin/decorator/current_route.dart';
-import 'package:quickpin/formatter/large_number.dart';
+import 'package:quickpin/formatter/date.dart';
+import 'package:quickpin/formatter/number.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/router.dart';
 import 'package:quickpin/sse.dart';
@@ -66,6 +67,7 @@ class QuickPinApplication extends Module {
         bind(GripComponent);
         bind(HeatmapComponent);
         bind(HomeComponent);
+        bind(IsoDateFormatter);
         bind(LargeNumberFormatter);
         bind(LoginComponent);
         bind(MarkdownComponent);

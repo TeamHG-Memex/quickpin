@@ -79,17 +79,19 @@ class SearchView(FlaskView):
                         ["2014-08-01T00:00:00Z", 4],
                         ...
                     ],
-                    "profile_name_s": [
+                    "site_name_s": [
+                        ["twitter", 181],
+                        ["instagram", 90],
+                        ...
+                    ],
+                    "username_s": [
                         ["johndoe", 46],
                         ["janedoe", 30],
                         ["maurice.moss", 17],
                         ["jen.barber", 15],
                         ...
                     ],
-                    "site_name_s": [
-                        ["twitter", 181],
-                        ["instagram", 90]
-                    ],
+                    ...
                 },
                 "results": [
                     {
@@ -101,13 +103,13 @@ class SearchView(FlaskView):
                         "friend_count": 213,
                         "id": "Profile:1",
                         "post_count": 1653,
-                        "profile_name": {
-                            "highlighted": [false],
-                            "text": ["mehaase"]
-                        },
                         "site": {
                             "highlighted": [false],
                             "text": ["twitter"]
+                        },
+                        "username": {
+                            "highlighted": [false],
+                            "text": ["mehaase"]
                         }
                     },
                     ...
@@ -150,8 +152,10 @@ class SearchView(FlaskView):
 
         highlight_fields = [
             'description_txt_en',
-            'profile_name_s',
+            'location_txt_en',
+            'name_txt_en',
             'site_name_s',
+            'username_s',
         ]
 
         highlight_options = {
@@ -165,16 +169,20 @@ class SearchView(FlaskView):
         # specified as a list.
         aliases = {
             'description': ['description_txt_en'],
-            'joined': ['join_date_tdt'],
+            'location': ['location_txt_en'],
+            'name': ['name_txt_en', 'username_s'],
             'site': ['site_name_s'],
-            'profile': ['profile_name_s'],
         }
 
-        # Boost fields. E.g. a match to a post title ranks a result higher
-        # than a match to the post body.
+        # Boost fields. E.g. a match to a username ranks a result higher
+        # than a match to the user's description.
         boosts = {
-            'profile_name_s': 3,
+            'name_txt_en': 3,
+            'username_s': 3,
             'description_txt_en': 2,
+            'location_txt_en': 2,
+            'site_name_s': 1,
+            'time_zone_txt_en': 1,
         }
 
         search = g.solr.query(DismaxString(query)) \
@@ -196,6 +204,7 @@ class SearchView(FlaskView):
         highlights = response.highlighting
 
         for doc in response:
+            print(doc)
             formatter = formatters[doc['type_s']]
             results.append(formatter(doc, highlights))
 
@@ -218,7 +227,7 @@ class SearchView(FlaskView):
 
         # Tell Solr to generate facets on these fields.
         query = query.facet_by('site_name_s', mincount=1) \
-                     .facet_by('profile_name_s', mincount=1) \
+                     .facet_by('username_s', mincount=1) \
                      .facet_range(fields='join_date_tdt',
                                   start='NOW-120MONTHS/MONTH',
                                   end='NOW/MONTH',
@@ -251,26 +260,33 @@ class SearchView(FlaskView):
 
         id_ = doc['id']
         description = self._highlight(doc, highlights[id_], 'description_txt_en')
-        profile_name = self._highlight(doc, highlights[id_], 'profile_name_s')
+        location = self._highlight(doc, highlights[id_], 'location_txt_en')
+        name = self._highlight(doc, highlights[id_], 'name_txt_en')
         site_name = self._highlight(doc, highlights[id_], 'site_name_s')
+        username = self._highlight(doc, highlights[id_], 'username_s')
 
         formatted = {
             'description': description,
             'friend_count': doc['friend_count_i'],
             'follower_count': doc['follower_count_i'],
             'id': id_,
-            'profile_name': profile_name,
+            'location': location,
+            'name': name,
             'post_count': doc['post_count_i'],
             'site': site_name,
             'type': doc['type_s'],
+            'username': username,
         }
 
         if 'join_date_tdt' in doc:
-            formatted['joined'] = doc['join_date_tdt'],
+            formatted['joined'] = doc['join_date_tdt']
+
+        if 'last_update_tdt' in doc:
+            formatted['updated'] = doc['last_update_tdt']
 
         return formatted
 
-    def _highlight(self, doc, highlights, field, chars=100):
+    def _highlight(self, doc, highlights, field, chars=200):
         '''
         Convert highlight data from Solr's insane format to a sane format.
 
@@ -311,6 +327,8 @@ class SearchView(FlaskView):
 
         elif field in doc:
             pattern = r'(.{,%d})\s?' % chars
+            print(pattern)
+            print(doc[field])
             match = re.match(pattern, doc[field])
 
             if match:

@@ -40,13 +40,13 @@
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("profile_name_s")'>
-            Profile Name <span class='pull-right'>(A → Z)</span>
+          <a ng-click='sortBy("username_s")'>
+            Username <span class='pull-right'>(A → Z)</span>
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("-profile_name_s")'>
-            Profile Name <span class='pull-right'>(Z → A)</span>
+          <a ng-click='sortBy("-username_s")'>
+            Username <span class='pull-right'>(Z → A)</span>
           </a>
         </li>
       </ul>
@@ -132,12 +132,21 @@
         <p>
           <span class='content-type'><i class='fa fa-user'></i> Profile</span>
           <a href='/dark-user/{{result["id"]}}'>
-            <excerpt text='result["profile_name"]'></excerpt></a>
+            <excerpt text='result["username"]'></excerpt></a>
           on
-          <a href='/dark-site/{{result["site"]["id"]}}'>
-            <excerpt text='result["site"]'></excerpt></a>
-          <span class='content-type'>Description:</span>
+          <excerpt text='result["site"]'></excerpt>
+          <span ng-show='result["name"] != null'>
+            <span class='content-type'>Name</span>
+            <excerpt text='result["name"]'></excerpt></a>
+          </span>
+          <span class='content-type'>Description</span>
           <excerpt text='result["description"]'></excerpt></a>
+          <span ng-show='result["location"] != null'>
+            <span class='content-type'>Location</span>
+            <excerpt text='result["location"]'></excerpt></a>
+          </span>
+          <span class='content-type'>Joined:</span>
+          {{result['joined'] | isoDate:'yMMMd'}}
         </p>
       </div>
 
@@ -157,14 +166,14 @@
         The search engine will return records that match <em>any of your
         keywords</em>, and it is <em>case insensitive</em>. It automatically
         finds words related to your terms. For example, if you search for
-        <code>ship boat</code>, it will match documents containing any of the
+        <code>ship boat</code>, it will match items containing any of the
         following words: "ship", "shipped", "shipping", "ships", "boat",
         "boats", etc.
       </p>
       <p>
         The search engine searches through posts, site names, usernames, etc.
-        and it matches text in <em>any part of a record</em>, such as the
-        title, body, and/or username. (If you want to scope the search to a
+        and it matches text in <em>any part of a record</em>, such as
+        name, site, and/or description. (If you want to scope the search to a
         specific part of the record, see the <em>Advanced Search</em> tips.)
       </p>
     </div>
@@ -187,23 +196,21 @@
         The following scopes exist:
       </p>
       <ul>
-        <li><code>body</code> The body of a post.</li>
-        <li><code>host</code> The hostname of a site, e.g. company.com.</li>
-        <li><code>site</code> The name of the site.</li>
-        <li><code>title</code> The title of a post.</li>
-        <li><code>username</code> The username of the post's author.</li>
+        <li><code>description</code> Description of a profile.</li>
+        <li><code>name</code> The full name or username of a profile.</li>
+        <li><code>site</code> The name of the social network site.</li>
       </ul>
       <p>
         Quotation marks may be used in conjunction with scopes:
-        <code>body:"captain of the ship"</code> will match posts that contain
+        <code>post:"captain of the ship"</code> will match posts that contain
         the exact phrase "captain of the ship" in the post body. (Quotation
         marks are ignored when not used in conjunction with a scope.)
       </p>
       <p>
         Finally, there is limited support for wildcards. Wildcards may only
         be used at the end of a word in order to match all words with the
-        same prefix. For example, <code>username:da*</code> will match all
-        usernames that begin with "da", such as "dan", "darren", "daryl", etc.
+        same prefix. For example, <code>name:da*</code> will match all
+        names that begin with "da", such as "dan", "darren", "daryl", etc.
       </p>
     </div>
   </div>
