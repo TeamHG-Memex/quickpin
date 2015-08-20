@@ -78,6 +78,11 @@ def get_sort_arguments(args, default, allowed_fields):
     return sort_columns
 
 
+def isodate(datetime_):
+    ''' Convert datetime to ISO-8601 without microseconds. '''
+    return datetime_.replace(microsecond=0).isoformat()
+
+
 def heatmap_column(column, hour, weekday):
     '''
     Return a SQL query column for counting records for a heatmap.

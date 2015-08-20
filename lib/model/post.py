@@ -4,8 +4,8 @@ import dateutil.parser
 import os
 import re
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, \
-                       Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Float, \
+                       func, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 import app.config
@@ -26,9 +26,17 @@ class Post(Base):
     __tablename__ = 'post'
 
     id = Column(Integer, primary_key=True)
+    upstream_id = Column(String(255), nullable=False)
+    upstream_created = Column(DateTime)
+    last_update = Column(
+        DateTime,
+        default=func.current_timestamp(),
+        onupdate=func.current_timestamp()
+    )
     content = Column(Text)
-    post_date = Column(DateTime)
-    post_date_is_exact = Column(Boolean)
+    language = Column(String(255))
+    longitude = Column(Float)
+    latitude = Column(Float)
 
     # Each post has 1 author.
     author_id = Column(
@@ -44,14 +52,10 @@ class Post(Base):
         secondary=file_join_post
     )
 
-    def __init__(self, content, post_date, post_date_is_exact):
+    def __init__(self, author, upstream_id, upstream_created, content):
         ''' Constructor. '''
 
+        self.author = author
+        self.upstream_id = upstream_id
+        self.upstream_created = upstream_created
         self.content = content
-
-        if isinstance(post_date, datetime):
-            self.post_date = post_date
-        else:
-            self.post_date = dateutil.parser.parse(post_date)
-
-        self.post_date_is_exact = post_date_is_exact

@@ -6,6 +6,7 @@ import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/title.dart';
+import 'package:quickpin/model/post.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:bootjack/bootjack.dart';
@@ -22,6 +23,7 @@ class ProfileComponent {
     List<Breadcrumb> crumbs;
     int id;
     int loading = 0;
+    List<Post> posts;
     Profile profile;
 
     final RestApiController _api;
@@ -39,7 +41,8 @@ class ProfileComponent {
             new Breadcrumb(this.id.toString()),
         ];
 
-        this._fetchProfile();
+        this._fetchProfile()
+            .then((_) => this._fetchPosts());
     }
 
     /// Return a URL for a profile's avatar image.
@@ -51,6 +54,30 @@ class ProfileComponent {
         } else {
             return '/static/img/default_user_thumb_large.png';
         }
+    }
+
+    /// Fetch recent posts for this profile.
+    Future _fetchPosts() {
+        Completer completer = new Completer();
+        this.loading++;
+        String url = '/api/profile/${this.id}/posts';
+        Map urlArgs = {'page': 1, 'rpp': 5};
+
+        this._api
+            .get(url, urlArgs: urlArgs, needsAuth: true)
+            .then((response) {
+                List jsonPosts = response.data['posts'];
+                this.posts = new List<Post>.generate(jsonPosts.length, (index) {
+                    return new Post.fromJson(jsonPosts[index]);
+                });
+                window.console.log(this.posts);
+            })
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
     }
 
     /// Fetch data about this profile.

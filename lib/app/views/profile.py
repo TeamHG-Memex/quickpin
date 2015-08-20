@@ -12,9 +12,9 @@ from werkzeug.exceptions import BadRequest, Conflict, NotFound
 from app.authorization import login_required
 import app.database
 from app.queue import scrape_queue
-from app.rest import get_int_arg, get_paging_arguments, get_sort_arguments, \
-                     heatmap_column, url_for
-from model import Profile
+from app.rest import get_int_arg, get_paging_arguments, \
+                     get_sort_arguments, heatmap_column, isodate, url_for
+from model import Post, Profile
 import worker.scrape
 
 
@@ -141,6 +141,82 @@ class ProfileView(FlaskView):
 
         # Send response.
         return jsonify(**response)
+
+    @route('/<id_>/posts')
+    def get_posts(self, id_):
+        '''
+        Return an array of posts by this profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+              "posts": [
+                {
+                  "content": "If your #Tor relay is stolen or you lose control of it, please report it so we can blacklist it: https://t.co/imVnrh1FbD @TorProject",
+                  "id": 4,
+                  "language": "en",
+                  "last_update": "2015-08-19T18:17:07",
+                  "location": [
+                    null,
+                    null
+                  ],
+                  "upstream_created": "2014-11-07T16:24:05",
+                  "upstream_id": "530878388605423616"
+                },
+                ...
+              ]
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+        :>header Content-Type: application/json
+        :>json list posts Array of post objects.
+        :>json str posts[n].content Text content of the post.
+        :>json int posts[n].id Unique identifier for post.
+        :>json str posts[n].language Language of post, e.g. 'en'.
+        :>json str posts[n].last_update The date and time that this record was
+            updated from the social media site.
+        :>json str posts[n].location 2-element array of longitude and latitude.
+        :>json str posts[n].upstream_created The date this was posted.
+        :>json str posts[n].upstream_id The unique identifier assigned by the
+        social media site.
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
+        '''
+
+        page, results_per_page = get_paging_arguments(request.args)
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile exists for id={}.'.format(id_))
+
+        posts = list()
+        post_query = g.db.query(Post) \
+                         .filter(Post.author_id == id_) \
+                         .limit(results_per_page) \
+                         .offset((page - 1) * results_per_page)
+
+
+        for post in post_query:
+            posts.append({
+                'content': post.content,
+                'id': post.id,
+                'language': post.language,
+                'last_update': isodate(post.last_update),
+                'location': (post.longitude, post.latitude),
+                'upstream_created': isodate(post.upstream_created),
+                'upstream_id': post.upstream_id,
+            })
+
+        return jsonify(posts=posts)
 
     def index(self):
         '''

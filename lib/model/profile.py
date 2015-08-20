@@ -4,8 +4,8 @@ import dateutil.parser
 import os
 import re
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, func, \
-                       Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, \
+                       func, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 import app.config
@@ -51,7 +51,11 @@ class Profile(Base):
     follower_count = Column(Integer)
     friend_count = Column(Integer)
     join_date = Column(DateTime)
-    last_update = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    last_update = Column(
+        DateTime,
+        default=func.current_timestamp(),
+        onupdate=func.current_timestamp()
+    )
     lang = Column(String(255))
     location = Column(Text)
     name = Column(String(255))
@@ -106,8 +110,11 @@ class Profile(Base):
             self.username = username.username
             self.usernames.append(username)
         else:
+            now = datetime.now()
             self.username = username
-            self.usernames.append(ProfileUsername(username))
+            self.usernames.append(
+                ProfileUsername(username, start_date=now, end_date=now)
+            )
 
     def as_dict(self):
         ''' Return dictionary representation of this profile. '''

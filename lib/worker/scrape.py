@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Configuration, File, Profile
+from model import Configuration, File, Post, Profile
 import worker
 import worker.index
 
@@ -66,6 +66,22 @@ def scrape_account(site, username):
         raise
 
 
+def _get_proxies(db):
+    ''' Get a dictionary of proxy information from the app configuration. '''
+
+    piscina_url = db.query(Configuration) \
+                    .filter(Configuration.key=='piscina_proxy_url') \
+                    .first()
+
+    if piscina_url is None or piscina_url.value.strip() == '':
+        raise ScrapeException('No Piscina server configured.')
+
+    return {
+        'http': piscina_url.value,
+        'https': piscina_url.value,
+    }
+
+
 def _scrape_twitter_account(username):
     '''
     Scrape twitter bio data and create (or update) a profile.
@@ -77,21 +93,14 @@ def _scrape_twitter_account(username):
     # Request from Twitter API.
     db_session = worker.get_session()
 
-    piscina_url = db_session.query(Configuration) \
-                            .filter(Configuration.key=='piscina_proxy_url') \
-                            .first()
-
-    if piscina_url is None or piscina_url.value.strip() == '':
-        raise ScrapeException('No Piscina server configured.')
-
-    proxies = {
-        'http': piscina_url.value,
-        'https': piscina_url.value,
-    }
-
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
     params = {'screen_name': username}
-    response = requests.get(api_url, params=params, proxies=proxies, verify=False)
+    response = requests.get(
+        api_url,
+        params=params,
+        proxies=_get_proxies(db_session),
+        verify=False
+    )
     response.raise_for_status()
 
     # Get Twitter ID and upsert the profile.
@@ -135,8 +144,13 @@ def _scrape_twitter_account(username):
 
     index_job = app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
     index_job.meta['description'] = 'Indexing profile "{}" on "{}"' \
-                                     .format(username, 'twitter')
+                                    .format(username, 'twitter')
     index_job.save()
+
+    posts_job = app.queue.scrape_queue.enqueue(scrape_twitter_posts, profile.id)
+    posts_job.meta['description'] = 'Getting posts for "{}" on "{}"' \
+                                    .format(username, 'twitter')
+    posts_job.save()
 
     return profile.as_dict()
 
@@ -150,23 +164,18 @@ def scrape_twitter_avatar(id_, url):
     redis = worker.get_redis()
     db_session = worker.get_session()
 
-    # Twitter points you to a scaled image by default, but we can get the
-    # original resolution by removing "_normal" from the URL.
-    #
-    # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
-    url = url.replace('_normal', '')
-
-    # Download image. (Twitter doesn't require authentication for static assets.)
-    response = requests.get(url, stream=True)
-
-    if response.status_code != 200:
-        raise ValueError()
-
     profile = db_session.query(Profile).filter(Profile.id==id_).first()
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
+    # Twitter points you to a scaled image by default, but we can get the
+    # original resolution by removing "_normal" from the URL.
+    #
+    # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
+    url = url.replace('_normal', '')
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
     parsed = urllib.parse.urlparse(url)
     name = url.split('/')[-1]
 
@@ -178,6 +187,47 @@ def scrape_twitter_avatar(id_, url):
     content = response.raw.read()
     file_ = File(name=name, mime=mime, content=content)
     profile.avatars.append(file_)
-
     db_session.commit()
     redis.publish('avatar', json.dumps({'id': id_, 'url': '/api/file/' + str(file_.id)}))
+
+
+def scrape_twitter_posts(id_):
+    '''
+    Fetch tweets for the user identified by id_.
+    '''
+
+    redis = worker.get_redis()
+    db = worker.get_session()
+    author = db.query(Profile).filter(Profile.id==id_).first()
+
+    if author is None:
+        raise ValueError('No profile exists with id={}'.format(id_))
+
+    url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
+    params = {'count': 200, 'user_id': author.upstream_id}
+    response = requests.get(
+        url,
+        params=params,
+        proxies=_get_proxies(db),
+        verify=False
+    )
+    response.raise_for_status()
+
+    for tweet in response.json():
+        post = Post(
+            author,
+            tweet['id_str'],
+            dateutil.parser.parse(tweet['created_at']),
+            tweet['text']
+        )
+
+        if tweet['lang'] is not None:
+            post.language = tweet['lang']
+
+        if tweet['coordinates'] is not None:
+            post.latitude, post.longitude = tweet['coordinates']
+
+        db.add(post)
+
+    db.commit()
+    redis.publish('profile_posts', json.dumps({'id': id_}))
