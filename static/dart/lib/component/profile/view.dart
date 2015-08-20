@@ -70,7 +70,6 @@ class ProfileComponent {
                 this.posts = new List<Post>.generate(jsonPosts.length, (index) {
                     return new Post.fromJson(jsonPosts[index]);
                 });
-                window.console.log(this.posts);
             })
             .whenComplete(() {
                 this.loading--;

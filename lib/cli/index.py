@@ -10,11 +10,46 @@ import app
 import app.config
 import app.index
 import cli
-from model import Profile
+from model import Post, Profile
 
 
 class IndexCli(cli.BaseCli):
     ''' Manages the search indexes. '''
+
+    def add_posts(self, db, solr):
+        ''' Add all Post records from `db` into the index. '''
+
+        session = app.database.get_session(db)
+        query = session.query(Post, Profile) \
+                       .join(Post.author) \
+                       .order_by(Post.id)
+
+        total_count = query.count()
+        progress = 0
+        self._logger.info("Adding %d posts to the index." % total_count)
+
+        if sys.stdout.isatty():
+            pbar = self._progress_bar('Posts', total_count)
+        else:
+            pbar = None
+
+        for chunk in app.database.query_chunks(query, Post.id):
+            docs = list()
+
+            for post, author in chunk:
+                docs.append(app.index.make_post_doc(post, author))
+
+            solr.add(docs)
+            solr.commit()
+
+            if pbar is not None:
+                progress += len(chunk)
+                if progress > total_count:
+                    break
+                pbar.update(progress)
+
+        if pbar is not None:
+            pbar.finish()
 
     def add_profiles(self, db, solr):
         ''' Add all Profile records from `db` into the index. '''
@@ -54,6 +89,7 @@ class IndexCli(cli.BaseCli):
         ''' Add all documents from `db` into the index. '''
 
         model_fns = {
+            'Post': self.add_posts,
             'Profile': self.add_profiles,
         }
 

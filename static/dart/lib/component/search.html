@@ -30,13 +30,13 @@
         <li><a ng-click='sortBy(null)'>Most Relevant</a></li>
         <li class='divider'></li>
         <li>
-          <a ng-click='sortBy("site_name_s")'>
-            Site Name <span class='pull-right'>(A → Z)</span>
+          <a ng-click='sortBy("post_date_tdt")'>
+            Post Date <span class='pull-right'>(Old → New)</span>
           </a>
         </li>
         <li>
-          <a ng-click='sortBy("-site_name_s")'>
-            Site Name <span class='pull-right'>(Z → A)</span>
+          <a ng-click='sortBy("-post_date_tdt")'>
+            Post Date <span class='pull-right'>(New → Old)</span>
           </a>
         </li>
         <li>
@@ -101,12 +101,12 @@
                  ng-checked='selectedFacets[facetName][facet[0]]'
                  value='{{facet[0]}}'>
           <label class='facet-value selectable'
-                 ng-if='facetName != "join_date_tdt"'
+                 ng-if='facetName != "join_date_tdt" && facetName != "post_date_tdt"'
                  for='{{facetName}}_{{$index}}'>
             {{facetHumanValues[facet[0]] != null ? facetHumanValues[facet[0]] : facet[0]}}
           </label>
           <label class='facet-value selectable'
-                 ng-if='facetName == "join_date_tdt"'
+                 ng-if='facetName == "join_date_tdt" || facetName == "post_date_tdt"'
                  for='{{facetName}}_{{$index}}'>
             {{facet[0] | date:'yMMM'}}
           </label>
@@ -128,10 +128,29 @@
          ng-repeat='result in results'
          ng-switch='result["type"]'>
 
+      <div ng-switch-when='Post'>
+        <p>
+          <span class='content-type'><i class='fa fa-file-text-o'></i> Post</span>
+          by
+          <a href='/dark-user/{{result["profile_id"]}}'>
+            <excerpt text='result["username"]'></excerpt></a>
+          on
+          <excerpt text='result["site"]'></excerpt>
+          <span class='content-type'>Content</span>
+          <excerpt text='result["content"]'></excerpt></a>
+          <span ng-show='result["location"] != null'>
+            <span class='content-type'>Location</span>
+            <excerpt text='result["location"]'></excerpt></a>
+          </span>
+          <span class='content-type'>Posted</span>
+          {{result['posted'] | isoDate:'yyyy-MM-dd H:mm:ss'}}
+        </p>
+      </div>
+
       <div ng-switch-when='Profile'>
         <p>
           <span class='content-type'><i class='fa fa-user'></i> Profile</span>
-          <a href='/dark-user/{{result["id"]}}'>
+          <a href='/profile/{{result["profile_id"]}}'>
             <excerpt text='result["username"]'></excerpt></a>
           on
           <excerpt text='result["site"]'></excerpt>
@@ -145,7 +164,7 @@
             <span class='content-type'>Location</span>
             <excerpt text='result["location"]'></excerpt></a>
           </span>
-          <span class='content-type'>Joined:</span>
+          <span class='content-type'>Joined</span>
           {{result['joined'] | isoDate:'yMMMd'}}
         </p>
       </div>
@@ -197,7 +216,9 @@
       </p>
       <ul>
         <li><code>description</code> Description of a profile.</li>
+        <li><code>location</code> The name of the geographic location.</li>
         <li><code>name</code> The full name or username of a profile.</li>
+        <li><code>post</code> The content of a social media post.</li>
         <li><code>site</code> The name of the social network site.</li>
       </ul>
       <p>

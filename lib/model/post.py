@@ -35,8 +35,9 @@ class Post(Base):
     )
     content = Column(Text)
     language = Column(String(255))
-    longitude = Column(Float)
     latitude = Column(Float)
+    longitude = Column(Float)
+    location = Column(Text)
 
     # Each post has 1 author.
     author_id = Column(

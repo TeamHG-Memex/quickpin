@@ -106,7 +106,7 @@ def _scrape_twitter_account(username):
     # Get Twitter ID and upsert the profile.
     data = response.json()[0] # TODO Only supports getting 1 profile right now...
     user_id = data['id_str']
-    profile = Profile('twitter', user_id, username)
+    profile = Profile('twitter', user_id, data['screen_name'])
     db_session.add(profile)
 
     try:
@@ -125,7 +125,6 @@ def _scrape_twitter_account(username):
     profile.join_date = dateutil.parser.parse(data['created_at'])
     profile.location = data['location']
     profile.name = data['name']
-    profile.username = data['screen_name']
     profile.post_count = data['statuses_count']
     profile.private = data['protected']
     profile.time_zone = data['time_zone']
@@ -139,17 +138,17 @@ def _scrape_twitter_account(username):
         data['profile_image_url_https']
     )
     avatar_job.meta['description'] = 'Getting avatar image for "{}" on "{}"' \
-                                     .format(username, 'twitter')
+                                     .format(profile.username, profile.site_name())
     avatar_job.save()
 
     index_job = app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
     index_job.meta['description'] = 'Indexing profile "{}" on "{}"' \
-                                    .format(username, 'twitter')
+                                    .format(profile.username, profile.site_name())
     index_job.save()
 
     posts_job = app.queue.scrape_queue.enqueue(scrape_twitter_posts, profile.id)
     posts_job.meta['description'] = 'Getting posts for "{}" on "{}"' \
-                                    .format(username, 'twitter')
+                                    .format(profile.username, profile.site_name())
     posts_job.save()
 
     return profile.as_dict()
@@ -213,6 +212,8 @@ def scrape_twitter_posts(id_):
     )
     response.raise_for_status()
 
+    post_ids = list()
+
     for tweet in response.json():
         post = Post(
             author,
@@ -227,7 +228,37 @@ def scrape_twitter_posts(id_):
         if tweet['coordinates'] is not None:
             post.latitude, post.longitude = tweet['coordinates']
 
+        place = tweet['place']
+
+        if place is not None:
+            # Set longitude/latitude to the center the of bounding polygon.
+            total_lon = 0
+            total_lat = 0
+            num_coords = 0
+
+            for lon, lat in place['bounding_box']['coordinates'][0]:
+                total_lon += lon
+                total_lat += lat
+                num_coords += 1
+
+            post.longitude = total_lon / num_coords
+            post.latitude = total_lat / num_coords
+
+            # Set location to string identifying the place.
+            post.location = '{}, {}'.format(
+                place['full_name'],
+                place['country']
+            )
+
         db.add(post)
+        db.flush()
+        post_ids.append(post.id)
 
     db.commit()
     redis.publish('profile_posts', json.dumps({'id': id_}))
+
+    # Schedule follow up jobs.
+    index_job = app.queue.index_queue.enqueue(worker.index.index_posts, post_ids)
+    index_job.meta['description'] = 'Indexing posts by {} on {}' \
+                                    .format(author.username, author.site_name())
+    index_job.save()

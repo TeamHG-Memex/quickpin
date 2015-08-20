@@ -20,11 +20,18 @@ class SearchComponent {
     String error = '';
     bool loading = false;
     Map allFacets, facets, topFacets;
-    List facetNames = ['type_s', 'site_name_s', 'profile_name_s', 'join_date_tdt'];
+    List facetNames = [
+        'type_s',
+        'site_name_txt_en',
+        'username_s',
+        'post_date_tdt',
+        'join_date_tdt',
+    ];
     Map facetHumanNames = {
         'join_date_tdt': 'Joined Date',
-        'profile_name_s': 'Profile Name',
-        'site_name_s': 'Site Name',
+        'post_date_tdt': 'Post Date',
+        'username_s': 'Profile Name',
+        'site_name_txt_en': 'Site Name',
         'type_s': 'Type',
     };
     Map facetHumanValues = {
@@ -275,9 +282,10 @@ class SearchComponent {
         // Parse facet URL args.
         this.selectedFacets = {
             'join_date_tdt': {},
-            'site_name_s': {},
+            'post_date_tdt': {},
+            'site_name_txt_en': {},
             'type_s': {},
-            'profile_name_s': {},
+            'username_s': {},
         };
 
         this.selectedFacetCount = 0;
@@ -313,10 +321,10 @@ class SearchComponent {
         this.sort = this._getQPString(qp['sort']);
 
         Map sortDescriptions = {
-            'site_name_s': 'Site Name (A→Z)',
-            '-site_name_s': 'Site Name (Z→A)',
-            'profile_name_s': 'Profile Name (A→Z)',
-            '-profile_name_s': 'Profile Name (Z→A)',
+            'post_date_tdt': 'Post Date (Old→New)',
+            '-post_date_tdt': 'Post Date (New→Old)',
+            'username_s': 'Username (A→Z)',
+            '-username_s': 'Username (Z→A)',
         };
 
         if (sortDescriptions.containsKey(this.sort)) {

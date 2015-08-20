@@ -79,7 +79,7 @@ class SearchView(FlaskView):
                         ["2014-08-01T00:00:00Z", 4],
                         ...
                     ],
-                    "site_name_s": [
+                    "site_name_txt_en": [
                         ["twitter", 181],
                         ["instagram", 90],
                         ...
@@ -140,6 +140,7 @@ class SearchView(FlaskView):
         '''
 
         formatters = {
+            'Post': self._format_post,
             'Profile': self._format_profile,
         }
 
@@ -151,10 +152,11 @@ class SearchView(FlaskView):
         start_row = (page - 1) * results_per_page
 
         highlight_fields = [
+            'content_txt_en',
             'description_txt_en',
             'location_txt_en',
             'name_txt_en',
-            'site_name_s',
+            'site_name_txt_en',
             'username_s',
         ]
 
@@ -171,7 +173,8 @@ class SearchView(FlaskView):
             'description': ['description_txt_en'],
             'location': ['location_txt_en'],
             'name': ['name_txt_en', 'username_s'],
-            'site': ['site_name_s'],
+            'post': ['content_txt_en'],
+            'site': ['site_name_txt_en'],
         }
 
         # Boost fields. E.g. a match to a username ranks a result higher
@@ -181,7 +184,8 @@ class SearchView(FlaskView):
             'username_s': 3,
             'description_txt_en': 2,
             'location_txt_en': 2,
-            'site_name_s': 1,
+            'content_txt_en': 1,
+            'site_name_txt_en': 1,
             'time_zone_txt_en': 1,
         }
 
@@ -204,7 +208,6 @@ class SearchView(FlaskView):
         highlights = response.highlighting
 
         for doc in response:
-            print(doc)
             formatter = formatters[doc['type_s']]
             results.append(formatter(doc, highlights))
 
@@ -226,9 +229,15 @@ class SearchView(FlaskView):
         ''' Add facets to a search query. '''
 
         # Tell Solr to generate facets on these fields.
-        query = query.facet_by('site_name_s', mincount=1) \
+        query = query.facet_by('site_name_txt_en', mincount=1) \
                      .facet_by('username_s', mincount=1) \
+                     .facet_by('type_s', mincount=1) \
                      .facet_range(fields='join_date_tdt',
+                                  start='NOW-120MONTHS/MONTH',
+                                  end='NOW/MONTH',
+                                  gap='+1MONTH',
+                                  mincount=1) \
+                     .facet_range(fields='post_date_tdt',
                                   start='NOW-120MONTHS/MONTH',
                                   end='NOW/MONTH',
                                   gap='+1MONTH',
@@ -250,10 +259,36 @@ class SearchView(FlaskView):
                 if field == 'join_date_tdt':
                     date_range = '[%s/MONTH TO %s+1MONTHS/MONTH]' % (value,value)
                     query = query.filter(join_date_tdt=DismaxString(date_range))
+                elif field == 'post_date_tdt':
+                    date_range = '[%s/MONTH TO %s+1MONTHS/MONTH]' % (value,value)
+                    query = query.filter(post_date_tdt=DismaxString(date_range))
                 else:
                     query = query.filter(**{field: value})
 
         return query
+
+    def _format_post(self, doc, highlights):
+        ''' Take a Solr doc and format it as a post search hit. '''
+
+        id_ = doc['id']
+        content = self._highlight(doc, highlights[id_], 'content_txt_en')
+        location = self._highlight(doc, highlights[id_], 'location_txt_en')
+        site_name = self._highlight(doc, highlights[id_], 'site_name_txt_en')
+        username = self._highlight(doc, highlights[id_], 'username_s')
+
+        formatted = {
+            'content': content,
+            'id': id_,
+            'location': location,
+            'post_id': doc['post_id_i'],
+            'posted': doc['post_date_tdt'],
+            'site': site_name,
+            'type': doc['type_s'],
+            'updated': doc['last_update_tdt'],
+            'username': username,
+        }
+
+        return formatted
 
     def _format_profile(self, doc, highlights):
         ''' Take a Solr doc and format it as a profile search hit. '''
@@ -262,7 +297,7 @@ class SearchView(FlaskView):
         description = self._highlight(doc, highlights[id_], 'description_txt_en')
         location = self._highlight(doc, highlights[id_], 'location_txt_en')
         name = self._highlight(doc, highlights[id_], 'name_txt_en')
-        site_name = self._highlight(doc, highlights[id_], 'site_name_s')
+        site_name = self._highlight(doc, highlights[id_], 'site_name_txt_en')
         username = self._highlight(doc, highlights[id_], 'username_s')
 
         formatted = {
@@ -272,6 +307,7 @@ class SearchView(FlaskView):
             'id': id_,
             'location': location,
             'name': name,
+            'profile_id': doc['profile_id_i'],
             'post_count': doc['post_count_i'],
             'site': site_name,
             'type': doc['type_s'],
@@ -327,8 +363,6 @@ class SearchView(FlaskView):
 
         elif field in doc:
             pattern = r'(.{,%d})\s?' % chars
-            print(pattern)
-            print(doc[field])
             match = re.match(pattern, doc[field])
 
             if match:
