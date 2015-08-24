@@ -55,8 +55,6 @@ class ConfigurationListComponent {
 
                 this.keys = new List<String>.from(this.configuration.keys);
                 this.keys.sort();
-
-                window.console.log(this.keys);
             })
             .catchError((response) {
                 this.error = response.data['message'];

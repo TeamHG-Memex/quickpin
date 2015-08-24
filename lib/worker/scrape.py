@@ -33,7 +33,7 @@ def scrape_account(site, username):
     redis = worker.get_redis()
 
     try:
-        profile = _scrape_twitter_account(username)
+        profile = scrape_twitter_account(username)
         redis.publish('profile', json.dumps(profile))
 
     except requests.exceptions.HTTPError as he:
@@ -66,23 +66,7 @@ def scrape_account(site, username):
         raise
 
 
-def _get_proxies(db):
-    ''' Get a dictionary of proxy information from the app configuration. '''
-
-    piscina_url = db.query(Configuration) \
-                    .filter(Configuration.key=='piscina_proxy_url') \
-                    .first()
-
-    if piscina_url is None or piscina_url.value.strip() == '':
-        raise ScrapeException('No Piscina server configured.')
-
-    return {
-        'http': piscina_url.value,
-        'https': piscina_url.value,
-    }
-
-
-def _scrape_twitter_account(username):
+def scrape_twitter_account(username):
     '''
     Scrape twitter bio data and create (or update) a profile.
 
@@ -119,37 +103,51 @@ def _scrape_twitter_account(username):
                             .filter(Profile.upstream_id==user_id) \
                             .one()
 
-    profile.description = data['description']
-    profile.follower_count = data['followers_count']
-    profile.friend_count = data['friends_count']
-    profile.join_date = dateutil.parser.parse(data['created_at'])
-    profile.location = data['location']
-    profile.name = data['name']
-    profile.post_count = data['statuses_count']
-    profile.private = data['protected']
-    profile.time_zone = data['time_zone']
-
+    _twitter_populate_profile(data, profile)
+    profile.is_stub = False
     db_session.commit()
 
-    # Schedule follow up jobs.
+    # Schedule avatar image followup job.
     avatar_job = app.queue.scrape_queue.enqueue(
         scrape_twitter_avatar,
         profile.id,
         data['profile_image_url_https']
     )
-    avatar_job.meta['description'] = 'Getting avatar image for "{}" on "{}"' \
-                                     .format(profile.username, profile.site_name())
+    avatar_desc = 'Getting avatar image for "{}" on "{}"' \
+                  .format(profile.username, profile.site_name())
+    avatar_job.meta['description'] = avatar_desc
     avatar_job.save()
 
-    index_job = app.queue.index_queue.enqueue(worker.index.index_profile, profile.id)
-    index_job.meta['description'] = 'Indexing profile "{}" on "{}"' \
-                                    .format(profile.username, profile.site_name())
+    # Schedule search index followup job.
+    index_job = app.queue.index_queue.enqueue(
+        worker.index.index_profile,
+        profile.id
+    )
+    index_desc = 'Indexing profile "{}" on "{}"' \
+                 .format(profile.username, profile.site_name())
+    index_job.meta['description'] = index_desc
     index_job.save()
 
-    posts_job = app.queue.scrape_queue.enqueue(scrape_twitter_posts, profile.id)
-    posts_job.meta['description'] = 'Getting posts for "{}" on "{}"' \
-                                    .format(profile.username, profile.site_name())
+    # Schedule scrape posts followup job.
+    posts_job = app.queue.scrape_queue.enqueue(
+        scrape_twitter_posts,
+        profile.id
+    )
+    posts_desc = 'Getting posts for "{}" on "{}"' \
+                 .format(profile.username, profile.site_name())
+    posts_job.meta['description'] = posts_desc
     posts_job.save()
+
+    # Schedule scrape relations followup job.
+    relations_job = app.queue.scrape_queue.enqueue(
+        scrape_twitter_relations,
+        profile.id,
+        timeout=3600
+    )
+    relations_desc = 'Getting friends & followers for "{}" on "{}"' \
+                     .format(profile.username, profile.site_name())
+    relations_job.meta['description'] = relations_desc
+    relations_job.save()
 
     return profile.as_dict()
 
@@ -262,3 +260,131 @@ def scrape_twitter_posts(id_):
     index_job.meta['description'] = 'Indexing posts by {} on {}' \
                                     .format(author.username, author.site_name())
     index_job.save()
+
+
+def scrape_twitter_relations(id_):
+    '''
+    Fetch friends and followers for the Twitter user identified by `id_`.
+
+    Currently only gets the first "page" from each endpoint, e.g. 5000 friends
+    and 5000 followers, because it's simpler and saves API calls.
+    '''
+
+    redis = worker.get_redis()
+    db = worker.get_session()
+    profile = db.query(Profile).filter(Profile.id==id_).first()
+
+    if profile is None:
+        raise ValueError('No profile exists with id={}'.format(id_))
+
+    params = {
+        'count': 5000,
+        'user_id': profile.upstream_id,
+        'stringify_ids': True
+    }
+
+    # Get friend IDs.
+    friends_url = 'https://api.twitter.com/1.1/friends/ids.json'
+    friends_response = requests.get(
+        friends_url,
+        params=params,
+        proxies=_get_proxies(db),
+        verify=False
+    )
+    friends_response.raise_for_status()
+    friends_ids = friends_response.json()['ids']
+
+    # Get follower IDs.
+    followers_url = 'https://api.twitter.com/1.1/followers/ids.json'
+    followers_response = requests.get(
+        followers_url,
+        params=params,
+        proxies=_get_proxies(db),
+        verify=False
+    )
+    followers_response.raise_for_status()
+    followers_ids = followers_response.json()['ids']
+
+    # Get username for each of the friend/follower IDs and create
+    # a relationship in QuickPin.
+    user_ids = [(uid, 'friend') for uid in friends_ids] + \
+               [(uid, 'follower') for uid in followers_ids]
+
+    chunk_size = 100
+    for chunk_start in range(0, len(user_ids), chunk_size):
+        chunk_end = chunk_start + chunk_size - 1
+        chunk = user_ids[chunk_start:chunk_end]
+        chunk_lookup = {id_:relation for id_,relation in chunk}
+
+        lookup_url = 'https://api.twitter.com/1.1/users/lookup.json'
+        lookup_response = requests.post(
+            lookup_url,
+            proxies=_get_proxies(db),
+            verify=False,
+            data={'user_id': ','.join(chunk_lookup.keys())}
+        )
+        lookup_response.raise_for_status()
+        relations = lookup_response.json()
+
+        for related_dict in relations:
+            uid = related_dict['id_str']
+            username = related_dict['screen_name']
+            related_profile = Profile('twitter', uid, username, is_stub=True)
+            db.add(related_profile)
+
+            try:
+                db.commit()
+            except IntegrityError:
+                # Already exists: use the existing profile.
+                db.rollback()
+                related_profile = db \
+                    .query(Profile) \
+                    .filter(Profile.site=='twitter') \
+                    .filter(Profile.upstream_id==uid) \
+                    .one()
+
+            _twitter_populate_profile(related_dict, related_profile)
+            relation = chunk_lookup[uid]
+
+            if relation == 'friend':
+                profile.friends.append(related_profile)
+            else: # relation == 'follower':
+                profile.followers.append(related_profile)
+
+            db.commit()
+
+    db.commit()
+    redis.publish('profile_relations', json.dumps({'id': id_}))
+
+
+def _get_proxies(db):
+    ''' Get a dictionary of proxy information from the app configuration. '''
+
+    piscina_url = db.query(Configuration) \
+                    .filter(Configuration.key=='piscina_proxy_url') \
+                    .first()
+
+    if piscina_url is None or piscina_url.value.strip() == '':
+        raise ScrapeException('No Piscina server configured.')
+
+    return {
+        'http': piscina_url.value,
+        'https': piscina_url.value,
+    }
+
+
+def _twitter_populate_profile(dict_, profile):
+    '''
+    Copy attributes from `dict_`, a `/users/lookup` API response, into a
+    `Profile` instance.
+    '''
+
+    profile.description = dict_['description']
+    profile.follower_count = dict_['followers_count']
+    profile.friend_count = dict_['friends_count']
+    profile.join_date = dateutil.parser.parse(dict_['created_at'])
+    profile.location = dict_['location']
+    profile.name = dict_['name']
+    profile.post_count = dict_['statuses_count']
+    profile.private = dict_['protected']
+    profile.time_zone = dict_['time_zone']

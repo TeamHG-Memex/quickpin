@@ -5,8 +5,9 @@ from dateutil.relativedelta import relativedelta
 from flask import g, json, jsonify, request, send_from_directory
 from flask.ext.classy import FlaskView, route
 from sqlalchemy import extract, func
-from sqlalchemy.sql.expression import bindparam
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql.expression import bindparam
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from app.authorization import login_required
@@ -15,6 +16,7 @@ from app.queue import scrape_queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
 from model import Post, Profile
+from model.profile import profile_join_self
 import worker.scrape
 
 
@@ -37,6 +39,7 @@ class ProfileView(FlaskView):
                 "follower_count": 71,
                 "friend_count": 28,
                 "id": 1,
+                "is_stub": false,
                 "join_date": "2012-01-30T15:11:35",
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
@@ -69,6 +72,8 @@ class ProfileView(FlaskView):
         :>json int follower_count: number of followers
         :>json int friend_count: number of friends (a.k.a. followees)
         :>json int id: unique identifier for profile
+        :>json bool is_stub: indicates that this is a stub profile, e.g.
+            related to another profile but has not been fully imported
         :>json str join_date: the date this profile joined its social network
             (ISO-8601)
         :>json str last_update: the last time that information about this
@@ -141,6 +146,175 @@ class ProfileView(FlaskView):
 
         # Send response.
         return jsonify(**response)
+
+    @route('/<id_>/friends')
+    def get_friends(self, id_):
+        '''
+        Return an array of profiles that are followed by the specified profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+              "friends": [
+                {
+                  "id": 3,
+                  "url": "https://quickpin/api/profile/3",
+                  "username": "rustlang"
+                },
+                {
+                  "id": 4,
+                  "url": "https://quickpin/api/profile/4",
+                  "username": "ORGANICBUTCHER"
+                },
+                ...
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+        :>header Content-Type: application/json
+        :>json object friends Array of friends.
+        :>json int friends[n].id Unique identifier for friend's profile.
+        :>json str friends[n].url The URL to fetch this friend's profile.
+        :>json str friends[n].username This friend's username.
+        :>json int total_count Total count of all friends, not just those on
+            the current page.
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
+        '''
+
+        page, results_per_page = get_paging_arguments(request.args)
+        Friend = aliased(Profile, name='friend')
+
+        join_table = (
+            profile_join_self,
+            Profile.id==profile_join_self.c.follower_id
+        )
+
+        join_friend = (
+            Friend,
+            Friend.id==profile_join_self.c.friend_id
+        )
+
+        friend_query = g.db.query(Profile, Friend) \
+                           .join(join_table) \
+                           .join(join_friend) \
+                           .filter(Profile.id == id_)
+
+        total_count = friend_query.count()
+
+        friend_query = friend_query.order_by(Friend.is_stub, Friend.username) \
+                                   .limit(results_per_page) \
+                                   .offset((page - 1) * results_per_page)
+        friends = list()
+
+        for profile, friend in friend_query:
+            friend_dict = {
+                'id': friend.id,
+                'url': url_for('ProfileView:get', id_=friend.id),
+                'username': friend.username,
+            }
+
+            if len(friend.avatars) > 0:
+                friend_dict['avatar_thumb_url'] = url_for('FileView:get', id_=friend.avatars[0].id)
+            else:
+                friend_dict['avatar_thumb_url'] = None
+
+            friends.append(friend_dict)
+
+        return jsonify(friends=friends, total_count=total_count)
+
+    @route('/<id_>/followers')
+    def get_followers(self, id_):
+        '''
+        Return an array of profiles that follow this profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+              "followers": [
+                {
+                  "id": 3,
+                  "url": "https://quickpin/api/profile/3",
+                  "username": "rustlang"
+                },
+                {
+                  "id": 4,
+                  "url": "https://quickpin/api/profile/4",
+                  "username": "ORGANICBUTCHER"
+                },
+                ...
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+        :>header Content-Type: application/json
+        :>json object followers Array of followers.
+        :>json int followers[n].id Unique identifier for friend's profile.
+        :>json str followers[n].url The URL to fetch this friend's profile.
+        :>json str followers[n].username This friend's username.
+        :>json int total_count Total count of all followers, not just those on
+            the current page.
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
+        '''
+
+        page, results_per_page = get_paging_arguments(request.args)
+        Follower = aliased(Profile, name='follower')
+
+        join_table = (
+            profile_join_self,
+            Profile.id==profile_join_self.c.friend_id
+        )
+
+        join_follower = (
+            Follower,
+            Follower.id==profile_join_self.c.follower_id
+        )
+
+        follower_query = g.db.query(Profile, Follower) \
+                           .join(join_table) \
+                           .join(join_follower) \
+                           .filter(Profile.id == id_)
+
+        total_count = follower_query.count()
+
+        follower_query = follower_query.order_by(Follower.is_stub, Follower.username) \
+                                       .limit(results_per_page) \
+                                       .offset((page - 1) * results_per_page)
+
+        followers = list()
+
+        for profile, follower in follower_query:
+            follower_dict = {
+                'id': follower.id,
+                'url': url_for('ProfileView:get', id_=follower.id),
+                'username': follower.username,
+            }
+
+            if len(follower.avatars) > 0:
+                follower_dict['avatar_thumb_url'] = url_for('FileView:get', id_=follower.avatars[0].id)
+            else:
+                follower_dict['avatar_thumb_url'] = None
+
+            followers.append(follower_dict)
+
+        return jsonify(followers=followers, total_count=total_count)
 
     @route('/<id_>/posts')
     def get_posts(self, id_):
@@ -222,6 +396,10 @@ class ProfileView(FlaskView):
         '''
         Return an array of data about profiles.
 
+        Note that this only returns full profiles, not "stub" profiles. If user
+        A in QuickPin has a friend/follower user B but user B is not in
+        QuickPin, then a "stub" profile is created for user B.
+
         **Example Response**
 
         .. sourcecode:: json
@@ -236,6 +414,7 @@ class ProfileView(FlaskView):
                         "follower_count": 12490,
                         "friend_count": 294,
                         "id": 5,
+                        "is_stub": False,
                         "join_date": "2010-01-30T18:21:35",
                         "last_update": "2015-08-18T10:51:16",
                         "location": "Washington, DC",
@@ -267,6 +446,9 @@ class ProfileView(FlaskView):
         :>json int profiles[n].friend_count: number of friends (a.k.a.
             followees)
         :>json int profiles[n].id: unique identifier for profile
+        :>json bool profiles[n].is_stub: indicates that this is a stub profile,
+            e.g. related to another profile but has not been fully imported (for
+            this particular endpoint, is_stub will always be false)
         :>json str profiles[n].join_date: the date this profile joined its
             social network (ISO-8601)
         :>json str profiles[n].last_update: the last time that information about
@@ -298,13 +480,12 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
+        query = g.db.query(Profile).filter(Profile.is_stub == False)
+        total_count = query.count()
 
-        total_count = g.db.query(Profile).count()
-
-        query = g.db.query(Profile) \
-                    .order_by(Profile.last_update.desc()) \
-                    .limit(results_per_page) \
-                    .offset((page - 1) * results_per_page)
+        query = query.order_by(Profile.last_update.desc()) \
+                     .limit(results_per_page) \
+                     .offset((page - 1) * results_per_page)
 
         profiles = list()
 

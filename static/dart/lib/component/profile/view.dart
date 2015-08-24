@@ -21,6 +21,8 @@ import 'package:dquery/dquery.dart';
 class ProfileComponent {
     AuthenticationController auth;
     List<Breadcrumb> crumbs;
+    List<Profile> followers;
+    List<Profile> friends;
     int id;
     int loading = 0;
     List<Post> posts;
@@ -42,7 +44,9 @@ class ProfileComponent {
         ];
 
         this._fetchProfile()
-            .then((_) => this._fetchPosts());
+            .then((_) => this._fetchPosts())
+            .then((_) => this._fetchFriends())
+            .then((_) => this._fetchFollowers());
     }
 
     /// Return a URL for a profile's avatar image.
@@ -56,12 +60,58 @@ class ProfileComponent {
         }
     }
 
+    /// Fetch a page of followers for this profile.
+    Future _fetchFollowers() {
+        Completer completer = new Completer();
+        this.loading++;
+        String url = '/api/profile/${this.id}/followers';
+        Map urlArgs = {'page': 1, 'rpp': 10};
+
+        this._api
+            .get(url, urlArgs: urlArgs, needsAuth: true)
+            .then((response) {
+                List followers = response.data['followers'];
+                this.followers = new List<Post>.generate(followers.length, (index) {
+                    return new Profile.fromJson(followers[index]);
+                });
+            })
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
+    }
+
+    /// Fetch a page of friends for this profile.
+    Future _fetchFriends() {
+        Completer completer = new Completer();
+        this.loading++;
+        String url = '/api/profile/${this.id}/friends';
+        Map urlArgs = {'page': 1, 'rpp': 10};
+
+        this._api
+            .get(url, urlArgs: urlArgs, needsAuth: true)
+            .then((response) {
+                List friends = response.data['friends'];
+                this.friends = new List<Post>.generate(friends.length, (index) {
+                    return new Profile.fromJson(friends[index]);
+                });
+            })
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
+    }
+
     /// Fetch recent posts for this profile.
     Future _fetchPosts() {
         Completer completer = new Completer();
         this.loading++;
         String url = '/api/profile/${this.id}/posts';
-        Map urlArgs = {'page': 1, 'rpp': 5};
+        Map urlArgs = {'page': 1, 'rpp': 8};
 
         this._api
             .get(url, urlArgs: urlArgs, needsAuth: true)

@@ -47,6 +47,11 @@ class Profile(Base):
     upstream_id = Column(String(255), nullable=False)
     username = Column(String(255), nullable=False)
 
+    # A stub profile is one that exists only because some other profile is
+    # connected to this profile; we haven't collected any additional information
+    # about it.
+    is_stub = Column(Boolean, nullable=False, default=False)
+
     description = Column(Text)
     follower_count = Column(Integer)
     friend_count = Column(Integer)
@@ -100,11 +105,12 @@ class Profile(Base):
         secondaryjoin=(id==profile_join_self.c.follower_id)
     )
 
-    def __init__(self, site, upstream_id, username):
+    def __init__(self, site, upstream_id, username, is_stub=False):
         ''' Constructor. '''
 
         self.site = site
         self.upstream_id = upstream_id
+        self.is_stub = is_stub
 
         if isinstance(username, ProfileUsername):
             self.username = username.username
@@ -124,6 +130,7 @@ class Profile(Base):
             'follower_count': self.follower_count,
             'friend_count': self.friend_count,
             'id': self.id,
+            'is_stub': self.is_stub,
             'join_date': self.join_date and self.join_date.isoformat(),
             'last_update': self.last_update.replace(microsecond=0).isoformat(),
             'location': self.location,

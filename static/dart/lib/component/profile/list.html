@@ -137,7 +137,7 @@
       <strong class='text-muted'>Location:</strong>
       {{profile.location}}
     </div>
-    <p>
+    <p ng-show='profile.postCount != null'>
       <em>
         {{profile.friendCount | largeNumber:1}} friends,
         {{profile.followerCount | largeNumber:1}} followers, and

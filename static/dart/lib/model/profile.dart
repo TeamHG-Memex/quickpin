@@ -5,9 +5,11 @@ class Profile {
         'twitter': 'fa-twitter',
     };
 
+    String avatarUrl;
     List<String> avatarUrls;
+    String avatarThumbUrl;
     int id;
-    String site, siteName;
+    bool isStub;
     String description;
     int followerCount;
     int friendCount;
@@ -17,6 +19,7 @@ class Profile {
     String name;
     int postCount;
     bool private;
+    String site, siteName;
     String timeZone;
     String upstreamId;
     String username;
@@ -32,11 +35,25 @@ class Profile {
     }
 
     Profile.fromJson(Map json) {
+        if (json['avatar_urls'] != null && json['avatar_urls'].length > 0) {
+            this.avatarUrl = json['avatar_urls'][0];
+        } else {
+            this.avatarUrl = '/static/img/default_user_thumb_large.png';
+        }
+
         this.avatarUrls = json['avatar_urls'];
+
+        if (json['avatar_thumb_url'] != null) {
+            this.avatarThumbUrl = json['avatar_thumb_url'];
+        } else {
+            this.avatarThumbUrl = '/static/img/default_user_thumb.png';
+        }
+
         this.description = json['description'];
         this.followerCount = json['follower_count'];
         this.friendCount = json['friend_count'];
         this.id = json['id'];
+        this.isStub = json['is_stub'];
 
         if (json['join_date'] != null) {
             this.joinDate = DateTime.parse(json['join_date']);

@@ -25,6 +25,27 @@
     </div>
 
     <div class='col-md-8'>
+      <div class='row' ng-show='profile.isStub'>
+        <div class='col-sm-12'>
+          <div class="alert alert-info" role="alert">
+            <p>
+              <strong>This profile is a stub!</strong>
+            </p>
+            <p>
+              It appears here because it is a friend or follower of another
+              profile in QuickPin, but no posts or additional
+              friends/followers have been fetched. You can fetch the full
+              profile from {{profile.siteName}} by clicking the button below.
+            </p>
+            <p>
+              <button class='btn btn-default'>
+                Fetch Full Profile
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class='row'>
         <div class='col-sm-4'>
           <div class='card blue'>
@@ -82,14 +103,17 @@
 
   <h2>Social Activity</h2>
   <div class='row'>
-    <div class='col-md-4'>
+    <div class='col-md-6'>
       <table class='table table-striped'>
         <thead>
           <tr>
-            <th>Recent Tweets</th>
+            <th>Recent Posts <a href='#'>(View All)</a></th>
           </tr>
         </thead>
         <tbody>
+          <tr ng-if='posts.length == 0'>
+            <td><em>No posts found.</em></td>
+          </tr>
           <tr ng-repeat='post in posts'>
             <td>
               {{post.content}}
@@ -102,31 +126,43 @@
       </table>
     </div>
 
-    <div class='col-md-4'>
+    <div class='col-md-3'>
       <table class='table table-striped'>
         <thead>
           <tr>
-            <th>Friends</th>
+            <th>Top Friends <a href='#'>(View All)</a></th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>FRIEND GOES HERE</td>
+          <tr ng-if='friends.length == 0'>
+            <td><em>No friends found.</em></td>
+          </tr>
+          <tr ng-repeat='friend in friends'>
+            <td>
+              <img class='thumb' ng-src='{{friend.avatarThumbUrl}}?xauth={{auth.token}}'>
+              <a href='/profile/{{friend.id}}'>{{friend.username}}</a>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class='col-md-4'>
+    <div class='col-md-3'>
       <table class='table table-striped'>
         <thead>
           <tr>
-            <th>Followers</th>
+            <th>Top Followers <a href='#'>(View All)</a></th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>FOLLOWER GOES HERE</td>
+          <tr ng-if='followers.length == 0'>
+            <td><em>No followers found.</em></td>
+          </tr>
+          <tr ng-repeat='follower in followers'>
+            <td>
+              <img class='thumb' ng-src='{{follower.avatarThumbUrl}}?xauth={{auth.token}}'>
+              <a href='/profile/{{follower.id}}'>{{follower.username}}</a>
+            </td>
           </tr>
         </tbody>
       </table>
