@@ -185,7 +185,7 @@ the installer script.
 
 .. code:: bash
 
-    $ sudo ./install_solr_service.sh solr-5.2.1.gz
+    $ sudo ./install_solr_service.sh solr-5.2.1.tgz
     id: solr: no such user
     Creating new user: solr
     Adding system user `solr' (UID 105) ...
@@ -251,12 +251,14 @@ That's it! Solr is installed and configured.
 Permissions
 -----------
 
-QuickPin expects to have a writeable log file at ``/var/log/quickpin.log``.
+QuickPin expects to have a writeable log file at ``/var/log/quickpin.log`` and
+expects to be able to write to the application's ``data`` directory.
 
 .. code:: bash
 
     $ sudo touch /var/log/quickpin.log
     $ sudo chown quickpin:quickpin /var/log/quickpin.log
+    $ sudo chown quickpin:quickpin /opt/quickpin/data
 
 QuickPin also minifies and combines some static resources, such as JavaScript
 and CSS. It needs to store these static resources in
@@ -294,7 +296,7 @@ control* and any site specific settings should be placed in there. We include a
 You should edit local.ini and provide values for the following keys:
 
 - `username`: The database username. We recommend the name 'quickpin'. (Keep
-  this name handy: you'll need it in the next section.) this is "quickpin".
+  this name handy: you'll need it in the next section.)
 - `password`: Generate a secure password for this database user. (Keep this
   password handy: you'll need it in the next section.)
 - `SECRET_KEY`: A cryptographic key that Flask uses to sign authentication
