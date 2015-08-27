@@ -57,6 +57,12 @@ class QuickPinRouteInitializer implements Function {
                 dontLeaveOnParamChanges: true,
                 viewHtml: '<profile-list></profile-list>'
             ),
+            'profile_posts': ngRoute(
+                path: '/profile/:id/posts',
+                preEnter: auth.requireLogin,
+                dontLeaveOnParamChanges: true,
+                viewHtml: '<profile-posts></profile-posts>'
+            ),
             'profile_view': ngRoute(
                 path: '/profile/:id',
                 preEnter: auth.requireLogin,

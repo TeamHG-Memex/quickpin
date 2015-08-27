@@ -111,7 +111,7 @@ class ProfileView(FlaskView):
         current_avatar_id = self._current_avatar_subquery()
 
         profile, avatar = g.db.query(Profile, Avatar) \
-                              .join(Avatar, Avatar.id == current_avatar_id) \
+                              .outerjoin(Avatar, Avatar.id == current_avatar_id) \
                               .filter(Profile.id == id_).first()
 
         if profile is None:
@@ -143,9 +143,24 @@ class ProfileView(FlaskView):
         response['usernames'] = usernames
 
         # Create avatar attributes.
-        response['avatar_url'] = url_for('FileView:get', id_=avatar.file.id)
-        response['avatar_thumb_url'] = url_for('FileView:get',
-                                               id_=avatar.thumb_file.id)
+        if avatar is not None:
+            response['avatar_url'] = url_for(
+                'FileView:get',
+                id_=avatar.file.id
+            )
+            response['avatar_thumb_url'] = url_for(
+                'FileView:get',
+                id_=avatar.thumb_file.id
+            )
+        else:
+            response['avatar_url'] = url_for(
+                'static',
+                filename='img/default_user.png'
+            )
+            response['avatar_thumb_url'] = url_for(
+                'static',
+                filename='img/default_user_thumb.png'
+            )
 
         # Send response.
         return jsonify(**response)
@@ -350,7 +365,8 @@ class ProfileView(FlaskView):
                   "upstream_id": "530878388605423616"
                 },
                 ...
-              ]
+              ],
+              "username": "johndoe"
             }
 
         :<header Content-Type: application/json
@@ -369,6 +385,10 @@ class ProfileView(FlaskView):
         :>json str posts[n].upstream_created The date this was posted.
         :>json str posts[n].upstream_id The unique identifier assigned by the
         social media site.
+        :>json str username Username of the requested profile
+        :>json str site_name Site name associated with the requested profile
+        :>json int total_count Total count of all posts by this profile, not
+            just those displayed on this page
 
         :status 200: ok
         :status 400: invalid argument[s]
@@ -384,10 +404,13 @@ class ProfileView(FlaskView):
 
         posts = list()
         post_query = g.db.query(Post) \
-                         .filter(Post.author_id == id_) \
-                         .limit(results_per_page) \
-                         .offset((page - 1) * results_per_page)
+                         .filter(Post.author_id == id_)
 
+        total_count = post_query.count()
+
+        post_query = post_query.order_by(Post.upstream_created.desc()) \
+                               .limit(results_per_page) \
+                               .offset((page - 1) * results_per_page)
 
         for post in post_query:
             posts.append({
@@ -400,7 +423,12 @@ class ProfileView(FlaskView):
                 'upstream_id': post.upstream_id,
             })
 
-        return jsonify(posts=posts)
+        return jsonify(
+            posts=posts,
+            site_name=profile.site_name(),
+            total_count=total_count,
+            username=profile.username
+        )
 
     def index(self):
         '''
@@ -418,6 +446,7 @@ class ProfileView(FlaskView):
                 "profiles": [
                     {
                         "avatar_url": "https://quickpin/api/file/5",
+                        "avatar_thumb_url": "https://quickpin/api/file/6",
                         "description": "A human being.",
                         "follower_count": 12490,
                         "friend_count": 294,
@@ -449,6 +478,8 @@ class ProfileView(FlaskView):
         :>json list profiles: a list of profile objects
         :>json str profiles[n].avatar_url: a URL to the user's current avatar
             image
+        :>json str profiles[n].avatar_thumb_url: a URL to a 32x32px thumbnail of
+            the user's current avatar image
         :>json str profiles[n].description: profile description
         :>json int profiles[n].follower_count: number of followers
         :>json int profiles[n].friend_count: number of friends (a.k.a.
@@ -511,8 +542,16 @@ class ProfileView(FlaskView):
                     'FileView:get',
                     id_=avatar.file.id
                 )
+                data['avatar_thumb_url'] = url_for(
+                    'FileView:get',
+                    id_=avatar.thumb_file.id
+                )
             else:
                 data['avatar_url'] = url_for(
+                    'static',
+                    filename='img/default_user.png'
+                )
+                data['avatar_thumb_url'] = url_for(
                     'static',
                     filename='img/default_user_thumb.png'
                 )
