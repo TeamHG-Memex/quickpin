@@ -15,8 +15,8 @@ import app.database
 from app.queue import scrape_queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
-from model import Post, Profile
-from model.profile import profile_join_self
+from model import Avatar, Post, Profile
+from model.profile import avatar_join_profile, profile_join_self
 import worker.scrape
 
 
@@ -34,7 +34,8 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-                "avatar_urls": ["https://quickpin/api/file/1", ...],
+                "avatar_url": "https://quickpin/api/file/1",
+                "avatar_thumb_url": "https://quickpin/api/file/2",
                 "description": "A human being.",
                 "follower_count": 71,
                 "friend_count": 28,
@@ -66,8 +67,9 @@ class ProfileView(FlaskView):
         :<header X-Auth: the client's auth token
 
         :>header Content-Type: application/json
-        :>json str avatar_urls: a list of URLs that represent avatar images used
-            by this profile
+        :>json str avatar_url: URL to the user's current avatar
+        :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
+            current avatar
         :>json str description: profile description
         :>json int follower_count: number of followers
         :>json int friend_count: number of friends (a.k.a. followees)
@@ -106,7 +108,11 @@ class ProfileView(FlaskView):
 
         # Get profile.
         id_ = get_int_arg('id_', id_)
-        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+        current_avatar_id = self._current_avatar_subquery()
+
+        profile, avatar = g.db.query(Profile, Avatar) \
+                              .join(Avatar, Avatar.id == current_avatar_id) \
+                              .filter(Profile.id == id_).first()
 
         if profile is None:
             raise NotFound("Profile '%s' does not exist." % id_)
@@ -136,13 +142,10 @@ class ProfileView(FlaskView):
 
         response['usernames'] = usernames
 
-        # Create avatars list.
-        avatars = list()
-
-        for avatar in profile.avatars:
-            avatars.append(url_for('FileView:get', id_=avatar.id))
-
-        response['avatar_urls'] = avatars
+        # Create avatar attributes.
+        response['avatar_url'] = url_for('FileView:get', id_=avatar.file.id)
+        response['avatar_thumb_url'] = url_for('FileView:get',
+                                               id_=avatar.thumb_file.id)
 
         # Send response.
         return jsonify(**response)
@@ -159,11 +162,13 @@ class ProfileView(FlaskView):
             {
               "friends": [
                 {
+                  "avatar_thumb_url": "https://quickpin/api/file/1",
                   "id": 3,
                   "url": "https://quickpin/api/profile/3",
                   "username": "rustlang"
                 },
                 {
+                  "avatar_thumb_url": "https://quickpin/api/file/2",
                   "id": 4,
                   "url": "https://quickpin/api/profile/4",
                   "username": "ORGANICBUTCHER"
@@ -178,6 +183,8 @@ class ProfileView(FlaskView):
 
         :>header Content-Type: application/json
         :>json object friends Array of friends.
+        :>json int friends[n].avatar_thumb_url a URL to a thumbnail of the
+            user's current avatar
         :>json int friends[n].id Unique identifier for friend's profile.
         :>json str friends[n].url The URL to fetch this friend's profile.
         :>json str friends[n].username This friend's username.
@@ -191,41 +198,41 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
-        Friend = aliased(Profile, name='friend')
+        current_avatar_id = self._current_avatar_subquery()
 
-        join_table = (
-            profile_join_self,
-            Profile.id==profile_join_self.c.follower_id
-        )
-
-        join_friend = (
-            Friend,
-            Friend.id==profile_join_self.c.friend_id
-        )
-
-        friend_query = g.db.query(Profile, Friend) \
-                           .join(join_table) \
-                           .join(join_friend) \
-                           .filter(Profile.id == id_)
+        friend_query = \
+            g.db.query(Profile, Avatar) \
+                .join(profile_join_self, profile_join_self.c.friend_id == Profile.id) \
+                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
+                .filter(profile_join_self.c.follower_id == id_)
 
         total_count = friend_query.count()
 
-        friend_query = friend_query.order_by(Friend.is_stub, Friend.username) \
-                                   .limit(results_per_page) \
-                                   .offset((page - 1) * results_per_page)
+        friend_query = \
+            friend_query.order_by(Profile.is_stub, Profile.username) \
+                        .limit(results_per_page) \
+                        .offset((page - 1) * results_per_page)
+
         friends = list()
 
-        for profile, friend in friend_query:
+        for friend, avatar in friend_query:
+            if avatar is not None:
+                thumb_url = url_for(
+                    'FileView:get',
+                    id_=avatar.thumb_file.id
+                )
+            else:
+                thumb_url = url_for(
+                    'static',
+                    filename='img/default_user_thumb.png'
+                )
+
             friend_dict = {
+                'avatar_thumb_url': thumb_url,
                 'id': friend.id,
                 'url': url_for('ProfileView:get', id_=friend.id),
                 'username': friend.username,
             }
-
-            if len(friend.avatars) > 0:
-                friend_dict['avatar_thumb_url'] = url_for('FileView:get', id_=friend.avatars[0].id)
-            else:
-                friend_dict['avatar_thumb_url'] = None
 
             friends.append(friend_dict)
 
@@ -243,11 +250,13 @@ class ProfileView(FlaskView):
             {
               "followers": [
                 {
+                  "avatar_thumb_url": "https://quickpin/api/file/1",
                   "id": 3,
                   "url": "https://quickpin/api/profile/3",
                   "username": "rustlang"
                 },
                 {
+                  "avatar_thumb_url": "https://quickpin/api/file/2",
                   "id": 4,
                   "url": "https://quickpin/api/profile/4",
                   "username": "ORGANICBUTCHER"
@@ -262,6 +271,8 @@ class ProfileView(FlaskView):
 
         :>header Content-Type: application/json
         :>json object followers Array of followers.
+        :>json int followers[n].avatar_thumb_url a URL to a thumbnail of the
+            user's current avatar
         :>json int followers[n].id Unique identifier for friend's profile.
         :>json str followers[n].url The URL to fetch this friend's profile.
         :>json str followers[n].username This friend's username.
@@ -275,42 +286,41 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
-        Follower = aliased(Profile, name='follower')
+        current_avatar_id = self._current_avatar_subquery()
 
-        join_table = (
-            profile_join_self,
-            Profile.id==profile_join_self.c.friend_id
-        )
-
-        join_follower = (
-            Follower,
-            Follower.id==profile_join_self.c.follower_id
-        )
-
-        follower_query = g.db.query(Profile, Follower) \
-                           .join(join_table) \
-                           .join(join_follower) \
-                           .filter(Profile.id == id_)
+        follower_query = \
+            g.db.query(Profile, Avatar) \
+                .join(profile_join_self,
+                      profile_join_self.c.follower_id == Profile.id) \
+                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
+                .filter(profile_join_self.c.friend_id == id_)
 
         total_count = follower_query.count()
 
-        follower_query = follower_query.order_by(Follower.is_stub, Follower.username) \
-                                       .limit(results_per_page) \
-                                       .offset((page - 1) * results_per_page)
-
+        follower_query = \
+            follower_query.order_by(Profile.is_stub, Profile.username) \
+                          .limit(results_per_page) \
+                          .offset((page - 1) * results_per_page)
         followers = list()
 
-        for profile, follower in follower_query:
+        for follower, avatar in follower_query:
+            if avatar is not None:
+                thumb_url = url_for(
+                    'FileView:get',
+                    id_=avatar.thumb_file.id
+                )
+            else:
+                thumb_url = url_for(
+                    'static',
+                    filename='img/default_user_thumb.png'
+                )
+
             follower_dict = {
+                'avatar_thumb_url': thumb_url,
                 'id': follower.id,
                 'url': url_for('ProfileView:get', id_=follower.id),
                 'username': follower.username,
             }
-
-            if len(follower.avatars) > 0:
-                follower_dict['avatar_thumb_url'] = url_for('FileView:get', id_=follower.avatars[0].id)
-            else:
-                follower_dict['avatar_thumb_url'] = None
 
             followers.append(follower_dict)
 
@@ -407,9 +417,7 @@ class ProfileView(FlaskView):
             {
                 "profiles": [
                     {
-                        "avatar_urls": [
-                            "https://quickpin/api/file/5"
-                        ],
+                        "avatar_url": "https://quickpin/api/file/5",
                         "description": "A human being.",
                         "follower_count": 12490,
                         "friend_count": 294,
@@ -439,8 +447,8 @@ class ProfileView(FlaskView):
 
         :>header Content-Type: application/json
         :>json list profiles: a list of profile objects
-        :>json str profiles[n].avatar_urls: a list of URLs that represent avatar
-            images used by this profile
+        :>json str profiles[n].avatar_url: a URL to the user's current avatar
+            image
         :>json str profiles[n].description: profile description
         :>json int profiles[n].follower_count: number of followers
         :>json int profiles[n].friend_count: number of friends (a.k.a.
@@ -480,7 +488,12 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
-        query = g.db.query(Profile).filter(Profile.is_stub == False)
+        current_avatar_id = self._current_avatar_subquery()
+
+        query = g.db.query(Profile, Avatar) \
+                    .outerjoin(Avatar, Avatar.id==current_avatar_id) \
+                    .filter(Profile.is_stub == False)
+
         total_count = query.count()
 
         query = query.order_by(Profile.last_update.desc()) \
@@ -489,15 +502,20 @@ class ProfileView(FlaskView):
 
         profiles = list()
 
-        for profile in query:
-            avatar_urls = list()
-
-            for avatar in profile.avatars:
-                avatar_urls.append(url_for('FileView:get', id_=avatar.id))
-
+        for profile, avatar in query:
             data = profile.as_dict()
-            data['avatar_urls'] = avatar_urls
             data['url'] = url_for('ProfileView:get', id_=profile.id)
+
+            if avatar is not None:
+                data['avatar_url'] = url_for(
+                    'FileView:get',
+                    id_=avatar.file.id
+                )
+            else:
+                data['avatar_url'] = url_for(
+                    'static',
+                    filename='img/default_user_thumb.png'
+                )
 
             profiles.append(data)
 
@@ -581,3 +599,19 @@ class ProfileView(FlaskView):
         response.status_code = 202
 
         return response
+
+    def _current_avatar_subquery(self):
+        '''
+        Return a scalar subquery that can be used for joining to a profile's
+        current avatar.
+        '''
+
+        return g.db.query(Avatar.id) \
+                   .join(avatar_join_profile,
+                         avatar_join_profile.c.avatar_id == Avatar.id) \
+                   .filter(avatar_join_profile.c.profile_id == Profile.id) \
+                   .order_by(Avatar.end_date.desc().nullsfirst(),
+                             Avatar.start_date) \
+                   .limit(1) \
+                   .correlate(Profile) \
+                   .as_scalar()

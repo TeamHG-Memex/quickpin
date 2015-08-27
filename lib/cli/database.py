@@ -13,7 +13,7 @@ from sqlalchemy.schema import DropConstraint, DropTable, ForeignKeyConstraint, \
 from app.config import get_path
 import app.database
 import cli
-from model import Base, Configuration, File, Post, Profile, \
+from model import Avatar, Base, Configuration, File, Post, Profile, \
                   ProfileUsername, User
 import model.user
 
@@ -60,10 +60,10 @@ class DatabaseCli(cli.BaseCli):
 
         session = app.database.get_session(self._db)
 
-        piscina_ui_url = Configuration('piscina_ui_url', 'http://192.168.36.1:8000')
+        piscina_ui_url = Configuration('piscina_ui_url', 'http://192.168.31.1:8000')
         session.add(piscina_ui_url)
 
-        piscina_proxy_url = Configuration('piscina_proxy_url', 'http://192.168.36.1:8080')
+        piscina_proxy_url = Configuration('piscina_proxy_url', 'http://192.168.31.1:8080')
         session.add(piscina_proxy_url)
 
         session.commit()
@@ -107,31 +107,33 @@ class DatabaseCli(cli.BaseCli):
         moss_twitter = Profile(
             site='twitter',
             upstream_id='12345',
-            profile_name=ProfileName('maurice.moss', start_date='2014-04-01')
+            username=ProfileUsername('maurice.moss', start_date='2014-04-01')
         )
 
-        moss_twitter.names.append(ProfileName(
+        moss_twitter.usernames.append(ProfileUsername(
             'maurice',
             start_date='2013-06-01',
             end_date='2014-03-31'
         ))
 
-        moss_twitter.names.append(ProfileName(
+        moss_twitter.usernames.append(ProfileUsername(
             'maurie',
             start_date='2013-02-15',
             end_date='2013-05-30'
         ))
 
-        moss_twitter.posts.append(Post(
+        Post(
+            author=moss_twitter,
             content='Going to the grocery store.',
-            post_date='2015-02-04 12:34:50',
-            post_date_is_exact=True,
-        ))
+            upstream_id='1234',
+            upstream_created='2015-02-04 12:34:50'
+        )
 
         post = Post(
+            author=moss_twitter,
             content='Love this band!.',
-            post_date='2015-03-01',
-            post_date_is_exact=False,
+            upstream_id='2345',
+            upstream_created='2015-03-01'
         )
 
         post.attachments.append(File(
@@ -143,10 +145,10 @@ class DatabaseCli(cli.BaseCli):
         moss_twitter.posts.append(post)
 
         with open(os.path.join(sample_dir, 'moss.jpg'), 'rb') as moss_jpg:
-            moss_twitter.avatars.append(File(
-                name='jen-avatar.jpg',
+            moss_twitter.avatars.append(Avatar(
+                url='http://foobar.com/moss-avatar.jpg',
                 mime='image/jpeg',
-                content=moss_jpg.read()
+                image=moss_jpg.read()
             ))
 
         moss_twitter.description = "I do IT at Reynholm Industries."
@@ -162,26 +164,26 @@ class DatabaseCli(cli.BaseCli):
         jen_twitter = Profile(
             site='twitter',
             upstream_id='23456',
-            profile_name=ProfileName('jen.barber', start_date='2013-11-12')
+            username=ProfileUsername('jen.barber', start_date='2013-11-12')
         )
 
-        jen_twitter.names.append(ProfileName(
+        jen_twitter.usernames.append(ProfileUsername(
             'jenb',
             start_date='2013-06-14',
             end_date='2013-11-12'
         ))
 
-        jen_twitter.names.append(ProfileName(
+        jen_twitter.usernames.append(ProfileUsername(
             'jenny',
             start_date='2013-03-15',
             end_date='2013-06-14'
         ))
 
         with open(os.path.join(sample_dir, 'jen.jpg'), 'rb') as jen_jpg:
-            jen_twitter.avatars.append(File(
-                name='moss-avatar.jpg',
+            jen_twitter.avatars.append(Avatar(
+                url='http://foobar.com/jen-avatar.jpg',
                 mime='image/jpeg',
-                content=jen_jpg.read()
+                image=jen_jpg.read()
             ))
 
         jen_twitter.description = "Relationship Manager for the IT department."
@@ -199,19 +201,19 @@ class DatabaseCli(cli.BaseCli):
         moss_twitter.followers.append(Profile(
             site='twitter',
             upstream_id='345678',
-            profile_name='franky'
+            username='franky'
         ))
 
         moss_twitter.followers.append(Profile(
             site='twitter',
             upstream_id='456789',
-            profile_name='jane'
+            username='jane'
         ))
 
         jen_twitter.followers.append(Profile(
             site='twitter',
             upstream_id='567890',
-            profile_name='joey'
+            username='joey'
         ))
 
         session.commit()

@@ -10,6 +10,7 @@ from sqlalchemy.orm import relationship
 
 import app.config
 from model import Base
+from model.avatar import Avatar
 
 
 SOCIAL_SITES = {
@@ -18,10 +19,10 @@ SOCIAL_SITES = {
 }
 
 
-file_join_profile = Table(
-    'file_join_profile',
+avatar_join_profile = Table(
+    'avatar_join_profile',
     Base.metadata,
-    Column('file_id', Integer, ForeignKey('file.id'), primary_key=True),
+    Column('avatar_id', Integer, ForeignKey('avatar.id'), primary_key=True),
     Column('profile_id', Integer, ForeignKey('profile.id'), primary_key=True),
 )
 
@@ -84,8 +85,8 @@ class Profile(Base):
 
     # A profile has 0-n avatar images.
     avatars = relationship(
-        'File',
-        secondary=file_join_profile
+        'Avatar',
+        secondary=avatar_join_profile
     )
 
     # A profile can follow other profiles. We use the Twitter nomenclature and

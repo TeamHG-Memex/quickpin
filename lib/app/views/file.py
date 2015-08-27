@@ -24,9 +24,14 @@ class FileView(FlaskView):
 
         file_ = g.db.query(File).filter(File.id==id_).first()
         data_dir = app.config.get_path('data')
+        cache_timeout = 0 if g.debug else None
 
         if file_ is None:
             raise NotFound('No file exists with id={}'.format(id_))
 
-        return send_from_directory(data_dir, file_.relpath(),
-                                   as_attachment=True, mimetype=file_.mime)
+        return send_from_directory(
+            data_dir,
+            file_.relpath(),
+            mimetype=file_.mime,
+            cache_timeout=cache_timeout
+        )

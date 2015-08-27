@@ -5,8 +5,8 @@ from datetime import datetime
 import dateutil.parser
 import hashlib
 import json
+import os
 import pickle
-import urllib.parse
 
 import requests
 import requests.exceptions
@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Configuration, File, Post, Profile
+from model import Avatar, Configuration, Post, Profile
 import worker
 import worker.index
 
@@ -173,19 +173,21 @@ def scrape_twitter_avatar(id_, url):
     url = url.replace('_normal', '')
     response = requests.get(url, stream=True)
     response.raise_for_status()
-    parsed = urllib.parse.urlparse(url)
-    name = url.split('/')[-1]
 
     if 'content-type' in response.headers:
         mime = response.headers['content-type']
     else:
         mime = 'application/octet-stream'
 
-    content = response.raw.read()
-    file_ = File(name=name, mime=mime, content=content)
-    profile.avatars.append(file_)
+    image = response.raw.read()
+    avatar = Avatar(url, mime, image)
+    profile.avatars.append(avatar)
     db_session.commit()
-    redis.publish('avatar', json.dumps({'id': id_, 'url': '/api/file/' + str(file_.id)}))
+    redis.publish('avatar', json.dumps({
+        'id': id_,
+        'thumb_url': '/api/file/' + str(avatar.thumb_file.id),
+        'url': '/api/file/' + str(avatar.file.id),
+    }))
 
 
 def scrape_twitter_posts(id_):

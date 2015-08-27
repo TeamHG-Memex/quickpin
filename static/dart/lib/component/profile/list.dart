@@ -68,7 +68,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     void avatarListener(Event e) {
         Map json = JSON.decode(e.data);
 
-        this.idProfilesMap[json['id']].avatarUrls.add(json['url']);
+        this.idProfilesMap[json['id']].avatarUrl = json['url'];
 
         if (this.scope != null) {
             scope.apply();
@@ -112,13 +112,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Return a URL for a profile's avatar image.
     String avatarUrl(profile) {
-        if (profile.avatarUrls.length > 0) {
-            return profile.avatarUrls[0] +
-                   '?xauth=' +
-                   Uri.encodeFull(this.auth.token);
-        } else {
-            return '/static/img/default_user_thumb_large.png';
-        }
+        return profile.avatarUrl + '?xauth=' + Uri.encodeFull(this.auth.token);
     }
 
     /// Remove a profile at the specified index. (Usually done because of an

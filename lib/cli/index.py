@@ -22,7 +22,7 @@ class IndexCli(cli.BaseCli):
         session = app.database.get_session(db)
         query = session.query(Post, Profile) \
                        .join(Post.author) \
-                       .filter(Profile.is_stub = False) \
+                       .filter(Profile.is_stub == False) \
                        .order_by(Post.id)
 
         total_count = query.count()
@@ -57,7 +57,7 @@ class IndexCli(cli.BaseCli):
 
         session = app.database.get_session(db)
         query = session.query(Profile) \
-                       .filter(Profile.is_stub == False)
+                       .filter(Profile.is_stub == False) \
                        .order_by(Profile.id)
 
         total_count = query.count()

@@ -33,12 +33,12 @@ class LoginComponent {
     /// authentication token for future API requests.
     void login() {
         this.buttonBusy = true;
+        this.error = '';
         var payload = {'email': this.email, 'password': this.password};
 
         server
             .post('/api/authentication/', payload, needsAuth: false)
             .then((response) {
-                this.error = '';
                 auth.checkToken(response.data['token']);
             })
             .catchError((response) {

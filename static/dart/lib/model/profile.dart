@@ -6,7 +6,6 @@ class Profile {
     };
 
     String avatarUrl;
-    List<String> avatarUrls;
     String avatarThumbUrl;
     int id;
     bool isStub;
@@ -29,26 +28,13 @@ class Profile {
     String error;
 
     Profile(String username, String site) {
-        this.avatarUrls = new List<String>();
         this.username = username;
         this.site = site;
     }
 
     Profile.fromJson(Map json) {
-        if (json['avatar_urls'] != null && json['avatar_urls'].length > 0) {
-            this.avatarUrl = json['avatar_urls'][0];
-        } else {
-            this.avatarUrl = '/static/img/default_user_thumb_large.png';
-        }
-
-        this.avatarUrls = json['avatar_urls'];
-
-        if (json['avatar_thumb_url'] != null) {
-            this.avatarThumbUrl = json['avatar_thumb_url'];
-        } else {
-            this.avatarThumbUrl = '/static/img/default_user_thumb.png';
-        }
-
+        this.avatarUrl = json['avatar_url'];
+        this.avatarThumbUrl = json['avatar_thumb_url'];
         this.description = json['description'];
         this.followerCount = json['follower_count'];
         this.friendCount = json['friend_count'];

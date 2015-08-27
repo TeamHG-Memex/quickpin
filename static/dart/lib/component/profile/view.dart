@@ -51,13 +51,7 @@ class ProfileComponent {
 
     /// Return a URL for a profile's avatar image.
     String avatarUrl(profile) {
-        if (profile.avatarUrls.length > 0) {
-            return profile.avatarUrls[0] +
-                   '?xauth=' +
-                   Uri.encodeFull(this.auth.token);
-        } else {
-            return '/static/img/default_user_thumb_large.png';
-        }
+        return profile.avatarUrl + '?xauth=' + Uri.encodeFull(this.auth.token);
     }
 
     /// Fetch a page of followers for this profile.

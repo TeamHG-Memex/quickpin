@@ -108,5 +108,6 @@ class AuthenticationView(FlaskView):
         except KeyError:
             raise BadRequest('Email and password are required.')
 
-        except (AuthenticationFailure, NoResultFound):
+        except (AuthenticationFailure, NoResultFound) as e:
+            print(e)
             raise Unauthorized('Invalid e-mail or password.')
