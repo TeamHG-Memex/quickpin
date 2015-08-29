@@ -11,10 +11,10 @@
   <div class='row'>
     <div class='col-md-4'>
       <figure class='avatar'>
-        <a href='{{avatarUrl(profile)}}'
+        <a href='{{api.authorizeUrl(profile.avatarUrl)}}'
            target='_blank'
            title='Click to download avatar image.'>
-          <img ng-src='{{avatarUrl(profile)}}'>
+          <img ng-src='{{api.authorizeUrl(profile.avatarUrl)}}'>
         </a>
         <figcaption>
           <p>
@@ -141,7 +141,8 @@
           </tr>
           <tr ng-repeat='friend in friends'>
             <td>
-              <img class='thumb' ng-src='{{friend.avatarThumbUrl}}?xauth={{auth.token}}'>
+              <img class='thumb'
+                   ng-src='{{api.authorizeUrl(friend.avatarThumbUrl)}}'>
               <a href='/profile/{{friend.id}}'>{{friend.username}}</a>
             </td>
           </tr>
@@ -164,7 +165,8 @@
           </tr>
           <tr ng-repeat='follower in followers'>
             <td>
-              <img class='thumb' ng-src='{{follower.avatarThumbUrl}}?xauth={{auth.token}}'>
+              <img class='thumb'
+                   ng-src='{{api.authorizeUrl(follower.avatarThumbUrl)}}'>
               <a href='/profile/{{follower.id}}'>{{follower.username}}</a>
             </td>
           </tr>

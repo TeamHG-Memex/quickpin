@@ -27,6 +27,7 @@ import 'package:quickpin/component/nav.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/profile/list.dart';
 import 'package:quickpin/component/profile/posts.dart';
+import 'package:quickpin/component/profile/relations.dart';
 import 'package:quickpin/component/profile/view.dart';
 import 'package:quickpin/component/progress_bar.dart';
 import 'package:quickpin/component/search.dart';
@@ -79,6 +80,7 @@ class QuickPinApplication extends Module {
         bind(ProfileComponent);
         bind(ProfileListComponent);
         bind(ProfilePostsComponent);
+        bind(ProfileRelationsComponent);
         bind(ProgressBarComponent);
         bind(NodeValidator, toValue: nodeValidator);
         bind(RestApiController);

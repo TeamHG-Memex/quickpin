@@ -17,6 +17,30 @@ class RestApiController {
     /// Constructor.
     RestApiController(this.auth, this.router);
 
+    /// Add xauth query parameter to URL. This is useful for authorizing
+    /// requests made from <img> tags, where it is not possible to specify
+    /// and X-Auth header.
+    String authorizeUrl(String url) {
+        if (url == null) {
+            // If called from a view template, we may receive a null argument.
+            return null;
+        }
+
+        Uri uri = Uri.parse(url);
+        Map params = new Map.from(uri.queryParameters);
+        params['xauth'] = this.auth.token;
+
+        Uri authorizedUri = new Uri(
+            scheme: uri.scheme,
+            host: uri.host.isEmpty ? null : uri.host,
+            port: uri.port,
+            path: uri.path,
+            queryParameters: params
+        );
+
+        return authorizedUri.toString();
+    }
+
     /// Get an API resource and return an API response future.
     Future<ApiResponse> get(String url,
                             {Map urlArgs,

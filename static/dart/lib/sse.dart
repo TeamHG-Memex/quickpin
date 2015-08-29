@@ -1,7 +1,7 @@
 import 'dart:html';
 
 import 'package:angular/angular.dart';
-import 'package:quickpin/authentication.dart';
+import 'package:quickpin/rest_api.dart';
 
 /// Handles server-sent events.
 @Injectable()
@@ -9,13 +9,12 @@ class SseController {
     Stream<Event> onAvatar;
     Stream<Event> onProfile;
 
-    AuthenticationController _auth;
+    RestApiController _api;
     EventSource _eventSource;
-    RouteProvider _rp;
 
     /// Constructor
-    SseController(this._auth, this._rp) {
-        String url = '/api/notification/?xauth=' + Uri.encodeFull(this._auth.token);
+    SseController(this._api) {
+        String url = this._api.authorizeUrl('/api/notification/');
         this._eventSource = new EventSource(url);
 
         this._eventSource.onError.listen((Event e) {

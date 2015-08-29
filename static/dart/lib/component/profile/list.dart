@@ -36,8 +36,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     InputElement _inputEl;
 
+    final RestApiController api;
     final AuthenticationController auth;
-    final RestApiController _api;
     final Element _element;
     final int _resultsPerPage = 10;
     final RouteProvider _rp;
@@ -45,7 +45,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     final TitleService _ts;
 
     /// Constructor.
-    ProfileListComponent(this.auth, this._api, this._element, this._rp,
+    ProfileListComponent(this.api, this.auth, this._element, this._rp,
                          this._sse, this._ts) {
         this._fetchCurrentPage();
         this._ts.title = 'Profiles';
@@ -83,6 +83,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         String pageUrl = '/api/profile/';
         Map body = {'profiles': [{'username': this.newProfile, 'site': 'twitter'}]};
         Profile profile = new Profile(this.newProfile, 'twitter');
+        profile.avatarUrl = '/static/img/default_user.png';
         this.profiles.insert(0, profile);
 
         if (this.newProfilesMap['twitter'] == null) {
@@ -98,7 +99,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
             }
         });
 
-        this._api
+        this.api
             .post(pageUrl, body, needsAuth: true)
             .then((response) {
                 this.newProfile = '';
@@ -108,11 +109,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.submittingProfile = false;});
-    }
-
-    /// Return a URL for a profile's avatar image.
-    String avatarUrl(profile) {
-        return profile.avatarUrl + '?xauth=' + Uri.encodeFull(this.auth.token);
     }
 
     /// Remove a profile at the specified index. (Usually done because of an
@@ -183,7 +179,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.loading = true;
         String pageUrl = '/api/profile/';
 
-        this._api
+        this.api
             .get(pageUrl, needsAuth: true)
             .then((response) {
                 this.profiles = new List.generate(

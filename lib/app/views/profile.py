@@ -165,182 +165,6 @@ class ProfileView(FlaskView):
         # Send response.
         return jsonify(**response)
 
-    @route('/<id_>/friends')
-    def get_friends(self, id_):
-        '''
-        Return an array of profiles that are followed by the specified profile.
-
-        **Example Response**
-
-        .. sourcecode:: json
-
-            {
-              "friends": [
-                {
-                  "avatar_thumb_url": "https://quickpin/api/file/1",
-                  "id": 3,
-                  "url": "https://quickpin/api/profile/3",
-                  "username": "rustlang"
-                },
-                {
-                  "avatar_thumb_url": "https://quickpin/api/file/2",
-                  "id": 4,
-                  "url": "https://quickpin/api/profile/4",
-                  "username": "ORGANICBUTCHER"
-                },
-                ...
-            }
-
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
-
-        :>header Content-Type: application/json
-        :>json object friends Array of friends.
-        :>json int friends[n].avatar_thumb_url a URL to a thumbnail of the
-            user's current avatar
-        :>json int friends[n].id Unique identifier for friend's profile.
-        :>json str friends[n].url The URL to fetch this friend's profile.
-        :>json str friends[n].username This friend's username.
-        :>json int total_count Total count of all friends, not just those on
-            the current page.
-
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: user does not exist
-        '''
-
-        page, results_per_page = get_paging_arguments(request.args)
-        current_avatar_id = self._current_avatar_subquery()
-
-        friend_query = \
-            g.db.query(Profile, Avatar) \
-                .join(profile_join_self, profile_join_self.c.friend_id == Profile.id) \
-                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
-                .filter(profile_join_self.c.follower_id == id_)
-
-        total_count = friend_query.count()
-
-        friend_query = \
-            friend_query.order_by(Profile.is_stub, Profile.username) \
-                        .limit(results_per_page) \
-                        .offset((page - 1) * results_per_page)
-
-        friends = list()
-
-        for friend, avatar in friend_query:
-            if avatar is not None:
-                thumb_url = url_for(
-                    'FileView:get',
-                    id_=avatar.thumb_file.id
-                )
-            else:
-                thumb_url = url_for(
-                    'static',
-                    filename='img/default_user_thumb.png'
-                )
-
-            friend_dict = {
-                'avatar_thumb_url': thumb_url,
-                'id': friend.id,
-                'url': url_for('ProfileView:get', id_=friend.id),
-                'username': friend.username,
-            }
-
-            friends.append(friend_dict)
-
-        return jsonify(friends=friends, total_count=total_count)
-
-    @route('/<id_>/followers')
-    def get_followers(self, id_):
-        '''
-        Return an array of profiles that follow this profile.
-
-        **Example Response**
-
-        .. sourcecode:: json
-
-            {
-              "followers": [
-                {
-                  "avatar_thumb_url": "https://quickpin/api/file/1",
-                  "id": 3,
-                  "url": "https://quickpin/api/profile/3",
-                  "username": "rustlang"
-                },
-                {
-                  "avatar_thumb_url": "https://quickpin/api/file/2",
-                  "id": 4,
-                  "url": "https://quickpin/api/profile/4",
-                  "username": "ORGANICBUTCHER"
-                },
-                ...
-            }
-
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
-
-        :>header Content-Type: application/json
-        :>json object followers Array of followers.
-        :>json int followers[n].avatar_thumb_url a URL to a thumbnail of the
-            user's current avatar
-        :>json int followers[n].id Unique identifier for friend's profile.
-        :>json str followers[n].url The URL to fetch this friend's profile.
-        :>json str followers[n].username This friend's username.
-        :>json int total_count Total count of all followers, not just those on
-            the current page.
-
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: user does not exist
-        '''
-
-        page, results_per_page = get_paging_arguments(request.args)
-        current_avatar_id = self._current_avatar_subquery()
-
-        follower_query = \
-            g.db.query(Profile, Avatar) \
-                .join(profile_join_self,
-                      profile_join_self.c.follower_id == Profile.id) \
-                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
-                .filter(profile_join_self.c.friend_id == id_)
-
-        total_count = follower_query.count()
-
-        follower_query = \
-            follower_query.order_by(Profile.is_stub, Profile.username) \
-                          .limit(results_per_page) \
-                          .offset((page - 1) * results_per_page)
-        followers = list()
-
-        for follower, avatar in follower_query:
-            if avatar is not None:
-                thumb_url = url_for(
-                    'FileView:get',
-                    id_=avatar.thumb_file.id
-                )
-            else:
-                thumb_url = url_for(
-                    'static',
-                    filename='img/default_user_thumb.png'
-                )
-
-            follower_dict = {
-                'avatar_thumb_url': thumb_url,
-                'id': follower.id,
-                'url': url_for('ProfileView:get', id_=follower.id),
-                'username': follower.username,
-            }
-
-            followers.append(follower_dict)
-
-        return jsonify(followers=followers, total_count=total_count)
-
     @route('/<id_>/posts')
     def get_posts(self, id_):
         '''
@@ -426,6 +250,111 @@ class ProfileView(FlaskView):
         return jsonify(
             posts=posts,
             site_name=profile.site_name(),
+            total_count=total_count,
+            username=profile.username
+        )
+
+    @route('/<id_>/relations/<reltype>')
+    def get_relations(self, id_, reltype):
+        '''
+        Return an array of profiles that are related to the specified profile
+        by `reltype`, either "friends" or "followers".
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+              "relations": [
+                {
+                  "avatar_thumb_url": "https://quickpin/api/file/1",
+                  "id": 3,
+                  "url": "https://quickpin/api/profile/3",
+                  "username": "rustlang"
+                },
+                {
+                  "avatar_thumb_url": "https://quickpin/api/file/2",
+                  "id": 4,
+                  "url": "https://quickpin/api/profile/4",
+                  "username": "ORGANICBUTCHER"
+                },
+                ...
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+        :>header Content-Type: application/json
+        :>json object relations Array of related profiles.
+        :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
+            user's current avatar
+        :>json int relations[n].id Unique identifier for relation's profile.
+        :>json str relations[n].url The URL to fetch this relation's profile.
+        :>json str relations[n].username This relation's username.
+        :>json int total_count Total count of all related profiles, not just
+            those on the current page.
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
+        '''
+
+        page, results_per_page = get_paging_arguments(request.args)
+        current_avatar_id = self._current_avatar_subquery()
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile with id={}.'.format(id_))
+
+        if reltype == 'friends':
+            join_cond = (profile_join_self.c.friend_id == Profile.id)
+            filter_cond = (profile_join_self.c.follower_id == id_)
+        elif reltype == 'followers':
+            join_cond = (profile_join_self.c.follower_id == Profile.id)
+            filter_cond = (profile_join_self.c.friend_id == id_)
+        else:
+            raise NotFound('Invalid relation type "{}".'.format(reltype))
+
+        relationship_query = \
+            g.db.query(Profile, Avatar) \
+                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
+                .join(profile_join_self, join_cond) \
+                .filter(filter_cond)
+
+        total_count = relationship_query.count()
+
+        relationship_query = relationship_query \
+            .order_by(Profile.is_stub, Profile.username) \
+            .limit(results_per_page) \
+            .offset((page - 1) * results_per_page)
+
+        relations = list()
+
+        for relation, avatar in relationship_query:
+            if avatar is not None:
+                thumb_url = url_for(
+                    'FileView:get',
+                    id_=avatar.thumb_file.id
+                )
+            else:
+                thumb_url = url_for(
+                    'static',
+                    filename='img/default_user_thumb.png'
+                )
+
+            relations.append({
+                'avatar_thumb_url': thumb_url,
+                'id': relation.id,
+                'url': url_for('ProfileView:get', id_=relation.id),
+                'username': relation.username,
+            })
+
+        return jsonify(
+            site_name=profile.site_name(),
+            relations=relations,
             total_count=total_count,
             username=profile.username
         )

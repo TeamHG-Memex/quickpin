@@ -1,0 +1,31 @@
+<breadcrumbs crumbs=crumbs></breadcrumbs>
+
+<div class='alert alert-danger' role='alert' ng-hide='error.isEmpty'>
+  {{error}}
+</div>
+
+<h1>
+  {{relType(uppercase:true)}}
+  <span ng-show='username == null'>of {{id}}</span>
+  <span ng-show='username != null'>of {{username}}</span>
+  <small ng-show='siteName != null'>on {{siteName}}</small>
+  <img ng-show='loading > 0' src='/static/img/spinner-blue-on-white.gif'>
+</h1>
+
+<p>
+  Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+  of {{pager.totalResults | number}} {{relType()}}.
+</p>
+
+<pager pager='pager'
+       disabled='loading'></pager>
+
+<masonry column-width='250' column-gap='25'>
+  <div ng-repeat='relation in relations' class='masonry-item'>
+    <div class='relation'>
+      <a href='/profile/{{relation.id}}'>
+        <img ng-src='{{api.authorizeUrl(relation.avatarThumbUrl)}}'></a>
+      <a href='/profile/{{relation.id}}'>{{relation.username}}</a>
+    </div>
+  </div>
+</masonry>

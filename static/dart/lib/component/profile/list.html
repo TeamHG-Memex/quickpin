@@ -97,7 +97,7 @@
 <masonry column-width='250' column-gap='25'>
   <div ng-repeat='profile in profiles' class='masonry-item'>
     <a ng-href='{{profile.id != null ? "/profile/" + profile.id : ""}}'>
-      <img class='avatar' ng-src='{{avatarUrl(profile)}}'>
+      <img class='avatar' ng-src='{{api.authorizeUrl(profile.avatarUrl)}}'>
     </a>
     <p class='profile-name'>
       <a ng-show='profile.id != null' href='/profile/{{profile.id}}'>

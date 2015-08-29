@@ -28,12 +28,12 @@ class ProfileComponent {
     List<Post> posts;
     Profile profile;
 
-    final RestApiController _api;
+    final RestApiController api;
     final RouteProvider _rp;
     final TitleService _ts;
 
     /// Constructor.
-    ProfileComponent(this.auth, this._api, this._rp, this._ts) {
+    ProfileComponent(this.api, this.auth, this._rp, this._ts) {
         String idParam = Uri.decodeComponent(this._rp.parameters['id']);
         this.id = int.parse(idParam, radix:10);
 
@@ -49,23 +49,18 @@ class ProfileComponent {
             .then((_) => this._fetchFollowers());
     }
 
-    /// Return a URL for a profile's avatar image.
-    String avatarUrl(profile) {
-        return profile.avatarUrl + '?xauth=' + Uri.encodeFull(this.auth.token);
-    }
-
     /// Fetch a page of followers for this profile.
     Future _fetchFollowers() {
         Completer completer = new Completer();
         this.loading++;
-        String url = '/api/profile/${this.id}/followers';
+        String url = '/api/profile/${this.id}/relations/followers';
         Map urlArgs = {'page': 1, 'rpp': 10};
 
-        this._api
+        this.api
             .get(url, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
-                List followers = response.data['followers'];
-                this.followers = new List<Post>.generate(followers.length, (index) {
+                List followers = response.data['relations'];
+                this.followers = new List<Profile>.generate(followers.length, (index) {
                     return new Profile.fromJson(followers[index]);
                 });
             })
@@ -81,14 +76,14 @@ class ProfileComponent {
     Future _fetchFriends() {
         Completer completer = new Completer();
         this.loading++;
-        String url = '/api/profile/${this.id}/friends';
+        String url = '/api/profile/${this.id}/relations/friends';
         Map urlArgs = {'page': 1, 'rpp': 10};
 
-        this._api
+        this.api
             .get(url, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
-                List friends = response.data['friends'];
-                this.friends = new List<Post>.generate(friends.length, (index) {
+                List friends = response.data['relations'];
+                this.friends = new List<Profile>.generate(friends.length, (index) {
                     return new Profile.fromJson(friends[index]);
                 });
             })
@@ -107,7 +102,7 @@ class ProfileComponent {
         String url = '/api/profile/${this.id}/posts';
         Map urlArgs = {'page': 1, 'rpp': 8};
 
-        this._api
+        this.api
             .get(url, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
                 List jsonPosts = response.data['posts'];
@@ -128,7 +123,7 @@ class ProfileComponent {
         Completer completer = new Completer();
         this.loading++;
 
-        this._api
+        this.api
             .get('/api/profile/${this.id}', needsAuth: true)
             .then((response) {
                 this.profile = new Profile.fromJson(response.data);
