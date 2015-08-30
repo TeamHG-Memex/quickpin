@@ -22,6 +22,8 @@ class NotificationView(FlaskView):
     CHANNELS = (
         'avatar',
         'profile',
+        'profile_posts',
+        'profile_relations',
     )
 
     decorators = [login_required]

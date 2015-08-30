@@ -53,14 +53,15 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.newProfilesMap = new Map<String, Map<String, Profile>>();
 
         // Add event listeners...
-        StreamSubscription avatarSub = this._sse.onAvatar.listen(this.avatarListener);
-        StreamSubscription profileSub = this._sse.onProfile.listen(this.profileListener);
+        List<StreamSubscription> listeners = [
+            this._sse.onAvatar.listen(this.avatarListener),
+            this._sse.onProfile.listen(this.profileListener),
+        ];
 
         // ...and remove event listeners when we leave this route.
         RouteHandle rh = this._rp.route.newHandle();
         rh.onLeave.take(1).listen((e) {
-            avatarSub.cancel();
-            profileSub.cancel();
+            listeners.forEach((listener) => listener.cancel());
         });
     }
 
@@ -78,26 +79,11 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Submit a new profile.
     void addProfile() {
-        this.error = null;
-        this.submittingProfile = true;
+        Profile profile = this._newProfile(this.newProfile);
         String pageUrl = '/api/profile/';
         Map body = {'profiles': [{'username': this.newProfile, 'site': 'twitter'}]};
-        Profile profile = new Profile(this.newProfile, 'twitter');
-        profile.avatarUrl = '/static/img/default_user.png';
-        this.profiles.insert(0, profile);
-
-        if (this.newProfilesMap['twitter'] == null) {
-            this.newProfilesMap['twitter'] = new Map<String, Profile>();
-        }
-
-        this.newProfilesMap['twitter'][this.newProfile.toLowerCase()] = profile;
-
-        // Update layout after Angular finishes next digest cycle.
-        new Timer(new Duration(milliseconds: 100), () {
-            if (this.scope != null) {
-                this.scope.broadcast('masonry.layout');
-            }
-        });
+        this.error = null;
+        this.submittingProfile = true;
 
         this.api
             .post(pageUrl, body, needsAuth: true)
@@ -137,12 +123,26 @@ class ProfileListComponent extends Object with CurrentPageMixin
     }
 
     /// Listen for profile updates.
+    ///
+    /// TODO: This will need to be modified to respect the client's current
+    /// filter, when the filtering feature is implemented.
     void profileListener(Event e) {
+        bool showError;
         Map json = JSON.decode(e.data);
         String username = json['username'].toLowerCase();
-        Profile profile = this.newProfilesMap[json['site']][username];
+        Map siteProfiles = this.newProfilesMap[json['site']];
+        Profile profile;
+
+        if (siteProfiles != null) {
+            profile = siteProfiles[username];
+        }
 
         if (json['error'] == null) {
+            if (profile == null) {
+                // This must be a profile started in a different client.
+                profile = this._newProfile(username);
+            }
+
             profile.id = json['id'];
             profile.description = json['description'];
             profile.friendCount = json['friend_count'];
@@ -152,7 +152,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
             this.idProfilesMap[json['id']] = profile;
             this.newProfilesMap[json['site']].remove(username);
-        } else {
+        } else if (profile != null) {
+            // Only display errors for profiles added by this client.
             profile.error = json['error'];
         }
 
@@ -195,5 +196,27 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.loading = false;});
+    }
+
+    /// Create an empty profile object and insert it into the profile list.
+    Profile _newProfile(String username) {
+        Profile profile = new Profile(username, 'twitter');
+        profile.avatarUrl = '/static/img/default_user.png';
+        this.profiles.insert(0, profile);
+
+        if (this.newProfilesMap['twitter'] == null) {
+            this.newProfilesMap['twitter'] = new Map<String, Profile>();
+        }
+
+        this.newProfilesMap['twitter'][username.toLowerCase()] = profile;
+
+        // Update layout after Angular finishes next digest cycle.
+        new Timer(new Duration(milliseconds: 100), () {
+            if (this.scope != null) {
+                this.scope.broadcast('masonry.layout');
+            }
+        });
+
+        return profile;
     }
 }

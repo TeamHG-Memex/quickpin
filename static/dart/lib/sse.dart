@@ -8,6 +8,8 @@ import 'package:quickpin/rest_api.dart';
 class SseController {
     Stream<Event> onAvatar;
     Stream<Event> onProfile;
+    Stream<Event> onProfilePosts;
+    Stream<Event> onProfileRelations;
 
     RestApiController _api;
     EventSource _eventSource;
@@ -24,5 +26,7 @@ class SseController {
         // Set up event streams.
         this.onAvatar = this._eventSource.on['avatar'];
         this.onProfile = this._eventSource.on['profile'];
+        this.onProfilePosts = this._eventSource.on['profile_posts'];
+        this.onProfileRelations = this._eventSource.on['profile_relations'];
     }
 }
