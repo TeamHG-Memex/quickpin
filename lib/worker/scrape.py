@@ -27,14 +27,16 @@ class ScrapeException(Exception):
         self.message = message
 
 
-def scrape_account(site, username):
+def scrape_profile(site, username):
     ''' Scrape a twitter account. '''
 
     redis = worker.get_redis()
+    worker.start_job()
 
     try:
         profile = scrape_twitter_account(username)
         redis.publish('profile', json.dumps(profile))
+        worker.finish_job()
 
     except requests.exceptions.HTTPError as he:
         response = he.response
@@ -107,47 +109,11 @@ def scrape_twitter_account(username):
     profile.is_stub = False
     db_session.commit()
 
-    # Schedule avatar image followup job.
-    avatar_job = app.queue.scrape_queue.enqueue(
-        scrape_twitter_avatar,
-        profile.id,
-        data['profile_image_url_https']
-    )
-    avatar_desc = 'Getting avatar image for "{}" on "{}"' \
-                  .format(profile.username, profile.site_name())
-    avatar_job.meta['description'] = avatar_desc
-    avatar_job.save()
-
-    # Schedule search index followup job.
-    index_job = app.queue.index_queue.enqueue(
-        worker.index.index_profile,
-        profile.id
-    )
-    index_desc = 'Indexing profile "{}" on "{}"' \
-                 .format(profile.username, profile.site_name())
-    index_job.meta['description'] = index_desc
-    index_job.save()
-
-    # Schedule scrape posts followup job.
-    posts_job = app.queue.scrape_queue.enqueue(
-        scrape_twitter_posts,
-        profile.id
-    )
-    posts_desc = 'Getting posts for "{}" on "{}"' \
-                 .format(profile.username, profile.site_name())
-    posts_job.meta['description'] = posts_desc
-    posts_job.save()
-
-    # Schedule scrape relations followup job.
-    relations_job = app.queue.scrape_queue.enqueue(
-        scrape_twitter_relations,
-        profile.id,
-        timeout=3600
-    )
-    relations_desc = 'Getting friends & followers for "{}" on "{}"' \
-                     .format(profile.username, profile.site_name())
-    relations_job.meta['description'] = relations_desc
-    relations_job.save()
+    # Schedule followup jobs.
+    app.queue.schedule_avatar(profile, data['profile_image_url_https'])
+    app.queue.schedule_index(profile)
+    app.queue.schedule_posts(profile)
+    app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
@@ -158,6 +124,7 @@ def scrape_twitter_avatar(id_, url):
     ``id_``.
     '''
 
+    worker.start_job()
     redis = worker.get_redis()
     db_session = worker.get_session()
 
@@ -183,6 +150,8 @@ def scrape_twitter_avatar(id_, url):
     avatar = Avatar(url, mime, image)
     profile.avatars.append(avatar)
     db_session.commit()
+    worker.finish_job()
+
     redis.publish('avatar', json.dumps({
         'id': id_,
         'thumb_url': '/api/file/' + str(avatar.thumb_file.id),
@@ -195,6 +164,7 @@ def scrape_twitter_posts(id_):
     Fetch tweets for the user identified by id_.
     '''
 
+    worker.start_job()
     redis = worker.get_redis()
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
@@ -255,13 +225,9 @@ def scrape_twitter_posts(id_):
         post_ids.append(post.id)
 
     db.commit()
+    worker.finish_job()
     redis.publish('profile_posts', json.dumps({'id': id_}))
-
-    # Schedule follow up jobs.
-    index_job = app.queue.index_queue.enqueue(worker.index.index_posts, post_ids)
-    index_job.meta['description'] = 'Indexing posts by {} on {}' \
-                                    .format(author.username, author.site_name())
-    index_job.save()
+    app.queue.schedule_index(author)
 
 
 def scrape_twitter_relations(id_):
@@ -312,6 +278,7 @@ def scrape_twitter_relations(id_):
     user_ids = [(uid, 'friend') for uid in friends_ids] + \
                [(uid, 'follower') for uid in followers_ids]
 
+    worker.start_job(total=len(user_ids))
     chunk_size = 100
     for chunk_start in range(0, len(user_ids), chunk_size):
         chunk_end = chunk_start + chunk_size - 1
@@ -355,7 +322,10 @@ def scrape_twitter_relations(id_):
 
             db.commit()
 
+        worker.update_job(current=chunk_end)
+
     db.commit()
+    worker.finish_job()
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
 

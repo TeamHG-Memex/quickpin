@@ -8,6 +8,7 @@ import worker
 def index_posts(post_ids):
     ''' Index a collection of posts. '''
 
+    worker.start_job()
     session = worker.get_session()
     solr = worker.get_solr()
 
@@ -19,15 +20,18 @@ def index_posts(post_ids):
         solr.add(app.index.make_post_doc(post, author))
 
     solr.commit()
+    worker.finish_job()
 
 
 def index_profile(profile_id):
     ''' Index a profile. '''
 
+    worker.start_job()
     session = worker.get_session()
     solr = worker.get_solr()
 
     profile = session.query(Profile).filter(Profile.id == profile_id).one()
     solr.add(app.index.make_profile_doc(profile))
     solr.commit()
+    worker.finish_job()
 

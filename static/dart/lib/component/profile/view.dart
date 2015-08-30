@@ -45,6 +45,7 @@ class ProfileComponent {
             new Breadcrumb('Profiles', '/profile'),
             new Breadcrumb(this.id.toString()),
         ];
+
         // Add event listeners...
         List<StreamSubscription> listeners = [
             this._sse.onAvatar.listen(this._avatarListener),
@@ -61,6 +62,7 @@ class ProfileComponent {
             listeners.forEach((listener) => listener.cancel());
         });
 
+        // Fetch data for this view.
         this._fetchProfile()
             .then((_) => this._fetchPosts())
             .then((_) => this._fetchFriends())

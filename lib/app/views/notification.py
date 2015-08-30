@@ -24,6 +24,7 @@ class NotificationView(FlaskView):
         'profile',
         'profile_posts',
         'profile_relations',
+        'worker',
     )
 
     decorators = [login_required]

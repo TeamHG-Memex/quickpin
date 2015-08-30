@@ -62,15 +62,6 @@ class SearchComponent {
             this._fetchSearchResults();
         }
 
-        // Ported from avatar but the search engine in quickpin doesn't have
-        // any long running tasks, yet, so it's commented out. When re-enabled,
-        // this needs to be ported to use SSE instead of polling.
-        // this._checkBackgroundTask();
-        // Timer refreshBackgroundTask = new Timer.periodic(
-        //     new Duration(seconds: 3),
-        //     (_) => this._checkBackgroundTask()
-        // );
-
         // ...and pay attention to new parameters announced in the URL.
         RouteHandle rh = route.newHandle();
 
@@ -83,12 +74,6 @@ class SearchComponent {
                 this._fetchSearchResults();
             }
         });
-
-        // Commented out -- see comment above.
-        // rh.onLeave.take(1).listen((e) {
-        //     refreshBackgroundTask.cancel();
-        //     subscription.cancel();
-        // });
     }
 
     /// Handle the selection of a facet.

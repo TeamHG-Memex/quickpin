@@ -248,6 +248,7 @@ class TasksView(FlaskView):
                             total = None
 
                         job_json = {
+                            'id': job.id,
                             'current': current,
                             'description': description,
                             'progress': progress,

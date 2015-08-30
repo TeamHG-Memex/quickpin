@@ -12,12 +12,11 @@ from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from app.authorization import login_required
 import app.database
-from app.queue import scrape_queue
+import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
 from model import Avatar, Post, Profile
 from model.profile import avatar_join_profile, profile_join_self
-import worker.scrape
 
 
 class ProfileView(FlaskView):
@@ -552,15 +551,7 @@ class ProfileView(FlaskView):
         for profile in request_json['profiles']:
             site = profile['site']
             username = profile['username']
-
-            job = scrape_queue.enqueue(
-                worker.scrape.scrape_account, site, username, timeout=60
-            )
-
-            job.meta['description'] = 'Scraping bio for "{}" on "{}"' \
-                                      .format(username, site)
-            job.meta['type'] = 'scrape'
-            job.save()
+            app.queue.schedule_profile(site, username)
 
         message = "{} new profiles submitted.".format(len(request_json['profiles']))
         response = jsonify(message=message)

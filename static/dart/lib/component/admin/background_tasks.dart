@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:html';
 
 import 'package:angular/angular.dart';
@@ -27,6 +28,8 @@ class BackgroundTasksComponent {
     List<Map> queues;
     List<Map> workers;
 
+    Map<String, Map> _runningJobs;
+
     final RestApiController _api;
     final RouteProvider _rp;
     final SseController _sse;
@@ -34,24 +37,23 @@ class BackgroundTasksComponent {
 
     /// Constructor.
     BackgroundTasksComponent(this._api, this._rp, this._sse, this._ts) {
-        this._fetchWorkers();
-        this._fetchQueues();
-        this._fetchFailedTasks();
         this._ts.title = 'Background Tasks';
 
-        // This is ported from Avatar, where we have long running tasks. We
-        // don't need it in QuickPin (yet) so it's commented out. When
-        // re-enabled, it should be ported to use SSE instead of polling.
-        // Timer refresh = new Timer.periodic(
-        //     new Duration(seconds: 3),
-        //     (_) => this._fetchWorkers()
-        // );
+        // Add event listeners...
+        List<StreamSubscription> listeners = [
+            this._sse.onWorker.listen(this._workerListener),
+        ];
 
-        // Clean up the timer when we leave the route.
-        // RouteHandle rh = this._rp.route.newHandle();
-        // StreamSubscription subscription = rh.onLeave.take(1).listen((e) {
-        //     refresh.cancel();
-        // });
+        // ...and remove event listeners when we leave this route.
+        RouteHandle rh = this._rp.route.newHandle();
+        rh.onLeave.take(1).listen((e) {
+            listeners.forEach((listener) => listener.cancel());
+        });
+
+        // Fetch data.
+        this._fetchWorkers()
+            .then((_) => this._fetchQueues())
+            .then((_) => this._fetchFailedTasks());
     }
 
     /// Handle a button press to remove a single task.
@@ -70,32 +72,90 @@ class BackgroundTasksComponent {
     }
 
     /// Fetch failed task data.
-    void _fetchFailedTasks() {
+    Future _fetchFailedTasks() {
+        Completer completer = new Completer();
         this.loadingFailedTasks = true;
 
         this._api
             .get('/api/tasks/failed', needsAuth: true)
-            .then((response) {this.failed = response.data['failed'];})
-            .whenComplete(() {this.loadingFailedTasks = false;});
+            .then((response) {
+                this.failed = response.data['failed'];
+            })
+            .whenComplete(() {
+                this.loadingFailedTasks = false;
+                completer.complete();
+            });
+
+        return completer.future;
     }
 
     /// Fetch queue data.
-    void _fetchQueues() {
+    Future _fetchQueues() {
+        Completer completer = new Completer();
         this.loadingQueues = true;
 
         this._api
             .get('/api/tasks/queues', needsAuth: true)
-            .then((response) {this.queues = response.data['queues'];})
-            .whenComplete(() {this.loadingQueues = false;});
+            .then((response) {
+                this.queues = response.data['queues'];
+            })
+            .whenComplete(() {
+                this.loadingQueues = false;
+                completer.complete();
+            });
+
+        return completer.future;
     }
 
     /// Fetch worker data.
-    void _fetchWorkers() {
+    Future _fetchWorkers() {
+        Completer completer = new Completer();
         this.loadingWorkers = true;
 
         this._api
             .get('/api/tasks/workers', needsAuth: true)
-            .then((response) {this.workers = response.data['workers'];})
-            .whenComplete(() {this.loadingWorkers = false;});
+            .then((response) {
+                this.workers = response.data['workers'];
+
+                this._runningJobs = new Map<String, Map>();
+
+                this.workers.forEach((worker) {
+                    Map currentJob = worker['current_job'];
+
+                    if (currentJob != null) {
+                        this._runningJobs[currentJob['id']] = currentJob;
+                    }
+                });
+            })
+            .whenComplete(() {
+                this.loadingWorkers = false;
+                completer.complete();
+            });
+
+        return completer.future;
+    }
+
+    /// Listen for updates from background workers.
+    void _workerListener(Event e) {
+        Map json = JSON.decode(e.data);
+        String status = json['status'];
+
+        if (status == 'queued' || status == 'started' || status == 'finished') {
+            // This information can only be fetched via REST.
+            this._fetchWorkers().then((_) => this._fetchQueues());
+        } else if (status == 'progress') {
+            Map job = this._runningJobs[json['id']];
+
+            if (job != null) {
+                // Event contains all the data we need: no need for REST call.
+                job['current'] = json['current'];
+                job['progress'] = json['progress'];
+            } else {
+                // This is a job we don't know about: needs REST call.
+                this._fetchWorkers().then((_) => this._fetchQueues());
+            }
+        } else if (status == 'failed') {
+            this._fetchFailedTasks().then((_) => this._fetchWorkers());
+        }
     }
 }
