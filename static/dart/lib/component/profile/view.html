@@ -49,21 +49,27 @@
       <div class='row'>
         <div class='col-sm-4'>
           <div class='card blue'>
-            <div class='content'>{{profile.friendCount | number}}</div>
+            <div class='content'>
+              {{profile.friendCount | number | default:'n/a'}}
+            </div>
             <div class='legend'>Friends</div>
             <i class='fa fa-asterisk'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card green'>
-            <div class='content'>{{profile.followerCount | number}}</div>
+            <div class='content'>
+              {{profile.followerCount | number | default:'n/a'}}
+            </div>
             <div class='legend'>Followers</div>
             <i class='fa fa-group'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card red'>
-            <div class='content'>{{profile.postCount | number}}</div>
+            <div class='content'>
+              {{profile.postCount | number | default:'n/a'}}
+            </div>
             <div class='legend'>Posts</div>
             <i class='fa fa-quote-right'></i>
           </div>
@@ -72,21 +78,27 @@
       <div class='row'>
         <div class='col-sm-4'>
           <div class='card yellow'>
-            <div class='content small'>{{profile.name | default:'Unknown'}}</div>
+            <div class='content small'>
+              {{profile.name | default:'Unknown'}}
+            </div>
             <div class='legend'>Name</div>
             <i class='fa fa-lock'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card blue'>
-            <div class='content small'>{{profile.location | default:'Unknown'}}</div>
+            <div class='content small'>
+              {{profile.location | default:'Unknown'}}
+            </div>
             <div class='legend'>Location</div>
             <i class='fa fa-map-marker'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card green'>
-            <div class='content small'>{{profile.joinDate | date:"MMM d, yyyy" | default:'Unknown'}}</div>
+            <div class='content small'>
+              {{profile.joinDate | date:"MMM d, yyyy" | default:'Unknown'}}
+            </div>
             <div class='legend'>Joined</div>
             <i class='fa fa-heart'></i>
           </div>
@@ -116,6 +128,9 @@
           </tr>
           <tr ng-repeat='post in posts'>
             <td>
+              <img ng-if='post.attachmentUrl != null'
+                   ng-src='{{api.authorizeUrl(post.attachmentUrl)}}'
+                   class='post-attachment'>
               {{post.content}}
               <span class='text-muted'>
                 {{post.upstreamCreated | date:'yyyy-MM-dd H:mm:ss'}}

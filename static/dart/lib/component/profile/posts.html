@@ -23,6 +23,9 @@
 <masonry column-width='250' column-gap='25'>
   <div ng-repeat='post in posts' class='masonry-item'>
     <div class='post'>
+      <img ng-hide='post.attachmentUrl == null'
+           ng-src='{{api.authorizeUrl(post.attachmentUrl)}}'
+           class='post-attachment'>
       <p>{{post.content}}</p>
       <p>
         <span class='text-muted'>

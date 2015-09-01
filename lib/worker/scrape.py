@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import pickle
+from urllib.parse import urlparse
 
 import requests
 import requests.exceptions
@@ -15,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Avatar, Configuration, Post, Profile
+from model import Avatar, Configuration, File, Post, Profile
 import worker
 import worker.index
 
@@ -49,7 +50,7 @@ def scrape_avatar(id_, site, url):
         # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
         url = url.replace('_normal', '')
 
-    response = requests.get(url, stream=True)
+    response = requests.get(url)
     response.raise_for_status()
 
     if 'content-type' in response.headers:
@@ -57,7 +58,7 @@ def scrape_avatar(id_, site, url):
     else:
         mime = 'application/octet-stream'
 
-    image = response.raw.read()
+    image = response.content
     avatar = Avatar(url, mime, image)
     profile.avatars.append(avatar)
     db_session.commit()
@@ -197,10 +198,10 @@ def scrape_instagram_posts(id_):
     Fetch posts for the user identified by id_.
     '''
 
-    worker.start_job()
     redis = worker.get_redis()
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -210,14 +211,17 @@ def scrape_instagram_posts(id_):
 
     response = requests.get(
         url,
-        proxies=_get_proxies(db),
+        proxies=proxies,
         verify=False
     )
 
     response.raise_for_status()
     post_ids = list()
+    response_json = response.json()['data']
+    worker.start_job(total=len(response_json))
+    current = 1
 
-    for gram in response.json()['data']:
+    for gram in response_json:
         if gram['caption'] is not None:
             text = gram['caption']['text']
         else:
@@ -227,7 +231,7 @@ def scrape_instagram_posts(id_):
             author,
             gram['id'],
             datetime.fromtimestamp(int(gram['created_time'])),
-            gram['caption']['text']
+            text
         )
 
         if gram['location'] is not None:
@@ -235,12 +239,24 @@ def scrape_instagram_posts(id_):
                 post.latitude = gram['location']['latitude']
                 post.longitude = gram['location']['longitude']
 
-            location = gram['location']['name'], gram['location']['street_address']
-            post.location = ('{} {}'.format(*location)).strip()
+            post.location = gram['location']['name']
+
+            if 'street_address' in gram['location']:
+                post.location += ' ' + gram['location']['street_address']
+
+        if 'images' in gram:
+            image_url = gram['images']['standard_resolution']['url']
+            name = os.path.basename(urlparse(image_url).path)
+            img_response = requests.get(image_url, verify=False)
+            mime = img_response.headers['Content-type']
+            image = img_response.content
+            post.attachments.append(File(name, mime, image))
 
         db.add(post)
         db.flush()
         post_ids.append(post.id)
+        worker.update_job(current=current)
+        current += 1
 
     db.commit()
     worker.finish_job()
@@ -279,6 +295,8 @@ def scrape_instagram_relations(id_):
             is_stub=True
         )
 
+        db.add(related_profile)
+
         try:
             db.commit()
         except IntegrityError:
@@ -309,6 +327,8 @@ def scrape_instagram_relations(id_):
             follower['username'],
             is_stub=True
         )
+
+        db.add(related_profile)
 
         try:
             db.commit()
@@ -371,7 +391,7 @@ def scrape_twitter_account(username):
 
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_image_url_https'])
-    app.queue.schedule_index(profile)
+    app.queue.schedule_index_profile(profile)
     app.queue.schedule_posts(profile)
     app.queue.schedule_relations(profile)
 
@@ -446,7 +466,7 @@ def scrape_twitter_posts(id_):
     db.commit()
     worker.finish_job()
     redis.publish('profile_posts', json.dumps({'id': id_}))
-    app.queue.schedule_index(author)
+    app.queue.schedule_index_posts(post_ids)
 
 
 def scrape_twitter_relations(id_):

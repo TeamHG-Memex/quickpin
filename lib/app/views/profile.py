@@ -236,7 +236,7 @@ class ProfileView(FlaskView):
                                .offset((page - 1) * results_per_page)
 
         for post in post_query:
-            posts.append({
+            post_dict = {
                 'content': post.content,
                 'id': post.id,
                 'language': post.language,
@@ -244,7 +244,18 @@ class ProfileView(FlaskView):
                 'location': (post.longitude, post.latitude),
                 'upstream_created': isodate(post.upstream_created),
                 'upstream_id': post.upstream_id,
-            })
+            }
+
+            if len(post.attachments) > 0:
+                attachment = post.attachments[0]
+
+                post_dict['attachment'] = {
+                    'mime': attachment.mime,
+                    'name': attachment.name,
+                    'url': url_for('FileView:get', id_=attachment.id)
+                }
+
+            posts.append(post_dict)
 
         return jsonify(
             posts=posts,

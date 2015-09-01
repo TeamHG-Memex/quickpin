@@ -78,8 +78,11 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Listen for avatar image updates.
     void avatarListener(Event e) {
         Map json = JSON.decode(e.data);
+        Profile profile = this.idProfilesMap[json['id']];
 
-        this.idProfilesMap[json['id']].avatarUrl = json['url'];
+        if (profile != null) {
+            profile.avatarUrl = json['url'];
+        }
 
         if (this.scope != null) {
             scope.apply();

@@ -27,13 +27,14 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     String siteName;
     String username;
 
-    final RestApiController _api;
+    final RestApiController api;
+
     final RouteProvider _rp;
     final int _resultsPerPage = 20;
     final TitleService _ts;
 
     /// Constructor.
-    ProfilePostsComponent(this._api, this._rp, this._ts) {
+    ProfilePostsComponent(this.api, this._rp, this._ts) {
         this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._ts.title = 'Posts by ${id}';
@@ -51,7 +52,7 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
             'rpp': this._resultsPerPage,
         };
 
-        this._api
+        this.api
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
                 this.siteName = response.data['site_name'];

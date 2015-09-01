@@ -2,6 +2,7 @@ import 'package:quickpin/model/coordinate.dart';
 
 /// A model for a social media post.
 class Post {
+    String attachmentUrl;
     String content;
     int id;
     String language;
@@ -11,6 +12,10 @@ class Post {
     String upstreamId;
 
     Post.fromJson(Map json) {
+        if (json['attachment'] != null) {
+            this.attachmentUrl = json['attachment']['url'];
+        }
+
         this.content = json['content'];
         this.id = json['id'];
         this.language = json['language'];
