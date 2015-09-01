@@ -21,35 +21,36 @@ def schedule_avatar(profile, avatar_url):
     ''' Queue a job to fetch an avatar image for the specified profile. '''
 
     job = _scrape_queue.enqueue(
-        worker.scrape.scrape_twitter_avatar,
+        worker.scrape.scrape_avatar,
         profile.id,
+        profile.site,
         avatar_url
     )
 
-    description = 'Getting avatar image for "{}" on "{}"' \
+    description = 'Getting avatar image for "{}" on {}' \
                   .format(profile.username, profile.site_name())
 
     worker.init_job(job, description)
 
 
-def schedule_index(profile):
+def schedule_index_profile(profile):
     ''' Queue a job to index the specified profile. '''
 
     job = _index_queue.enqueue(worker.index.index_profile, profile.id)
 
-    description = 'Indexing profile "{}" on "{}"' \
+    description = 'Indexing profile "{}" on {}' \
                   .format(profile.username, profile.site_name())
 
     worker.init_job(job, description)
 
 
-def schedule_posts(profile):
-    ''' Queue a job to get posts for the specified profile. '''
+def schedule_index_posts(post_ids):
+    ''' Queue a job to index the specified posts. '''
 
-    job = _scrape_queue.enqueue(worker.scrape.scrape_twitter_posts, profile.id)
+    job = _index_queue.enqueue(worker.index.index_posts, post_ids)
 
-    description = 'Getting posts for "{}" on "{}"' \
-                  .format(profile.username, profile.site_name())
+    description = 'Indexing {} posts' \
+                  .format(len(post_ids))
 
     worker.init_job(job, description)
 
@@ -64,22 +65,37 @@ def schedule_profile(site, username):
         timeout=60
     )
 
-    description = 'Scraping bio for "{}" on "{}"'.format(username, site)
+    description = 'Scraping bio for "{}" on {}'.format(username, site)
+    worker.init_job(job, description)
+
+
+def schedule_posts(profile):
+    ''' Queue a job to get posts for the specified profile. '''
+
+    scrapers = {
+        'instagram': worker.scrape.scrape_instagram_posts,
+        'twitter': worker.scrape.scrape_twitter_posts,
+    }
+
+    description = 'Getting posts for "{}" on {}' \
+                  .format(profile.username, profile.site_name())
+
+    job = _scrape_queue.enqueue(scrapers[profile.site], profile.id)
     worker.init_job(job, description)
 
 
 def schedule_relations(profile):
     ''' Queue a job to get relations for the specified profile. '''
 
-    description = 'Getting friends & followers for "{}" on "{}"' \
+    scrapers = {
+        'instagram': worker.scrape.scrape_instagram_relations,
+        'twitter': worker.scrape.scrape_twitter_relations,
+    }
+
+    description = 'Getting friends & followers for "{}" on {}' \
                   .format(profile.username, profile.site_name())
 
-    job = _scrape_queue.enqueue(
-        worker.scrape.scrape_twitter_relations,
-        profile.id,
-        timeout=3600
-    )
-
+    job = _scrape_queue.enqueue(scrapers[profile.site], profile.id, timeout=3600)
     worker.init_job(job, description)
 
 

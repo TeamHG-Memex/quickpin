@@ -27,6 +27,49 @@ class ScrapeException(Exception):
         self.message = message
 
 
+def scrape_avatar(id_, site, url):
+    '''
+    Get an twitter avatar from ``url`` and save it to the Profile identified by
+    ``id_``.
+    '''
+
+    worker.start_job()
+    redis = worker.get_redis()
+    db_session = worker.get_session()
+
+    profile = db_session.query(Profile).filter(Profile.id==id_).first()
+
+    if profile is None:
+        raise ValueError('No profile exists with id={}'.format(id_))
+
+    if site == 'twitter':
+        # Twitter points you to a scaled image by default, but we can get the
+        # original resolution by removing "_normal" from the URL.
+        #
+        # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
+        url = url.replace('_normal', '')
+
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+
+    if 'content-type' in response.headers:
+        mime = response.headers['content-type']
+    else:
+        mime = 'application/octet-stream'
+
+    image = response.raw.read()
+    avatar = Avatar(url, mime, image)
+    profile.avatars.append(avatar)
+    db_session.commit()
+    worker.finish_job()
+
+    redis.publish('avatar', json.dumps({
+        'id': id_,
+        'thumb_url': '/api/file/' + str(avatar.thumb_file.id),
+        'url': '/api/file/' + str(avatar.file.id),
+    }))
+
+
 def scrape_profile(site, username):
     ''' Scrape a twitter account. '''
 
@@ -34,7 +77,13 @@ def scrape_profile(site, username):
     worker.start_job()
 
     try:
-        profile = scrape_twitter_account(username)
+        if site == 'twitter':
+            profile = scrape_twitter_account(username)
+        elif site == 'instagram':
+            profile = scrape_instagram_account(username)
+        else:
+            raise ScrapeException('No scraper exists for site: {}'.format(site))
+
         redis.publish('profile', json.dumps(profile))
         worker.finish_job()
 
@@ -66,6 +115,217 @@ def scrape_profile(site, username):
         }
         redis.publish('profile', json.dumps(message))
         raise
+
+
+def scrape_instagram_account(username):
+    ''' Scrape instagram bio data and create (or update) a profile. '''
+
+    # Getting a user ID is more difficult than it ought to be: you need to
+    # search for the username and iterate through the search results results to
+    # find an exact match.
+    db_session = worker.get_session()
+    proxies = _get_proxies(db_session)
+
+    api_url = 'https://api.instagram.com/v1/users/search'
+    params = {'q': username}
+
+    response = requests.get(
+        api_url,
+        params=params,
+        proxies=proxies,
+        verify=False
+    )
+
+    response.raise_for_status()
+    search_results = response.json()
+    username_lower = username.lower()
+    user_id = None
+
+    for user_result in search_results['data']:
+        if user_result['username'].lower() == username_lower:
+            user_id = user_result['id']
+            break
+
+    if user_id is None:
+        raise ScrapeException('Can\'t find Instagram user named {}.'
+                              .format(username))
+
+    # Now make another request to get this user's profile data.
+    api_url = 'https://api.instagram.com/v1/users/{}'.format(user_id)
+
+    response = requests.get(
+        api_url,
+        proxies=proxies,
+        verify=False
+    )
+
+    response.raise_for_status()
+    data = response.json()['data']
+    profile = Profile('instagram', user_id, data['username'])
+    db_session.add(profile)
+
+    try:
+        db_session.commit()
+    except IntegrityError:
+        # Already exists: use the existing profile.
+        db_session.rollback()
+        profile = db_session.query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==user_id) \
+                            .one()
+
+    profile.description = data['bio']
+    profile.follower_count = int(data['counts']['followed_by'])
+    profile.friend_count = int(data['counts']['follows'])
+    profile.homepage = data['website']
+    profile.name = data['full_name']
+    profile.post_count = int(data['counts']['media'])
+    profile.is_stub = False
+    db_session.commit()
+
+    # Schedule followup jobs.
+    app.queue.schedule_avatar(profile, data['profile_picture'])
+    app.queue.schedule_index_profile(profile)
+    app.queue.schedule_posts(profile)
+    app.queue.schedule_relations(profile)
+
+    return profile.as_dict()
+
+
+def scrape_instagram_posts(id_):
+    '''
+    Fetch posts for the user identified by id_.
+    '''
+
+    worker.start_job()
+    redis = worker.get_redis()
+    db = worker.get_session()
+    author = db.query(Profile).filter(Profile.id==id_).first()
+
+    if author is None:
+        raise ValueError('No profile exists with id={}'.format(id_))
+
+    url = 'https://api.instagram.com/v1/users/{}/media/recent' \
+          .format(author.upstream_id)
+
+    response = requests.get(
+        url,
+        proxies=_get_proxies(db),
+        verify=False
+    )
+
+    response.raise_for_status()
+    post_ids = list()
+
+    for gram in response.json()['data']:
+        if gram['caption'] is not None:
+            text = gram['caption']['text']
+        else:
+            text = None
+
+        post = Post(
+            author,
+            gram['id'],
+            datetime.fromtimestamp(int(gram['created_time'])),
+            gram['caption']['text']
+        )
+
+        if gram['location'] is not None:
+            if 'latitude' in gram['location']:
+                post.latitude = gram['location']['latitude']
+                post.longitude = gram['location']['longitude']
+
+            location = gram['location']['name'], gram['location']['street_address']
+            post.location = ('{} {}'.format(*location)).strip()
+
+        db.add(post)
+        db.flush()
+        post_ids.append(post.id)
+
+    db.commit()
+    worker.finish_job()
+    redis.publish('profile_posts', json.dumps({'id': id_}))
+    app.queue.schedule_index_posts(post_ids)
+
+
+def scrape_instagram_relations(id_):
+    '''
+    Fetch friends and followers for the Instagram user identified by `id_`.
+    '''
+
+    redis = worker.get_redis()
+    db = worker.get_session()
+    profile = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
+
+    if profile is None:
+        raise ValueError('No profile exists with id={}'.format(id_))
+
+    # Get friend IDs.
+    friends_url = 'https://api.instagram.com/v1/users/{}/follows' \
+                  .format(profile.upstream_id)
+    friends_response = requests.get(
+        friends_url,
+        proxies=proxies,
+        verify=False
+    )
+    friends_response.raise_for_status()
+
+    for friend in friends_response.json()['data']:
+        related_profile = Profile(
+            'instagram',
+            friend['id'],
+            friend['username'],
+            is_stub=True
+        )
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            related_profile = db \
+                    .query(Profile) \
+                    .filter(Profile.site=='instagram') \
+                    .filter(Profile.upstream_id==friend['id']) \
+                    .one()
+
+        related_profile.name = friend['full_name']
+        profile.friends.append(related_profile)
+
+    # Get follower IDs.
+    followers_url = 'https://api.instagram.com/v1/users/{}/followed-by' \
+                    .format(profile.upstream_id)
+    followers_response = requests.get(
+        followers_url,
+        proxies=proxies,
+        verify=False
+    )
+    followers_response.raise_for_status()
+
+    for follower in followers_response.json()['data']:
+        related_profile = Profile(
+            'instagram',
+            follower['id'],
+            follower['username'],
+            is_stub=True
+        )
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            related_profile = db \
+                    .query(Profile) \
+                    .filter(Profile.site=='instagram') \
+                    .filter(Profile.upstream_id==follower['id']) \
+                    .one()
+
+        related_profile.name = follower['full_name']
+        profile.followers.append(related_profile)
+
+
+    worker.finish_job()
+    redis.publish('profile_relations', json.dumps({'id': id_}))
 
 
 def scrape_twitter_account(username):
@@ -116,47 +376,6 @@ def scrape_twitter_account(username):
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
-
-
-def scrape_twitter_avatar(id_, url):
-    '''
-    Get a twitter avatar from ``url`` and save it to the Profile identified by
-    ``id_``.
-    '''
-
-    worker.start_job()
-    redis = worker.get_redis()
-    db_session = worker.get_session()
-
-    profile = db_session.query(Profile).filter(Profile.id==id_).first()
-
-    if profile is None:
-        raise ValueError('No profile exists with id={}'.format(id_))
-
-    # Twitter points you to a scaled image by default, but we can get the
-    # original resolution by removing "_normal" from the URL.
-    #
-    # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
-    url = url.replace('_normal', '')
-    response = requests.get(url, stream=True)
-    response.raise_for_status()
-
-    if 'content-type' in response.headers:
-        mime = response.headers['content-type']
-    else:
-        mime = 'application/octet-stream'
-
-    image = response.raw.read()
-    avatar = Avatar(url, mime, image)
-    profile.avatars.append(avatar)
-    db_session.commit()
-    worker.finish_job()
-
-    redis.publish('avatar', json.dumps({
-        'id': id_,
-        'thumb_url': '/api/file/' + str(avatar.thumb_file.id),
-        'url': '/api/file/' + str(avatar.file.id),
-    }))
 
 
 def scrape_twitter_posts(id_):
@@ -354,6 +573,7 @@ def _twitter_populate_profile(dict_, profile):
     profile.description = dict_['description']
     profile.follower_count = dict_['followers_count']
     profile.friend_count = dict_['friends_count']
+    profile.homepage = dict_['url']
     profile.join_date = dateutil.parser.parse(dict_['created_at'])
     profile.location = dict_['location']
     profile.name = dict_['name']

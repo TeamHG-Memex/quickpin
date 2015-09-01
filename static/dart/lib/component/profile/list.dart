@@ -26,12 +26,14 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     String error;
     bool loading = false;
-    String newProfile;
+    String newProfile, newProfileSite;
+    String newProfileSiteDescription = 'Select A Site';
     List<Profile> profiles;
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
     Scope scope;
     bool showAdd = false;
+    String siteFilter, siteFilterDescription;
     bool submittingProfile = false;
 
     InputElement _inputEl;
@@ -40,29 +42,37 @@ class ProfileListComponent extends Object with CurrentPageMixin
     final AuthenticationController auth;
     final Element _element;
     final int _resultsPerPage = 10;
+    final Router _router;
     final RouteProvider _rp;
     final SseController _sse;
     final TitleService _ts;
 
     /// Constructor.
-    ProfileListComponent(this.api, this.auth, this._element, this._rp,
-                         this._sse, this._ts) {
-        this._fetchCurrentPage();
+    ProfileListComponent(this.api, this.auth, this._element, this._router,
+                         this._rp, this._sse, this._ts) {
         this._ts.title = 'Profiles';
+        this._parseQueryParameters(this._rp.route.queryParameters);
         this.idProfilesMap = new Map<num, Profile>();
         this.newProfilesMap = new Map<String, Map<String, Profile>>();
 
         // Add event listeners...
+        RouteHandle rh = this._rp.route.newHandle();
+
         List<StreamSubscription> listeners = [
             this._sse.onAvatar.listen(this.avatarListener),
             this._sse.onProfile.listen(this.profileListener),
+            rh.onEnter.listen((e) {
+                this._parseQueryParameters(e.queryParameters);
+                this._fetchCurrentPage();
+            }),
         ];
 
         // ...and remove event listeners when we leave this route.
-        RouteHandle rh = this._rp.route.newHandle();
         rh.onLeave.take(1).listen((e) {
             listeners.forEach((listener) => listener.cancel());
         });
+
+        this._fetchCurrentPage();
     }
 
     /// Listen for avatar image updates.
@@ -79,11 +89,26 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Submit a new profile.
     void addProfile() {
-        Profile profile = this._newProfile(this.newProfile);
+        if (this.newProfileSite == null) {
+            this.error = 'You must select a social media site before you can'
+                         ' add a profile.';
+            return;
+        } else {
+            this.error = null;
+        }
+
+        Profile profile = this._newProfile(this.newProfile,
+                                           this.newProfileSite);
         String pageUrl = '/api/profile/';
-        Map body = {'profiles': [{'username': this.newProfile, 'site': 'twitter'}]};
         this.error = null;
         this.submittingProfile = true;
+
+        Map body = {
+            'profiles': [{
+                'username': this.newProfile,
+                'site': this.newProfileSite,
+            }],
+        };
 
         this.api
             .post(pageUrl, body, needsAuth: true)
@@ -102,6 +127,21 @@ class ProfileListComponent extends Object with CurrentPageMixin
     void dismissProfileAtIndex(int index) {
         this.profiles.removeAt(index);
         this.scope.broadcast('masonry.layout');
+    }
+
+    /// Filter profile list by a specified site.
+    void filterSite(String site) {
+        Map args = this._makeUrlArgs();
+
+        if (site == null) {
+            args.remove('site');
+        } else {
+            args['site'] = site;
+        }
+
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
     }
 
     /// Trigger add profile when the user presses enter in the profile input.
@@ -123,9 +163,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
     }
 
     /// Listen for profile updates.
-    ///
-    /// TODO: This will need to be modified to respect the client's current
-    /// filter, when the filtering feature is implemented.
     void profileListener(Event e) {
         bool showError;
         Map json = JSON.decode(e.data);
@@ -138,9 +175,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
         }
 
         if (json['error'] == null) {
-            if (profile == null) {
-                // This must be a profile started in a different client.
-                profile = this._newProfile(username);
+            if (profile == null &&
+                (this.siteFilter == null || this.siteFilter == json['site'])) {
+                // This was added by another client.
+                profile = this._newProfile(username, json['site']);
             }
 
             profile.id = json['id'];
@@ -174,23 +212,37 @@ class ProfileListComponent extends Object with CurrentPageMixin
         }
     }
 
+    /// Select a site in the "Add Profile" form.
+    void selectAddProfileSite(String site) {
+        this.newProfileSite = site;
+        String siteHuman = site.replaceRange(0, 1, site[0].toUpperCase());
+        this.newProfileSiteDescription = 'On ' + siteHuman;
+    }
+
     /// Fetch a page of profiles.
     void _fetchCurrentPage() {
         this.error = null;
         this.loading = true;
         String pageUrl = '/api/profile/';
+        Map urlArgs = new Map();
+
+        if (this.siteFilter != null) {
+            urlArgs['site'] = this.siteFilter;
+        }
 
         this.api
-            .get(pageUrl, needsAuth: true)
+            .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
                 this.profiles = new List.generate(
                     response.data['profiles'].length,
                     (index) => new Profile.fromJson(response.data['profiles'][index])
                 );
 
-                if (this.scope != null) {
-                    this.scope.broadcast('masonry.layout');
-                }
+                new Timer(new Duration(milliseconds: 100), () {
+                    if (this.scope != null) {
+                        this.scope.broadcast('masonry.layout');
+                    }
+                });
             })
             .catchError((response) {
                 this.error = response.data['message'];
@@ -198,17 +250,47 @@ class ProfileListComponent extends Object with CurrentPageMixin
             .whenComplete(() {this.loading = false;});
     }
 
-    /// Create an empty profile object and insert it into the profile list.
-    Profile _newProfile(String username) {
-        Profile profile = new Profile(username, 'twitter');
-        profile.avatarUrl = '/static/img/default_user.png';
-        this.profiles.insert(0, profile);
+    /// Get a query parameter as an int.
+    void _getQPInt(value, [defaultValue]) {
+        if (value != null) {
+            return int.parse(value);
+        } else {
+            return defaultValue;
+        }
+    }
 
-        if (this.newProfilesMap['twitter'] == null) {
-            this.newProfilesMap['twitter'] = new Map<String, Profile>();
+    /// Get a query parameter as a string.
+    void _getQPString(value, [defaultValue]) {
+        if (value != null) {
+            return Uri.decodeComponent(value);
+        } else {
+            return defaultValue;
+        }
+    }
+
+    /// Make a map of arguments for a URL query string.
+    void _makeUrlArgs() {
+        var args = new Map<String>();
+
+        if (this.siteFilter != null) {
+            args['site'] = this.siteFilter;
         }
 
-        this.newProfilesMap['twitter'][username.toLowerCase()] = profile;
+        return args;
+    }
+
+    /// Create an empty profile object and insert it into the profile list.
+    Profile _newProfile(String username, String site) {
+        Profile profile = new Profile(username, site);
+        profile.avatarUrl = '/static/img/default_user.png';
+        profile.siteName = site.replaceRange(0, 1, site[0].toUpperCase());
+        this.profiles.insert(0, profile);
+
+        if (this.newProfilesMap[site] == null) {
+            this.newProfilesMap[site] = new Map<String, Profile>();
+        }
+
+        this.newProfilesMap[site][username.toLowerCase()] = profile;
 
         // Update layout after Angular finishes next digest cycle.
         new Timer(new Duration(milliseconds: 100), () {
@@ -218,5 +300,19 @@ class ProfileListComponent extends Object with CurrentPageMixin
         });
 
         return profile;
+    }
+
+    /// Take a map of query parameters and parse/load into member variables.
+    void _parseQueryParameters(qp) {
+        this.error = '';
+        String site = this._getQPString(qp['site']);
+        this.siteFilter = site;
+
+        if (site == null) {
+            this.siteFilterDescription = 'All Sites';
+        } else {
+            String initial = site[0].toUpperCase();
+            this.siteFilterDescription = site.replaceRange(0, 1, initial);
+        }
     }
 }

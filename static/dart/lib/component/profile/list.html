@@ -22,13 +22,13 @@
             class='btn btn-primary btn-sm dropdown-toggle'
             data-toggle='dropdown'
             aria-expanded='false'>
-      Site: All Sites <span class='caret'></span>
+      Site: {{siteFilterDescription}} <span class='caret'></span>
     </button>
     <ul class='dropdown-menu sort-by' role='menu'>
-      <li><a click=''>All Sites</a></li>
+      <li><a ng-click='filterSite(null)'>All Sites</a></li>
       <li class='divider'></li>
-      <li><a lick=''>Instagram</a></li>
-      <li><a lick=''>Twitter</a></li>
+      <li><a ng-click='filterSite("instagram")'>Instagram</a></li>
+      <li><a ng-click='filterSite("twitter")'>Twitter</a></li>
     </ul>
   </div>
 
@@ -71,11 +71,11 @@
             data-toggle='dropdown'
             ng-disabled='submittingProfile'
             aria-expanded='false'>
-      On Twitter <span class='caret'></span>
+      {{newProfileSiteDescription}} <span class='caret'></span>
     </button>
     <ul class='dropdown-menu sort-by' role='menu'>
-      <li><a ng-click=''>Instagram</a></li>
-      <li><a ng-click=''>Twitter</a></li>
+      <li><a ng-click='selectAddProfileSite("instagram")'>Instagram</a></li>
+      <li><a ng-click='selectAddProfileSite("twitter")'>Twitter</a></li>
     </ul>
   </div>
 

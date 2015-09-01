@@ -52,20 +52,22 @@ class Profile(Base):
     # connected to this profile; we haven't collected any additional information
     # about it.
     is_stub = Column(Boolean, nullable=False, default=False)
-
+    name = Column(String(255))
     description = Column(Text)
-    follower_count = Column(Integer)
-    friend_count = Column(Integer)
+    homepage = Column(Text)
     join_date = Column(DateTime)
+
     last_update = Column(
         DateTime,
         default=func.current_timestamp(),
         onupdate=func.current_timestamp()
     )
+
+    follower_count = Column(Integer)
+    friend_count = Column(Integer)
+    post_count = Column(Integer)
     lang = Column(String(255))
     location = Column(Text)
-    name = Column(String(255))
-    post_count = Column(Integer)
     private = Column(Boolean)
     time_zone = Column(Text)
 

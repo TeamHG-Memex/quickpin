@@ -401,6 +401,7 @@ class ProfileView(FlaskView):
         :<header X-Auth: the client's auth token
         :query page: the page number to display (default: 1)
         :query rpp: the number of results per page (default: 10)
+        :query site: name of site to filter by
 
         :>header Content-Type: application/json
         :>json list profiles: a list of profile objects
@@ -448,10 +449,14 @@ class ProfileView(FlaskView):
 
         page, results_per_page = get_paging_arguments(request.args)
         current_avatar_id = self._current_avatar_subquery()
+        site = request.args.get('site', None)
 
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
                     .filter(Profile.is_stub == False)
+
+        if site is not None:
+            query = query.filter(Profile.site == site)
 
         total_count = query.count()
 
@@ -553,7 +558,9 @@ class ProfileView(FlaskView):
             username = profile['username']
             app.queue.schedule_profile(site, username)
 
-        message = "{} new profiles submitted.".format(len(request_json['profiles']))
+        count = len(request_json['profiles'])
+        message = "{} new profile{} submitted." \
+                  .format(count, 's' if count != 1 else '')
         response = jsonify(message=message)
         response.status_code = 202
 

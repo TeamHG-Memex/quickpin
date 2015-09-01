@@ -272,21 +272,24 @@ class SearchView(FlaskView):
 
         id_ = doc['id']
         content = self._highlight(doc, highlights[id_], 'content_txt_en')
-        location = self._highlight(doc, highlights[id_], 'location_txt_en')
         site_name = self._highlight(doc, highlights[id_], 'site_name_txt_en')
         username = self._highlight(doc, highlights[id_], 'username_s')
 
         formatted = {
             'content': content,
             'id': id_,
-            'location': location,
             'post_id': doc['post_id_i'],
             'posted': doc['post_date_tdt'],
+            'profile_id': doc['profile_id_i'],
             'site': site_name,
             'type': doc['type_s'],
             'updated': doc['last_update_tdt'],
             'username': username,
         }
+
+        if 'location_txt_en' in doc:
+            formatted['location'] = self._highlight(doc, highlights[id_],
+                                                    'location_txt_en')
 
         return formatted
 
