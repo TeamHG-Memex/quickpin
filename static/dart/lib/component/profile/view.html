@@ -72,21 +72,21 @@
       <div class='row'>
         <div class='col-sm-4'>
           <div class='card yellow'>
-            <div class='content small'>{{profile.name}}</div>
+            <div class='content small'>{{profile.name | default:'Unknown'}}</div>
             <div class='legend'>Name</div>
             <i class='fa fa-lock'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card blue'>
-            <div class='content small'>{{profile.location}}</div>
+            <div class='content small'>{{profile.location | default:'Unknown'}}</div>
             <div class='legend'>Location</div>
             <i class='fa fa-map-marker'></i>
           </div>
         </div>
         <div class='col-sm-4'>
           <div class='card green'>
-            <div class='content small'>{{profile.joinDate | date:"MMM d, yyyy"}}</div>
+            <div class='content small'>{{profile.joinDate | date:"MMM d, yyyy" | default:'Unknown'}}</div>
             <div class='legend'>Joined</div>
             <i class='fa fa-heart'></i>
           </div>

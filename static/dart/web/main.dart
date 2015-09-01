@@ -37,6 +37,7 @@ import 'package:quickpin/component/user/list.dart';
 import 'package:quickpin/component/user/view.dart';
 import 'package:quickpin/decorator/current_route.dart';
 import 'package:quickpin/formatter/date.dart';
+import 'package:quickpin/formatter/default.dart';
 import 'package:quickpin/formatter/number.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/router.dart';
@@ -63,6 +64,7 @@ class QuickPinApplication extends Module {
         bind(BusyButtonComponent);
         bind(ConfigurationListComponent);
         bind(CurrentRoute);
+        bind(DefaultFormatter);
         bind(EditSelectComponent);
         bind(EditTextComponent);
         bind(ExcerptComponent);

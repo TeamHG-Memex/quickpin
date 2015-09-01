@@ -147,6 +147,11 @@
   </div>
 </masonry>
 
-<p ng-show='profiles.length == 0'>
+<p ng-show='profiles.length == 0 && siteFilter == null'>
   There are currently no profiles. Try clicking "Add Profiles" to get started.
+</p>
+
+<p ng-show='profiles.length == 0 && siteFilter != null'>
+  No profiles match the current filter. Try changing the filter or click
+  "Add Profiles" to add new profiles.
 </p>
