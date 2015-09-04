@@ -6,14 +6,14 @@
             class='btn btn-primary btn-sm dropdown-toggle'
             data-toggle='dropdown'
             aria-expanded='false'>
-      Interest: All Profiles <span class='caret'></span>
+      Interesting: {{interestFilterDescription}} <span class='caret'></span>
     </button>
     <ul class='dropdown-menu sort-by' role='menu'>
-      <li><a click=''>All Profiles</a></li>
+      <li><a ng-click='filterInterest(null)'>All Profiles</a></li>
       <li class='divider'></li>
-      <li><a lick=''>Interesting</a></li>
-      <li><a lick=''>Not Interesting</a></li>
-      <li><a lick=''>Uncategorized</a></li>
+      <li><a ng-click='filterInterest("yes")'>Yes</a></li>
+      <li><a ng-click='filterInterest("no")'>No</a></li>
+      <li><a ng-click='filterInterest("unset")'>Unset</a></li>
     </ul>
   </div>
 
@@ -144,14 +144,30 @@
         {{profile.postCount | largeNumber:1}} posts.
       </em>
     </p>
-  </div>
+    <strong class='text-muted'>Interesting:</strong>
+    <div class="btn-group btn-group-xs" role="group" aria-label="...">
+      <button 
+          type="button" 
+          ng-click='setProfileInterestAtIndex($index,true)'
+          ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
+          Yes
+      </button>
+      <button 
+          type="button" 
+          ng-click='setProfileInterestAtIndex($index,false)' 
+          ng-class="profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'">
+          No
+      </button>
+      <button 
+          type="button" 
+          ng-click='setProfileInterestAtIndex($index)' 
+          ng-class="profile.isInteresting==null ? 'btn btn-warning' : 'btn btn-default'">
+          Unset
+      </button>
+    </div>
 </masonry>
 
 <p ng-show='profiles.length == 0 && siteFilter == null'>
   There are currently no profiles. Try clicking "Add Profiles" to get started.
 </p>
-
-<p ng-show='profiles.length == 0 && siteFilter != null'>
-  No profiles match the current filter. Try changing the filter or click
-  "Add Profiles" to add new profiles.
-</p>
+<p ng-show='profiles.length == 0 && siteFilter != null'> No profiles match the current filter. Try changing the filter or click "Add Profiles" to add new profiles.  </p>

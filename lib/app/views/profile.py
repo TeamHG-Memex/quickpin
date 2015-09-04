@@ -451,7 +451,7 @@ class ProfileView(FlaskView):
             this profile
         :>json str profiles[n].username: the current username for this profile
         :>json int total_count: count of all profile objects, not just those on
-            the current page
+            te current page
 
         :status 200: ok
         :status 400: invalid argument[s]
@@ -462,12 +462,26 @@ class ProfileView(FlaskView):
         current_avatar_id = self._current_avatar_subquery()
         site = request.args.get('site', None)
 
+        is_interesting = request.args.get('interesting', None)
+        print(request.args)
+
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
                     .filter(Profile.is_stub == False)
 
         if site is not None:
             query = query.filter(Profile.site == site)
+
+        if is_interesting is not None:
+            if is_interesting == 'yes':
+                query = query.filter(Profile.is_interesting == True)
+            elif is_interesting == 'no':
+                query = query.filter(Profile.is_interesting == False)
+            elif is_interesting == 'unset':
+                query = query.filter(Profile.is_interesting == None)
+
+
+
 
         total_count = query.count()
 
@@ -592,3 +606,86 @@ class ProfileView(FlaskView):
                    .limit(1) \
                    .correlate(Profile) \
                    .as_scalar()
+
+    def put(self, id_):
+        '''
+        Update the profile identified by `id`.
+        '''
+
+        # Get profile.
+        id_ = get_int_arg('id_', id_)
+
+        current_avatar_id = self._current_avatar_subquery()
+
+        profile, avatar = g.db.query(Profile, Avatar) \
+                              .outerjoin(Avatar, Avatar.id == current_avatar_id) \
+                              .filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound("Profile '%s' does not exist." % id_)
+
+        request_json = request.get_json()
+        # Validate put data and set attributes
+        # Currently, only 'is_interesting' is modifiable
+        if 'is_interesting' in request_json:
+            if isinstance(request_json['is_interesting'], bool):
+                profile.is_interesting = request_json['is_interesting']
+            elif request_json['is_interesting'] is None:
+                profile.is_interesting = None
+            else:
+                raise BadRequest("Attribute 'is_interesting' is type boolean.")
+
+        response = profile.as_dict()
+        response['url'] = url_for('ProfileView:get', id_=profile.id)
+
+        # Save the profile
+        # ToDo - explicit error handling
+        try:
+            g.db.commit()
+        except Exception as e:
+            raise BadRequest('Database error: {}'.format(e))
+
+        # Create usernames list.
+        usernames = list()
+
+        for username in profile.usernames:
+            if username.end_date is not None:
+                end_date = username.end_date.isoformat()
+            else:
+                end_date = None
+
+            if username.start_date is not None:
+                start_date = username.start_date.isoformat()
+            else:
+                start_date = None
+
+            usernames.append({
+                'end_date': end_date,
+                'username': username.username,
+                'start_date': start_date,
+            })
+
+        response['usernames'] = usernames
+
+        # Create avatar attributes.
+        if avatar is not None:
+            response['avatar_url'] = url_for(
+                'FileView:get',
+                id_=avatar.file.id
+            )
+            response['avatar_thumb_url'] = url_for(
+                'FileView:get',
+                id_=avatar.thumb_file.id
+            )
+        else:
+            response['avatar_url'] = url_for(
+                'static',
+                filename='img/default_user.png'
+            )
+            response['avatar_thumb_url'] = url_for(
+                'static',
+                filename='img/default_user_thumb.png'
+            )
+
+        # Send response.
+        return jsonify(**response)
