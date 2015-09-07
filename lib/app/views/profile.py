@@ -457,7 +457,7 @@ class ProfileView(FlaskView):
             this profile
         :>json str profiles[n].username: the current username for this profile
         :>json int total_count: count of all profile objects, not just those on
-            te current page
+            the current page
 
         :status 200: ok
         :status 400: invalid argument[s]
