@@ -262,6 +262,7 @@ def init_views(flask_app, config):
     # all remaining routes.
     import app.views.angular
 
+
 def init_webassets(flask_app, config):
     """ Initialize Flask-Assets extension. """
 
@@ -287,6 +288,5 @@ def init_webassets(flask_app, config):
         'js/markdown.js',
         dart_root + '/packages/web_components/dart_support.js',
         dart_root + '/packages/browser/dart.js',
-        # filters='jsmin',
         output='combined/combined.js'
     ))

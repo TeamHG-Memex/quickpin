@@ -295,23 +295,28 @@ control* and any site specific settings should be placed in there. We include a
 
 You should edit local.ini and provide values for the following keys:
 
-- `username`: The database username. We recommend the name 'quickpin'. (Keep
-  this name handy: you'll need it in the next section.)
-- `password`: Generate a secure password for this database user. (Keep this
-  password handy: you'll need it in the next section.)
+- `username`: The application username. We recommend the name 'quickpin'.
+- `password`: Generate a secure password for the application user.
+- `super_username`: The user used for database administration. We recommend the
+  name 'quickpin_su'.
+- `super_password`: Generate a secure password for the super user.
 - `SECRET_KEY`: A cryptographic key that Flask uses to sign authentication
   tokens. Set this to a long, random string, for example by running ``openssl
   rand -base64 30``.
 
-You can configure non-standard setups, too, by overriding other values from
+Whatever values you pick, keep them handy: you'll need them in the next section.
+You can also configure non-standard setups by overriding other values from
 system.ini in the local.ini.
 
 Database (PostgreSQL)
 ---------------------
 
 If you followed the steps above, you've already installed PostgreSQL. Now we
-need to add a username, password, and database for QuickPin to use when
-accessing Postgres.
+need to add some credentials for QuickPin to use when accessing PostgresSQL.
+
+You should set ``super_password`` below to the same password that you put in the
+``super_password`` field in local.ini. You should set ``regular_password`` to
+the ``password`` field in local.ini.
 
 .. code:: bash
 
@@ -322,14 +327,17 @@ accessing Postgres.
 
     quickpin=# DROP EXTENSION plpgsql;
     DROP EXTENSION
-    quickpin=# CREATE USER quickpin PASSWORD 'super_secret_password';
+    quickpin=# CREATE USER quickpin_su PASSWORD 'super_password';
     CREATE ROLE
-    quickpin=# GRANT ALL ON DATABASE quickpin TO quickpin;
-    GRANT
+    quickpin=# ALTER DATABASE quickpin OWNER TO quickpin_su;
+    ALTER DATABASE
+    quickpin=# CREATE USER quickpin PASSWORD 'regular_password';
+    CREATE ROLE
+    quickpin=# ALTER DEFAULT PRIVILEGES FOR USER quickpin_su GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO quickpin;
+    ALTER DEFAULT PRIVILEGES
+    quickpin=# ALTER DEFAULT PRIVILEGES FOR USER quickpin_su GRANT USAGE ON SEQUENCES TO quickpin;
+    ALTER DEFAULT PRIVILEGES
     quickpin=# \q
-
-You should set the ``super_secret_password`` to the same password that you put
-in the local.ini in the previous section.
 
 .. note::
 

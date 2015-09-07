@@ -11,14 +11,24 @@ _engine = None
 _sessionmaker = None
 
 
-def get_engine(config, debug=False):
-    ''' Get a SQLAlchemy engine from a configuration object. '''
+def get_engine(config, super_user=False):
+    '''
+    Get a SQLAlchemy engine from a configuration object.
+
+    If ``super_user`` is True, then connect as super user -- typically reserved
+    for issuing DDL statements.
+    '''
 
     global _engine
 
     if _engine is None:
-        connect_string = 'postgresql+psycopg2://%(username)s:%(password)s@' \
-                         '%(host)s/%(database)s?client_encoding=utf8'
+        if super_user:
+            connect_string = 'postgresql+psycopg2://%(super_username)s' \
+                             ':%(super_password)s@%(host)s/%(database)s?' \
+                             'client_encoding=utf8'
+        else:
+            connect_string = 'postgresql+psycopg2://%(username)s:%(password)s' \
+                             '@%(host)s/%(database)s?client_encoding=utf8'
 
         _engine = sqlalchemy.create_engine(
             connect_string % config,

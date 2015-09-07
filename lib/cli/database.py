@@ -27,8 +27,8 @@ class DatabaseCli(cli.BaseCli):
         env = {
             'AGNOSTIC_TYPE': 'postgres',
             'AGNOSTIC_HOST': config.get('database', 'host'),
-            'AGNOSTIC_USER': config.get('database', 'username'),
-            'AGNOSTIC_PASSWORD': config.get('database', 'password'),
+            'AGNOSTIC_USER': config.get('database', 'super_username'),
+            'AGNOSTIC_PASSWORD': config.get('database', 'super_password'),
             'AGNOSTIC_SCHEMA': config.get('database', 'database'),
             'AGNOSTIC_MIGRATIONS_DIR': get_path('migrations'),
             'LANG': os.environ['LANG'], # http://click.pocoo.org/4/python3/
@@ -296,7 +296,7 @@ class DatabaseCli(cli.BaseCli):
 
         # Connect to database.
         database_config = dict(config.items('database'))
-        self._db = app.database.get_engine(database_config)
+        self._db = app.database.get_engine(database_config, super_user=True)
 
         # Run build commands.
         if args.action in ('build', 'drop'):

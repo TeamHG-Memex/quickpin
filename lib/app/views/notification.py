@@ -8,7 +8,6 @@ from app.authorization import login_required
 import app.config
 import app.database
 from app.rest import url_for
-from model import File
 
 
 class NotificationView(FlaskView):
