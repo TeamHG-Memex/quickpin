@@ -562,12 +562,29 @@ profile {
   .post-attachment {
     width: 64px;
   }
+
+  div.btn-group > .btn:not(:first-child):not(:last-child):not(.dropdown-toggle).rounded-right {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+      
+  }
+
+  div.btn-group.btn.rounded-right{
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+  }
 }
 
 profile-list {
   img.avatar {
     width: 100%;
     margin-bottom: 0.5em;
+  }
+
+  div.btn-group > .btn:not(:first-child):not(:last-child):not(.dropdown-toggle).rounded-right {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+      
   }
 
   .add-profile-form {
@@ -586,6 +603,7 @@ profile-list {
     div.btn-group {
       margin-left: 0.5em;
     }
+
   }
 
   .info {
