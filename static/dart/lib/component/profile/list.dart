@@ -141,7 +141,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map args = this._makeUrlArgs();
         String pageUrl = '/api/profile/${profileID.toString()}';
         this.error = null;
-        this.updatingProfile = true;
+        this.loading = true;
 
         Map body = {
             'is_interesting': isInteresting, 
@@ -171,7 +171,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {
-                this.updatingProfile = false;
+                this.loading = false;
             });
     }
 

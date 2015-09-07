@@ -79,7 +79,7 @@ class ProfileComponent {
     /// Set interest status of profile at index.
     void setProfileInterest([bool isInteresting]) {
         String pageUrl = '/api/profile/${this.id.toString()}';
-        this.updatingProfile = true;
+        this.loading++;
 
         Map body = {
             'is_interesting': isInteresting, 
@@ -95,7 +95,7 @@ class ProfileComponent {
                 this.error = response.data['message'];
             })
             .whenComplete(() {
-                this.updatingProfile = false;
+                this.loading--;
             });
     }
 
