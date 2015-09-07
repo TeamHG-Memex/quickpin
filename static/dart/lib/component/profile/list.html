@@ -144,25 +144,30 @@
         {{profile.postCount | largeNumber:1}} posts.
       </em>
     </p>
-    <strong class='text-muted'>Interesting:</strong>
-    <div class="btn-group btn-group-xs" role="group" aria-label="...">
+    <div class="btn-group btn-group-sm" role="group" aria-label="...">
+      <button 
+          type="button" 
+          ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
+          disabled>
+          {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
+      </button>
       <button 
           type="button" 
           ng-click='setProfileInterestAtIndex($index,true)'
           ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
-          Yes
+          <span class="fa fa-check"></span>
       </button>
       <button 
           type="button" 
           ng-click='setProfileInterestAtIndex($index,false)' 
           ng-class="profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'">
-          No
+          <span class="fa fa-remove"></span>
       </button>
       <button 
-          type="button" 
-          ng-click='setProfileInterestAtIndex($index)' 
-          ng-class="profile.isInteresting==null ? 'btn btn-warning' : 'btn btn-default'">
-          Unset
+          ng-click="setProfileInterestAtIndex($index)" 
+          ng-show="profile.isInteresting != null"
+          class="btn btn-link">
+          clear
       </button>
     </div>
 </masonry>

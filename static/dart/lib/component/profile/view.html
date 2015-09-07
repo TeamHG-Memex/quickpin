@@ -112,6 +112,33 @@
       </p>
     </div>
   </div>
+  <h2>Profile of Interest</h2>
+    <div class="btn-group btn-group-lg" role="group" aria-label="...">
+      <button 
+          type="button" 
+          ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
+          disabled>
+          {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
+      </button>
+      <button 
+          type="button" 
+          ng-click='setProfileInterest(true)'
+          ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
+          <span class="fa fa-check"></span>
+      </button>
+      <button 
+          type="button" 
+          ng-click='setProfileInterest(false)' 
+          ng-class="profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'">
+          <span class="fa fa-remove"></span>
+      </button>
+      <button 
+          ng-click="setProfileInterest()" 
+          ng-show="profile.isInteresting != null"
+          class="btn btn-link">
+          clear
+      </button>
+    </div>
 
   <h2>Social Activity</h2>
   <div class='row'>

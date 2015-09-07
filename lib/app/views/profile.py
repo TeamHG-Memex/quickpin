@@ -616,7 +616,7 @@ class ProfileView(FlaskView):
     def put(self, id_):
         '''
         Update the profile identified by `id`.
-        Currently is_interesting is the only modiifiable attribute.
+        is_interesting is the only modiifiable attribute.
         '''
 
         # Get profile.
