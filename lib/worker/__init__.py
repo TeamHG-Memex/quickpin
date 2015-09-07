@@ -26,7 +26,12 @@ def finish_job():
         job.meta['current'] = job.meta['total']
         job.save()
 
-    notification = json.dumps({'id': job.id, 'status': 'finished'})
+    notification = json.dumps({
+        'id': job.id,
+        'queue': job.origin,
+        'status': 'finished'
+    })
+
     get_redis().publish('worker', notification)
 
 
@@ -159,6 +164,7 @@ def update_job(current):
         'status': 'progress',
         'current': current,
         'progress': current / job.meta['total'],
+        'queue': job.origin,
     })
 
     get_redis().publish('worker', notification)

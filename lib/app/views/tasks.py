@@ -111,6 +111,68 @@ class TasksView(FlaskView):
 
         return jsonify(failed=failed_tasks)
 
+    @route('job/<id_>')
+    def job(self, id_):
+        '''
+        Get data about a specific job.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+                "current": 1321,
+                "description": "Running reports.",
+                "id": "cc4618c1-22ed-4b5d-a9b8-5186c0259b46",
+                "progress": 0.4520876112251882,
+                "total": 2922,
+                "type": "index"
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query id: the job ID to fetch
+
+        :>header Content-Type: application/json
+        :>json int current: the number of
+            records processed so far by this job
+        :>json str description: description of
+            the current job (optional)
+        :>json str id: unique job identifier
+        :>json float progress: the percentage of
+            records processed by this job, expressed as a decimal
+        :>json int total: the total number of
+            records expected to be processed by this job
+        :>json str type: the type of this job,
+            indicating what subsystem it belongs to (optional)
+
+        :status 200: ok
+        :status 401: authentication required
+        :status 403: you must be an administrator
+        :status 404: no job with the specified ID
+        '''
+
+        # workers = list()
+
+        with rq.Connection(g.redis):
+            for queue in rq.Queue.all():
+                if queue.name == 'failed':
+                    continue
+
+                job = queue.fetch_job(id_)
+
+                if job is not None:
+                    return jsonify(
+                        current=job.meta['current'],
+                        description=job.meta['description'],
+                        id=job.id,
+                        progress=job.meta['current']  / job.meta['total'],
+                        total=job.meta['total'],
+                        type=job.meta['type'] if 'type' in job.meta else None
+                    )
+
+        raise NotFound('No job exists with that ID.')
+
     @route('queues')
     def queues(self):
         '''

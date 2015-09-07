@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:html';
 
 import 'package:angular/angular.dart';
@@ -6,6 +7,7 @@ import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/rest_api.dart';
+import 'package:quickpin/sse.dart';
 
 /// A controller for searching through profiles and sites.
 @Component(
@@ -50,10 +52,11 @@ class SearchComponent {
     final RestApiController _api;
     final RouteProvider _rp;
     final Router _router;
+    final SseController _sse;
     final TitleService _ts;
 
     /// Constructor
-    SearchComponent(this._api, this._rp, this._router, this._ts) {
+    SearchComponent(this._api, this._rp, this._router, this._sse, this._ts) {
         // Get the current query parameters from URL...
         var route = this._rp.route;
         this._parseQueryParameters(route.queryParameters);
@@ -63,19 +66,18 @@ class SearchComponent {
         }
 
         // ...and pay attention to new parameters announced in the URL.
+        // Add event listeners...
         RouteHandle rh = route.newHandle();
+        List<StreamSubscription> listeners = [
+            rh.onEnter.listen(this._routeListener),
+            this._sse.onWorker.listen(this._workerListener),
+        ];
 
-        StreamSubscription subscription = rh.onEnter.listen((e) {
-            this._parseQueryParameters(e.queryParameters);
-
-            if (this.query == null || this.query.trim().isEmpty) {
-                this.results = new List();
-            } else {
-                this._fetchSearchResults();
-            }
+        // ...and remove event listeners when we leave this route.
+        rh.onLeave.take(1).listen((e) {
+            listeners.forEach((listener) => listener.cancel());
         });
     }
-
     /// Handle the selection of a facet.
     void handleFacet(event, facetName) {
         if (event.target.checked) {
@@ -124,24 +126,6 @@ class SearchComponent {
         this._router.go('search',
                         this._rp.route.parameters,
                         queryParameters: args);
-    }
-
-    /// See if there are any background tasks operating on the search index.
-    void _checkBackgroundTask() {
-        this._api
-            .get('/api/tasks/workers', needsAuth: true)
-            .then((response) {
-                this.backgroundTask = null;
-
-                List<Map> workers = response.data['workers'];
-                for (int i=0; i < workers.length; i++) {
-                    if (workers[i]['current_job'] != null &&
-                        workers[i]['current_job']['type'] == 'index') {
-                        this.backgroundTask = workers[i]['current_job'];
-                        break;
-                    }
-                }
-            });
     }
 
     /// Get search results from the API.
@@ -316,6 +300,42 @@ class SearchComponent {
             this.sortDescription = sortDescriptions[this.sort];
         } else {
             this.sortDescription = 'Most Relevant';
+        }
+    }
+
+    /// Listen for changes in route parameters.
+    void _routeListener(Event e) {
+        this._parseQueryParameters(e.queryParameters);
+
+        if (this.query == null || this.query.trim().isEmpty) {
+            this.results = new List();
+        } else {
+            this._fetchSearchResults();
+        }
+    }
+
+    /// Listen for updates from background workers.
+    void _workerListener(Event e) {
+        Map job = JSON.decode(e.data);
+
+        if (this.backgroundTask == null && job['queue'] == 'index' &&
+            (job['status'] == 'started' || job['status'] == 'progress')) {
+
+            job['Description'] = '(Loading Description...)';
+            this.backgroundTask = job;
+
+            this._api
+                .get('/api/tasks/job/${job["id"]}', needsAuth: true)
+                .then((response) {
+                    String description = response.data['description'];
+                    this.backgroundTask['description'] = description;
+                });
+        } else if (this.backgroundTask['id'] == job['id']) {
+            if (job['status'] == 'progress') {
+                this.backgroundTask['progress'] = job['progress'];
+            } else if (job['status'] == 'finished') {
+                this.backgroundTask = null;
+            }
         }
     }
 }
