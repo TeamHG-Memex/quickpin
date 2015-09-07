@@ -108,6 +108,9 @@ class Profile(Base):
         secondaryjoin=(id==profile_join_self.c.follower_id)
     )
 
+    # A user can mark a profile as interesting
+    is_interesting = Column(Boolean, nullable=True)
+
     def __init__(self, site, upstream_id, username, is_stub=False):
         ''' Constructor. '''
 
@@ -132,6 +135,7 @@ class Profile(Base):
             'description': self.description,
             'follower_count': self.follower_count,
             'friend_count': self.friend_count,
+            'is_interesting': self.is_interesting,
             'id': self.id,
             'is_stub': self.is_stub,
             'join_date': self.join_date and self.join_date.isoformat(),

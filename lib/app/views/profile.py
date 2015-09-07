@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from flask import g, json, jsonify, request, send_from_directory
 from flask.ext.classy import FlaskView, route
 from sqlalchemy import extract, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DBAPIError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import bindparam
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
@@ -40,6 +40,7 @@ class ProfileView(FlaskView):
                 "friend_count": 28,
                 "id": 1,
                 "is_stub": false,
+                "is_interesting": false,
                 "join_date": "2012-01-30T15:11:35",
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
@@ -75,6 +76,8 @@ class ProfileView(FlaskView):
         :>json int id: unique identifier for profile
         :>json bool is_stub: indicates that this is a stub profile, e.g.
             related to another profile but has not been fully imported
+        :>json bool is_interesting: indicates whether this profile has been
+            marked as interesting. The value can be null.
         :>json str join_date: the date this profile joined its social network
             (ISO-8601)
         :>json str last_update: the last time that information about this
@@ -391,6 +394,7 @@ class ProfileView(FlaskView):
                         "friend_count": 294,
                         "id": 5,
                         "is_stub": False,
+                        "is_interesting": False,
                         "join_date": "2010-01-30T18:21:35",
                         "last_update": "2015-08-18T10:51:16",
                         "location": "Washington, DC",
@@ -428,6 +432,8 @@ class ProfileView(FlaskView):
         :>json bool profiles[n].is_stub: indicates that this is a stub profile,
             e.g. related to another profile but has not been fully imported (for
             this particular endpoint, is_stub will always be false)
+        :>json bool is_interesting: indicates whether this profile has been
+            tagged as interesting. The value can be null.
         :>json str profiles[n].join_date: the date this profile joined its
             social network (ISO-8601)
         :>json str profiles[n].last_update: the last time that information about
@@ -462,12 +468,25 @@ class ProfileView(FlaskView):
         current_avatar_id = self._current_avatar_subquery()
         site = request.args.get('site', None)
 
+        is_interesting = request.args.get('interesting', None)
+
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
                     .filter(Profile.is_stub == False)
 
         if site is not None:
             query = query.filter(Profile.site == site)
+
+        if is_interesting is not None:
+            if is_interesting == 'yes':
+                query = query.filter(Profile.is_interesting == True)
+            elif is_interesting == 'no':
+                query = query.filter(Profile.is_interesting == False)
+            elif is_interesting == 'unset':
+                query = query.filter(Profile.is_interesting == None)
+
+
+
 
         total_count = query.count()
 
@@ -592,3 +611,89 @@ class ProfileView(FlaskView):
                    .limit(1) \
                    .correlate(Profile) \
                    .as_scalar()
+
+    def put(self, id_):
+        '''
+        Update the profile identified by `id`.
+        is_interesting is the only modiifiable attribute.
+        '''
+
+        # Get profile.
+        id_ = get_int_arg('id_', id_)
+
+        current_avatar_id = self._current_avatar_subquery()
+
+        profile, avatar = g.db.query(Profile, Avatar) \
+                              .outerjoin(Avatar, Avatar.id == current_avatar_id) \
+                              .filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound("Profile '%s' does not exist." % id_)
+
+        request_json = request.get_json()
+        # Validate put data and set attributes
+        # Currently, only 'is_interesting' is modifiable
+        if 'is_interesting' in request_json:
+            if isinstance(request_json['is_interesting'], bool):
+                profile.is_interesting = request_json['is_interesting']
+            elif request_json['is_interesting'] is None:
+                profile.is_interesting = None
+            else:
+                raise BadRequest("Attribute 'is_interesting' is type boolean,"
+                                 " or can be set as null")
+
+        response = profile.as_dict()
+        response['url'] = url_for('ProfileView:get', id_=profile.id)
+
+        # Save the profile
+        # ToDo - explicit error handling
+        try:
+            g.db.commit()
+        except DBAPIError as e:
+            g.db.rollback()
+            raise BadRequest('Database error: {}'.format(e))
+
+        # Create usernames list.
+        usernames = list()
+
+        for username in profile.usernames:
+            if username.end_date is not None:
+                end_date = username.end_date.isoformat()
+            else:
+                end_date = None
+
+            if username.start_date is not None:
+                start_date = username.start_date.isoformat()
+            else:
+                start_date = None
+
+            usernames.append({
+                'end_date': end_date,
+                'username': username.username,
+                'start_date': start_date,
+            })
+
+        response['usernames'] = usernames
+
+        # Create avatar attributes.
+        if avatar is not None:
+            response['avatar_url'] = url_for(
+                'FileView:get',
+                id_=avatar.file.id
+            )
+            response['avatar_thumb_url'] = url_for(
+                'FileView:get',
+                id_=avatar.thumb_file.id
+            )
+        else:
+            response['avatar_url'] = url_for(
+                'static',
+                filename='img/default_user.png'
+            )
+            response['avatar_thumb_url'] = url_for(
+                'static',
+                filename='img/default_user_thumb.png'
+            )
+
+        # Send response.
+        return jsonify(**response)

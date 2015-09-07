@@ -8,6 +8,7 @@ class Profile {
     String avatarUrl;
     String avatarThumbUrl;
     int id;
+    bool isInteresting;
     bool isStub;
     String description;
     int followerCount;
@@ -39,6 +40,7 @@ class Profile {
         this.followerCount = json['follower_count'];
         this.friendCount = json['friend_count'];
         this.id = json['id'];
+        this.isInteresting = json['is_interesting'];
         this.isStub = json['is_stub'];
 
         if (json['join_date'] != null) {

@@ -28,6 +28,7 @@ class ProfileComponent {
     int id;
     int loading = 0;
     List<Post> posts;
+    bool updatingProfile;
     Profile profile;
 
     final RestApiController api;
@@ -73,6 +74,29 @@ class ProfileComponent {
     void _avatarListener(Event e) {
         Map json = JSON.decode(e.data);
         this.profile.avatarUrl = json['url'];
+    }
+
+    /// Set interest status of profile at index.
+    void setProfileInterest([bool isInteresting]) {
+        String pageUrl = '/api/profile/${this.id.toString()}';
+        this.loading++;
+
+        Map body = {
+            'is_interesting': isInteresting, 
+        };
+
+        this.api
+            .put(pageUrl, body, needsAuth: true)
+            .then((response) {
+                //new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+                profile.isInteresting = isInteresting;
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {
+                this.loading--;
+            });
     }
 
     /// Fetch a page of followers for this profile.

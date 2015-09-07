@@ -34,7 +34,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
     Scope scope;
     bool showAdd = false;
     String siteFilter, siteFilterDescription;
+    String interestFilter, interestFilterDescription;
     bool submittingProfile = false;
+    bool updatingProfile = false;
 
     InputElement _inputEl;
 
@@ -132,6 +134,47 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.scope.broadcast('masonry.layout');
     }
 
+    /// Set interest status of profile at index.
+    void setProfileInterestAtIndex(int index, [bool isInteresting]) {
+        Profile profile = this.profiles[index];
+        int profileID = profile.id;
+        Map args = this._makeUrlArgs();
+        String pageUrl = '/api/profile/${profileID.toString()}';
+        this.error = null;
+        this.loading = true;
+
+        Map body = {
+            'is_interesting': isInteresting, 
+        };
+
+        // Map 
+        Map interestFilterMap = {
+            'yes': true,
+            'no': false,
+            'unset': null,
+        };
+
+        this.api
+            .put(pageUrl, body, needsAuth: true)
+            .then((response) {
+                //new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+                profile.isInteresting = isInteresting;
+
+                if(this.interestFilter != null) {
+                    if(isInteresting != interestFilterMap[this.interestFilter]){
+                        this.profiles.removeAt(index);
+                    }
+                }
+                this.scope.broadcast('masonry.layout');
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {
+                this.loading = false;
+            });
+    }
+
     /// Filter profile list by a specified site.
     void filterSite(String site) {
         Map args = this._makeUrlArgs();
@@ -140,6 +183,21 @@ class ProfileListComponent extends Object with CurrentPageMixin
             args.remove('site');
         } else {
             args['site'] = site;
+        }
+
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
+    }
+
+    /// Filter profile list by a specified interest level.
+    void filterInterest(String interesting) {
+        Map args = this._makeUrlArgs();
+
+        if (interesting == null) {
+            args.remove('interesting');
+        } else {
+            args['interesting'] = interesting;
         }
 
         this._router.go('profile_list',
@@ -190,6 +248,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.followerCount = json['follower_count'];
             profile.postCount = json['post_count'];
             profile.username = json['username'];
+            profile.isInteresting = json['is_interesting'];
 
             this.idProfilesMap[json['id']] = profile;
             this.newProfilesMap[json['site']].remove(username);
@@ -231,6 +290,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (this.siteFilter != null) {
             urlArgs['site'] = this.siteFilter;
+        }
+
+        if (this.interestFilter != null) {
+            urlArgs['interesting'] = this.interestFilter;
         }
 
         this.api
@@ -279,6 +342,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             args['site'] = this.siteFilter;
         }
 
+        if (this.interestFilter != null) {
+            args['interesting'] = this.interestFilter;
+        }
+
         return args;
     }
 
@@ -310,12 +377,20 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.error = '';
         String site = this._getQPString(qp['site']);
         this.siteFilter = site;
+        String interesting = this._getQPString(qp['interesting']);
+        this.interestFilter = interesting;
 
         if (site == null) {
             this.siteFilterDescription = 'All Sites';
         } else {
             String initial = site[0].toUpperCase();
             this.siteFilterDescription = site.replaceRange(0, 1, initial);
+        }
+        if (interesting == null) {
+            this.interestFilterDescription = 'All Profiles';
+        } else {
+            String initial = interesting[0].toUpperCase();
+            this.interestFilterDescription = interesting.replaceRange(0, 1, initial);
         }
     }
 }
