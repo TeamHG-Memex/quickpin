@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from flask import g, json, jsonify, request, send_from_directory
 from flask.ext.classy import FlaskView, route
 from sqlalchemy import extract, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DBAPIError
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import bindparam
 from werkzeug.exceptions import BadRequest, Conflict, NotFound
@@ -40,6 +40,7 @@ class ProfileView(FlaskView):
                 "friend_count": 28,
                 "id": 1,
                 "is_stub": false,
+                "is_interesting": false,
                 "join_date": "2012-01-30T15:11:35",
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
@@ -75,6 +76,8 @@ class ProfileView(FlaskView):
         :>json int id: unique identifier for profile
         :>json bool is_stub: indicates that this is a stub profile, e.g.
             related to another profile but has not been fully imported
+        :>json bool is_interesting: indicates whether this profile has been
+            marked as interesting. The value can be null.
         :>json str join_date: the date this profile joined its social network
             (ISO-8601)
         :>json str last_update: the last time that information about this
@@ -391,6 +394,7 @@ class ProfileView(FlaskView):
                         "friend_count": 294,
                         "id": 5,
                         "is_stub": False,
+                        "is_interesting": False,
                         "join_date": "2010-01-30T18:21:35",
                         "last_update": "2015-08-18T10:51:16",
                         "location": "Washington, DC",
@@ -428,6 +432,8 @@ class ProfileView(FlaskView):
         :>json bool profiles[n].is_stub: indicates that this is a stub profile,
             e.g. related to another profile but has not been fully imported (for
             this particular endpoint, is_stub will always be false)
+        :>json bool is_interesting: indicates whether this profile has been
+            tagged as interesting. The value can be null.
         :>json str profiles[n].join_date: the date this profile joined its
             social network (ISO-8601)
         :>json str profiles[n].last_update: the last time that information about
@@ -610,6 +616,7 @@ class ProfileView(FlaskView):
     def put(self, id_):
         '''
         Update the profile identified by `id`.
+        Currently is_interesting is the only modiifiable attribute.
         '''
 
         # Get profile.
@@ -633,7 +640,8 @@ class ProfileView(FlaskView):
             elif request_json['is_interesting'] is None:
                 profile.is_interesting = None
             else:
-                raise BadRequest("Attribute 'is_interesting' is type boolean.")
+                raise BadRequest("Attribute 'is_interesting' is type boolean,"
+                                 " or can be set as null")
 
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)
@@ -642,7 +650,8 @@ class ProfileView(FlaskView):
         # ToDo - explicit error handling
         try:
             g.db.commit()
-        except Exception as e:
+        except DBAPIError as e:
+            g.db.rollback()
             raise BadRequest('Database error: {}'.format(e))
 
         # Create usernames list.
