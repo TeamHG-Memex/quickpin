@@ -469,7 +469,6 @@ class ProfileView(FlaskView):
         site = request.args.get('site', None)
 
         is_interesting = request.args.get('interesting', None)
-        print(request.args)
 
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
