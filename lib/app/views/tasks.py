@@ -180,6 +180,7 @@ class TasksView(FlaskView):
                         "current_job": {
                             "current": 1321,
                             "description": "Running reports.",
+                            "id": "cc4618c1-22ed-4b5d-a9b8-5186c0259b46",
                             "progress": 0.4520876112251882,
                             "total": 2922,
                             "type": "index"
@@ -199,17 +200,16 @@ class TasksView(FlaskView):
         :>json list workers: list of workers
         :>json object workers[n]["current_job"]: the job currently executing on
             this worker, or null if it's not executing any jobs
-        :>json object workers[n]["current_job"]["current"]: the number of
+        :>json int workers[n]["current_job"]["current"]: the number of
             records processed so far by this job
-        :>json object workers[n]["current_job"]["description"]: description of
+        :>json str workers[n]["current_job"]["description"]: description of
             the current job (optional)
-        :>json object workers[n]["current_job"]["progress"]: the percentage of
-            records processed by this job, expressed as a decimal (null if
-            progress is indeterminate)
-        :>json object workers[n]["current_job"]["total"]: the total number of
-            records expected to be processed by this job (null if progess is
-            indeterminate)
-        :>json object workers[n]["current_job"]["type"]: the type of this job,
+        :>json str workers[n]["current_job"]["id"]: unique job identifier
+        :>json float workers[n]["current_job"]["progress"]: the percentage of
+            records processed by this job, expressed as a decimal
+        :>json int workers[n]["current_job"]["total"]: the total number of
+            records expected to be processed by this job
+        :>json str workers[n]["current_job"]["type"]: the type of this job,
             indicating what subsystem it belongs to (optional)
         :>json str workers[n]["name"]: name of the worker process
         :>json list workers[n]["queues"]: the name[s] of the queues that this
@@ -238,21 +238,12 @@ class TasksView(FlaskView):
                         else:
                             description = None
 
-                        if 'current' in job.meta and 'total' in job.meta:
-                            current = job.meta['current']
-                            total = job.meta['total']
-                            progress = current / total
-                        else:
-                            current = None
-                            progress = None
-                            total = None
-
                         job_json = {
-                            'id': job.id,
-                            'current': current,
+                            'current': job.meta['current'],
                             'description': description,
-                            'progress': progress,
-                            'total': total,
+                            'id': job.id,
+                            'progress': job.meta['current']  / job.meta['total'],
+                            'total': job.meta['total'],
                             'type': job.meta['type'] if 'type' in job.meta else None
                         }
 
