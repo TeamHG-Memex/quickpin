@@ -175,13 +175,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
             });
     }
 
-    /// Get the CSS class for setProfileInterest button
-    /// dependent on value of isInteresting
-    //String interestBtnCss([bool isInteresting]) {
-    //    if(isInteresting == true 
-    //} 
-
-
     /// Filter profile list by a specified site.
     void filterSite(String site) {
         Map args = this._makeUrlArgs();
