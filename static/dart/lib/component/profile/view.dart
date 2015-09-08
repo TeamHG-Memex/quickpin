@@ -28,8 +28,9 @@ class ProfileComponent {
     int id;
     int loading = 0;
     List<Post> posts;
-    bool updatingProfile;
     Profile profile;
+    ButtonElement fetchProfileBtnEl;
+
 
     final RestApiController api;
     final RouteProvider _rp;
@@ -76,7 +77,12 @@ class ProfileComponent {
         this.profile.avatarUrl = json['url'];
     }
 
-    /// Set interest status of profile at index.
+    /// Get a reference to this element.
+    void onShadowRoot(ShadowRoot shadowRoot) {
+        this._fetchProfileBtnEl = this._element.querySelector('.btn .btn-fetch-profile');
+    }
+
+    /// Set interest status of profile.
     void setProfileInterest([bool isInteresting]) {
         String pageUrl = '/api/profile/${this.id.toString()}';
         this.loading++;
@@ -97,6 +103,29 @@ class ProfileComponent {
             .whenComplete(() {
                 this.loading--;
             });
+    }
+
+    /// Update profile.
+    void updateProfile() {
+        String pageUrl = '/api/profile/';
+        this.loading++;
+
+        Map body = {
+            'profiles': [{
+                'username': this.profile.username,
+                'site': this.profile.site,
+            }],
+        };
+
+        this.api
+            .post(pageUrl, body, needsAuth: true)
+            .then((response) {
+                new Timer(new Duration(seconds:0.1), () => this.fetchProfileBtnEl.focus());
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {this.loading--;});
     }
 
     /// Fetch a page of followers for this profile.
