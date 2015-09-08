@@ -29,8 +29,6 @@ class ProfileComponent {
     int loading = 0;
     List<Post> posts;
     Profile profile;
-    ButtonElement fetchProfileBtnEl;
-
 
     final RestApiController api;
     final RouteProvider _rp;
@@ -77,11 +75,6 @@ class ProfileComponent {
         this.profile.avatarUrl = json['url'];
     }
 
-    /// Get a reference to this element.
-    void onShadowRoot(ShadowRoot shadowRoot) {
-        this._fetchProfileBtnEl = this._element.querySelector('.btn.btn-fetch-profile');
-    }
-
     /// Set interest status of profile.
     void setProfileInterest([bool isInteresting]) {
         String pageUrl = '/api/profile/${this.id.toString()}';
@@ -119,9 +112,6 @@ class ProfileComponent {
 
         this.api
             .post(pageUrl, body, needsAuth: true)
-            .then((response) {
-                new Timer(new Duration(seconds:0.1), () => this.fetchProfileBtnEl.focus());
-            })
             .catchError((response) {
                 this.error = response.data['message'];
             })
