@@ -79,7 +79,7 @@ class ProfileComponent {
 
     /// Get a reference to this element.
     void onShadowRoot(ShadowRoot shadowRoot) {
-        this._fetchProfileBtnEl = this._element.querySelector('.btn .btn-fetch-profile');
+        this._fetchProfileBtnEl = this._element.querySelector('.btn.btn-fetch-profile');
     }
 
     /// Set interest status of profile.
