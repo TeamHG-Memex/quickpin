@@ -37,7 +37,6 @@ class Avatar(Base):
         parsed = urllib.parse.urlparse(url)
         name = os.path.basename(parsed.path)
 
-        #self.url = url
         self.upstream_url = url
         self.file = File(name, mime, image)
         now = datetime.now()
