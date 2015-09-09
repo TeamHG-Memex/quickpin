@@ -17,6 +17,7 @@ import app.database
 import app.index
 import app.queue
 from model import Avatar, Configuration, File, Post, Profile
+from model.profile import profile_join_self
 import worker
 import worker.index
 
@@ -37,30 +38,40 @@ def scrape_avatar(id_, site, url):
     worker.start_job()
     redis = worker.get_redis()
     db_session = worker.get_session()
-
+    avatar = None
     profile = db_session.query(Profile).filter(Profile.id==id_).first()
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
     if site == 'twitter':
-        # Twitter points you to a scaled image by default, but we can get the
-        # original resolution by removing "_normal" from the URL.
+        # Twitter points you to a scaled image by default, but we can
+        # get the original resolution by removing "_normal" from the URL.
         #
         # See: https://dev.twitter.com/overview/general/user-profile-images-and-banners
         url = url.replace('_normal', '')
 
-    response = requests.get(url)
-    response.raise_for_status()
+    # Update Avatar if it's already stored in the db
+    for profile_avatar in profile.avatars:
+        if profile_avatar.upstream_url == url:
+            profile_avatar.end_date = datetime.today()
+            avatar = profile_avatar
 
-    if 'content-type' in response.headers:
-        mime = response.headers['content-type']
-    else:
-        mime = 'application/octet-stream'
+    # Otherwise, scrape the new Avatar and append to the profile
+    if avatar is None:
 
-    image = response.content
-    avatar = Avatar(url, mime, image)
-    profile.avatars.append(avatar)
+        response = requests.get(url)
+        response.raise_for_status()
+
+        if 'content-type' in response.headers:
+            mime = response.headers['content-type']
+        else:
+            mime = 'application/octet-stream'
+
+        image = response.content
+        avatar = Avatar(url, mime, image)
+        profile.avatars.append(avatar)
+
     db_session.commit()
     worker.finish_job()
 
@@ -411,8 +422,18 @@ def scrape_twitter_posts(id_):
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
+    # Get posts currently stored in db for this profile.
+    post_query = db.query(Post) \
+                        .filter(Post.author_id == id_) \
+                        .order_by(Post.upstream_created.desc())
+
     url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
     params = {'count': 200, 'user_id': author.upstream_id}
+    # Only fetch posts newer than those already stored in db
+    if post_query.count() > 0:
+        last_post_id = post_query[0].upstream_id
+        params['since_id'] = last_post_id
+
     response = requests.get(
         url,
         params=params,
@@ -490,7 +511,26 @@ def scrape_twitter_relations(id_):
         'stringify_ids': True
     }
 
-    # Get friend IDs.
+    # Get friends currently stored in db for this profile.
+    friends_query = \
+        db.query(Profile) \
+            .join(\
+                profile_join_self, \
+                (profile_join_self.c.friend_id == Profile.id)
+            )
+    current_friends_ids = [friend.id for friend in friends_query]
+
+
+    # Get followers currently stored in db for this profile.
+    followers_query = \
+        db.query(Profile.id) \
+            .join(\
+                profile_join_self, \
+                (profile_join_self.c.follower_id == Profile.id)
+            )
+    current_followers_ids = [follower.id for follower in followers_query]
+
+    ## Get friend IDs.
     friends_url = 'https://api.twitter.com/1.1/friends/ids.json'
     friends_response = requests.get(
         friends_url,
@@ -500,6 +540,8 @@ def scrape_twitter_relations(id_):
     )
     friends_response.raise_for_status()
     friends_ids = friends_response.json()['ids']
+    # Ignore friends already in the db
+    friends_ids = list(set(friends_ids) - set(current_friends_ids))
 
     # Get follower IDs.
     followers_url = 'https://api.twitter.com/1.1/followers/ids.json'
@@ -511,6 +553,8 @@ def scrape_twitter_relations(id_):
     )
     followers_response.raise_for_status()
     followers_ids = followers_response.json()['ids']
+    # Ignore followers already in the db
+    followers_ids = list(set(followers_ids) - set(current_followers_ids))
 
     # Get username for each of the friend/follower IDs and create
     # a relationship in QuickPin.
