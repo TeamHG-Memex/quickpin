@@ -105,18 +105,31 @@
           </div>
         </div>
       </div>
-      <p>
-        <em>
-          Last updated from {{profile.siteName}}
-          on {{profile.lastUpdate | date:'MMM d, yyyy H:mm:ss'}} UTC.
-        </em>
-          <button
-            class="btn btn-success pull-right"
-            ng-show="profile.isStub == false"
-            ng-click="updateProfile()">
-            Update
-          </button>
-      </p>
+
+      <div class='row' ng-show='profile.isStub == false'>
+        <div class='col-sm-12'>
+          <div class="alert alert-info" role="alert">
+            <div class="row">
+              <div class="col-sm-8">
+                <em>
+                  Last updated from {{profile.siteName}}
+                  on {{profile.lastUpdate | date:'MMM d, yyyy H:mm:ss'}} UTC.
+                </em>
+              </div>
+              <div class="col-sm-4">
+                <span class="pull-right">
+                <busy-button
+                  type='default'
+                  click='updateProfile'
+                  data='""'>
+                  Update
+                </busy-button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>
   </div>

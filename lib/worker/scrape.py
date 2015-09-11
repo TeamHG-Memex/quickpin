@@ -83,7 +83,7 @@ def scrape_avatar(id_, site, url):
 
 
 def scrape_profile(site, username):
-    ''' Scrape a twitter account. '''
+    ''' Scrape a twitter or instagram account. '''
 
     redis = worker.get_redis()
     worker.start_job()
@@ -122,6 +122,52 @@ def scrape_profile(site, username):
     except Exception as e:
         message = {
             'username': username,
+            'site': site,
+            'error': 'Unknown error while fetching profile.',
+        }
+        redis.publish('profile', json.dumps(message))
+        raise
+
+def scrape_profile_by_id(site, upstream_id):
+    ''' Scrape a twitter or instagram account. '''
+
+    redis = worker.get_redis()
+    worker.start_job()
+
+    try:
+        if site == 'twitter':
+            profile = scrape_twitter_account_by_id(upstream_id)
+        elif site == 'instagram':
+            profile = scrape_instagram_account_by_id(upstream_id)
+        else:
+            raise ScrapeException('No scraper exists for site: {}'.format(site))
+
+        redis.publish('profile', json.dumps(profile))
+        worker.finish_job()
+
+    except requests.exceptions.HTTPError as he:
+        response = he.response
+        message = {'upstream_id': upstream_id, 'site': site, 'code': response.status_code}
+
+        if response.status_code == 404:
+            message['error'] = 'Does not exist on Twitter.'
+        else:
+            message['error'] = 'Cannot communicate with Twitter ({})' \
+                               .format(response.status_code)
+
+        redis.publish('profile', json.dumps(message))
+
+    except ScrapeException as se:
+        message = {
+            'upstream_id': upstream_id,
+            'site': site,
+            'error': se.message,
+        }
+        redis.publish('profile', json.dumps(message))
+
+    except Exception as e:
+        message = {
+            'upstream_id': upstream_id,
             'site': site,
             'error': 'Unknown error while fetching profile.',
         }
@@ -203,6 +249,49 @@ def scrape_instagram_account(username):
 
     return profile.as_dict()
 
+def scrape_instagram_account_by_id(upstream_id):
+    ''' Scrape instagram bio data and create (or update) a profile. '''
+
+    # Getting a user ID is more difficult than it ought to be: you need to
+    # search for the username and iterate through the search results results to
+    # find an exact match.
+    db_session = worker.get_session()
+    proxies = _get_proxies(db_session)
+
+    profile = db_session.query(Profile) \
+                        .filter(Profile.site=='instagram') \
+                        .filter(Profile.upstream_id==upstream_id) \
+                        .one()
+
+    # Instagram API request.
+    api_url = 'https://api.instagram.com/v1/users/{}'.format(upstream_id)
+
+    response = requests.get(
+        api_url,
+        proxies=proxies,
+        verify=False
+    )
+
+    response.raise_for_status()
+    data = response.json()['data']
+
+    # Update profile
+    profile.description = data['bio']
+    profile.follower_count = int(data['counts']['followed_by'])
+    profile.friend_count = int(data['counts']['follows'])
+    profile.homepage = data['website']
+    profile.name = data['full_name']
+    profile.post_count = int(data['counts']['media'])
+    profile.is_stub = False
+    db_session.commit()
+
+    # Schedule followup jobs.
+    app.queue.schedule_avatar(profile, data['profile_picture'])
+    app.queue.schedule_index_profile(profile)
+    app.queue.schedule_posts(profile)
+    app.queue.schedule_relations(profile)
+
+    return profile.as_dict()
 
 def scrape_instagram_posts(id_):
     '''
@@ -213,12 +302,24 @@ def scrape_instagram_posts(id_):
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
+    min_id = None
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
     url = 'https://api.instagram.com/v1/users/{}/media/recent' \
           .format(author.upstream_id)
+
+    # Get last post currently stored in db for this profile.
+    last_post_query = db.query(Post) \
+                        .filter(Post.author_id == id_) \
+                        .order_by(Post.upstream_created.desc()) \
+                        .first()
+
+    # Only fetch posts later than the last_post
+    if last_post_query is not None:
+        min_id = last_post_query.upstream_id
+        url = url + '?min_id={}'.format(min_id)
 
     response = requests.get(
         url,
@@ -231,6 +332,9 @@ def scrape_instagram_posts(id_):
     response_json = response.json()['data']
     worker.start_job(total=len(response_json))
     current = 1
+
+    # Instagram API result includes post with min_id so remove it
+    response_json[:] = [d for d in response_json if d.get('id') != min_id]
 
     for gram in response_json:
         if gram['caption'] is not None:
@@ -288,6 +392,24 @@ def scrape_instagram_relations(id_):
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
+    # Get friends currently stored in db for this profile.
+    friends_query = \
+        db.query(Profile) \
+            .join(\
+                profile_join_self, \
+                (profile_join_self.c.friend_id == Profile.id)
+            )
+    current_friends_ids = [friend.id for friend in friends_query]
+
+    # Get followers currently stored in db for this profile.
+    followers_query = \
+        db.query(Profile.id) \
+            .join(\
+                profile_join_self, \
+                (profile_join_self.c.follower_id == Profile.id)
+            )
+    current_followers_ids = [follower.id for follower in followers_query]
+
     # Get friend IDs.
     friends_url = 'https://api.instagram.com/v1/users/{}/follows' \
                   .format(profile.upstream_id)
@@ -299,27 +421,29 @@ def scrape_instagram_relations(id_):
     friends_response.raise_for_status()
 
     for friend in friends_response.json()['data']:
-        related_profile = Profile(
-            'instagram',
-            friend['id'],
-            friend['username'],
-            is_stub=True
-        )
+        # Only store friends that are not already in db.
+        if friend['id'] not in current_friends_ids:
+            related_profile = Profile(
+                'instagram',
+                friend['id'],
+                friend['username'],
+                is_stub=True
+            )
 
-        db.add(related_profile)
+            db.add(related_profile)
 
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            related_profile = db \
-                    .query(Profile) \
-                    .filter(Profile.site=='instagram') \
-                    .filter(Profile.upstream_id==friend['id']) \
-                    .one()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                related_profile = db \
+                        .query(Profile) \
+                        .filter(Profile.site=='instagram') \
+                        .filter(Profile.upstream_id==friend['id']) \
+                        .one()
 
-        related_profile.name = friend['full_name']
-        profile.friends.append(related_profile)
+            related_profile.name = friend['full_name']
+            profile.friends.append(related_profile)
 
     # Get follower IDs.
     followers_url = 'https://api.instagram.com/v1/users/{}/followed-by' \
@@ -332,27 +456,29 @@ def scrape_instagram_relations(id_):
     followers_response.raise_for_status()
 
     for follower in followers_response.json()['data']:
-        related_profile = Profile(
-            'instagram',
-            follower['id'],
-            follower['username'],
-            is_stub=True
-        )
+        # Only store followers that are not already in db.
+        if follower['id'] not in current_followers_ids:
+            related_profile = Profile(
+                'instagram',
+                follower['id'],
+                follower['username'],
+                is_stub=True
+            )
 
-        db.add(related_profile)
+            db.add(related_profile)
 
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            related_profile = db \
-                    .query(Profile) \
-                    .filter(Profile.site=='instagram') \
-                    .filter(Profile.upstream_id==follower['id']) \
-                    .one()
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                related_profile = db \
+                        .query(Profile) \
+                        .filter(Profile.site=='instagram') \
+                        .filter(Profile.upstream_id==follower['id']) \
+                        .one()
 
-        related_profile.name = follower['full_name']
-        profile.followers.append(related_profile)
+            related_profile.name = follower['full_name']
+            profile.followers.append(related_profile)
 
 
     worker.finish_job()
@@ -407,6 +533,45 @@ def scrape_twitter_account(username):
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
+
+def scrape_twitter_account_by_id(upstream_id):
+    '''
+    Scrape twitter bio data and create (or update) a profile.
+    Accepts twitter ID rather than username.
+    '''
+
+    db_session = worker.get_session()
+
+    profile = db_session.query(Profile) \
+                        .filter(Profile.site=='twitter') \
+                        .filter(Profile.upstream_id==upstream_id) \
+                        .one()
+
+    # Request from Twitter API.
+    api_url = 'https://api.twitter.com/1.1/users/lookup.json'
+    params = {'user_id': upstream_id}
+    response = requests.post(
+        api_url,
+        params=params,
+        proxies=_get_proxies(db_session),
+        verify=False
+    )
+    response.raise_for_status()
+
+    # Update the profile.
+    data = response.json()[0]
+    _twitter_populate_profile(data, profile)
+    profile.is_stub = False
+    db_session.commit()
+
+    # Schedule followup jobs.
+    app.queue.schedule_avatar(profile, data['profile_image_url_https'])
+    app.queue.schedule_index_profile(profile)
+    app.queue.schedule_posts(profile)
+    app.queue.schedule_relations(profile)
+
+    return profile.as_dict()
+
 
 
 def scrape_twitter_posts(id_):

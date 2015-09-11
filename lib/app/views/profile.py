@@ -614,7 +614,7 @@ class ProfileView(FlaskView):
 
     def put(self, id_):
         '''
-        Update the profile identified by `id`.
+        Update the profile identified by `id` with submitted data.
         is_interesting is the only modiifiable attribute.
         '''
 
@@ -697,3 +697,20 @@ class ProfileView(FlaskView):
 
         # Send response.
         return jsonify(**response)
+
+    @route('/<id_>/update')
+    def update_profile(self, id_):
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile with id={}.'.format(id_))
+
+        app.queue.schedule_profile_id(profile.site, profile.upstream_id)
+
+        message = "Updating profile ID {} (username: {})." \
+                  .format(profile.id, profile.username)
+        response = jsonify(message=message)
+        response.status_code = 202
+
+        return response
+
