@@ -721,6 +721,7 @@ class ProfileView(FlaskView):
         :status 404: profile does not exist
         '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
+        print(profile)
 
         if profile is None:
             raise NotFound('No profile with id={}.'.format(id_))
@@ -729,8 +730,11 @@ class ProfileView(FlaskView):
 
         message = "Updating profile ID {} " \
                   "(site: {}, upstream_id: {}, username: {})." \
-                  .format(profile.site, profile.id, profile.username)
+                  .format(profile.id, \
+                          profile.site, \
+                          profile.upstream_id, \
+                          profile.username)
         response = jsonify(message=message)
-        response.status_code = 202
+        response.status_code = 200
 
         return response

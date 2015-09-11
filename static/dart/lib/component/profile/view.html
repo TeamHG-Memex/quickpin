@@ -38,10 +38,12 @@
               profile from {{profile.siteName}} by clicking the button below.
             </p>
             <p>
-              <button class='btn btn-default btn-fetch-profile'
-                ng-click='updateProfile()'>
-                Fetch Full Profile
-              </button>
+              <busy-button
+                type='default'
+                click='updateProfile'
+                data='""'>
+                Update
+              </busy-button>
             </p>
           </div>
         </div>
