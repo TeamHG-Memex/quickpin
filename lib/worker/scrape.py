@@ -129,7 +129,7 @@ def scrape_profile(site, username):
         raise
 
 def scrape_profile_by_id(site, upstream_id):
-    ''' Scrape a twitter or instagram account. '''
+    ''' Scrape a twitter or instagram account using the user ID. '''
 
     redis = worker.get_redis()
     worker.start_job()
@@ -250,11 +250,8 @@ def scrape_instagram_account(username):
     return profile.as_dict()
 
 def scrape_instagram_account_by_id(upstream_id):
-    ''' Scrape instagram bio data and create (or update) a profile. '''
+    ''' Scrape instagram bio data for upstream ID and update a profile. '''
 
-    # Getting a user ID is more difficult than it ought to be: you need to
-    # search for the username and iterate through the search results results to
-    # find an exact match.
     db_session = worker.get_session()
     proxies = _get_proxies(db_session)
 
@@ -536,7 +533,7 @@ def scrape_twitter_account(username):
 
 def scrape_twitter_account_by_id(upstream_id):
     '''
-    Scrape twitter bio data and create (or update) a profile.
+    Scrape twitter bio data for upstream ID and update a profile.
     Accepts twitter ID rather than username.
     '''
 
