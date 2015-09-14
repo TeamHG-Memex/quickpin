@@ -300,12 +300,27 @@ class TasksView(FlaskView):
                         else:
                             description = None
 
+                        if  'current' in job.meta:
+                            current = job.meta['current']
+                        else:
+                            current = None
+
+                        if  'total' in job.meta:
+                            total = job.meta['total']
+                        else:
+                            total = None
+
+                        if current is None or total is None:
+                            progress = None
+                        else:
+                            progress = current/total
+
                         job_json = {
-                            'current': job.meta['current'],
+                            'current': current,
                             'description': description,
                             'id': job.id,
-                            'progress': job.meta['current']  / job.meta['total'],
-                            'total': job.meta['total'],
+                            'progress': progress,
+                            'total': total,
                             'type': job.meta['type'] if 'type' in job.meta else None
                         }
 
