@@ -68,6 +68,18 @@ def schedule_profile(site, username):
     description = 'Scraping bio for "{}" on {}'.format(username, site)
     worker.init_job(job, description)
 
+def schedule_profile_id(site, upstream_id):
+    ''' Queue a job to fetch the specified profile from a social media site. '''
+
+    job = _scrape_queue.enqueue(
+        worker.scrape.scrape_profile_by_id,
+        site,
+        upstream_id,
+        timeout=60
+    )
+
+    description = 'Scraping bio for "{}" on {}'.format(upstream_id, site)
+    worker.init_job(job, description)
 
 def schedule_posts(profile):
     ''' Queue a job to get posts for the specified profile. '''

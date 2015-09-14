@@ -99,23 +99,19 @@ class ProfileComponent {
     }
 
     /// Update profile.
-    void updateProfile() {
-        String pageUrl = '/api/profile/';
+    void updateProfile(Event event, String data, Function resetButton) {
+        String pageUrl = '/api/profile/${this.id}/update';
         this.loading++;
 
-        Map body = {
-            'profiles': [{
-                'username': this.profile.username,
-                'site': this.profile.site,
-            }],
-        };
-
         this.api
-            .post(pageUrl, body, needsAuth: true)
+            .get(pageUrl, needsAuth: true)
             .catchError((response) {
                 this.error = response.data['message'];
             })
-            .whenComplete(() {this.loading--;});
+            .whenComplete(() {
+                resetButton();
+                this.loading--;
+            });
     }
 
     /// Fetch a page of followers for this profile.
@@ -206,4 +202,5 @@ class ProfileComponent {
 
         return completer.future;
     }
+
 }

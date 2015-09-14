@@ -614,7 +614,7 @@ class ProfileView(FlaskView):
 
     def put(self, id_):
         '''
-        Update the profile identified by `id`.
+        Update the profile identified by `id` with submitted data.
         is_interesting is the only modiifiable attribute.
         '''
 
@@ -697,3 +697,44 @@ class ProfileView(FlaskView):
 
         # Send response.
         return jsonify(**response)
+
+    @route('/<id_>/update')
+    def update_profile(self, id_):
+        '''
+        Request new data from social site API for profile identified by `id`.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+            "message": "Updating profile ID 22 (site: twitter, upstream_id: 20609518, username: dalailama)."
+            }
+
+
+        :>header Content-Type: application/json
+        :>json str message: API request confirmation message
+
+        :status 202: accepted for background processing
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: profile does not exist
+        '''
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+        print(profile)
+
+        if profile is None:
+            raise NotFound('No profile with id={}.'.format(id_))
+
+        app.queue.schedule_profile_id(profile.site, profile.upstream_id)
+
+        message = "Updating profile ID {} " \
+                  "(site: {}, upstream_id: {}, username: {})." \
+                  .format(profile.id, \
+                          profile.site, \
+                          profile.upstream_id, \
+                          profile.username)
+        response = jsonify(message=message)
+        response.status_code = 200
+
+        return response
