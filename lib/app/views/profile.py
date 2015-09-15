@@ -726,7 +726,10 @@ class ProfileView(FlaskView):
         if profile is None:
             raise NotFound('No profile with id={}.'.format(id_))
 
-        app.queue.schedule_profile_id(profile.site, profile.upstream_id)
+        app.queue.schedule_profile_id( \
+                                      profile.site, \
+                                      profile.upstream_id, \
+                                      profile.id)
 
         message = "Updating profile ID {} " \
                   "(site: {}, upstream_id: {}, username: {})." \

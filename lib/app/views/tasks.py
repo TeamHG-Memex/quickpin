@@ -93,11 +93,17 @@ class TasksView(FlaskView):
                     else:
                         desc = None
 
+                    if 'profile_id' in failed_task.meta:
+                        profile_id = failed_task.meta['profile_id']
+                    else:
+                        profile_id = None
+
                     failed_tasks.append({
                         'description': desc,
                         'function': failed_task.get_call_string(),
                         'exception': failed_task.exc_info.decode(),
                         'id': failed_task.id,
+                        'profile_id': profile_id,
                         'original_queue': failed_task.origin,
                     })
                 except UnpickleError:
@@ -106,6 +112,7 @@ class TasksView(FlaskView):
                         'function': None,
                         'exception': failed_task.exc_info.decode(),
                         'id': failed_task.id,
+                        'profile_id': profile_id,
                         'original_queue': failed_task.origin,
                     })
 
@@ -300,6 +307,11 @@ class TasksView(FlaskView):
                         else:
                             description = None
 
+                        if 'profile_id' in job.meta:
+                            profile_id = job.meta['profile_id']
+                        else:
+                            profile_id = None
+
                         if  'current' in job.meta:
                             current = job.meta['current']
                         else:
@@ -321,6 +333,7 @@ class TasksView(FlaskView):
                             'id': job.id,
                             'progress': progress,
                             'total': total,
+                            'profile_id': profile_id,
                             'type': job.meta['type'] if 'type' in job.meta else None
                         }
 

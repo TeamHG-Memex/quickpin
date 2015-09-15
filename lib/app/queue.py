@@ -30,7 +30,7 @@ def schedule_avatar(profile, avatar_url):
     description = 'Getting avatar image for "{}" on {}' \
                   .format(profile.username, profile.site_name())
 
-    worker.init_job(job, description)
+    worker.init_job(job, description, profile.id)
 
 
 def schedule_index_profile(profile):
@@ -66,9 +66,9 @@ def schedule_profile(site, username):
     )
 
     description = 'Scraping bio for "{}" on {}'.format(username, site)
-    worker.init_job(job, description)
+    worker.init_job(job, description, profile.id)
 
-def schedule_profile_id(site, upstream_id):
+def schedule_profile_id(site, upstream_id, profile_id):
     ''' Queue a job to fetch the specified profile from a social media site. '''
 
     job = _scrape_queue.enqueue(
@@ -79,7 +79,7 @@ def schedule_profile_id(site, upstream_id):
     )
 
     description = 'Scraping bio for "{}" on {}'.format(upstream_id, site)
-    worker.init_job(job, description)
+    worker.init_job(job, description, profile_id)
 
 def schedule_posts(profile):
     ''' Queue a job to get posts for the specified profile. '''
@@ -93,7 +93,7 @@ def schedule_posts(profile):
                   .format(profile.username, profile.site_name())
 
     job = _scrape_queue.enqueue(scrapers[profile.site], profile.id)
-    worker.init_job(job, description)
+    worker.init_job(job, description, profile.id)
 
 
 def schedule_relations(profile):
@@ -108,7 +108,7 @@ def schedule_relations(profile):
                   .format(profile.username, profile.site_name())
 
     job = _scrape_queue.enqueue(scrapers[profile.site], profile.id, timeout=3600)
-    worker.init_job(job, description)
+    worker.init_job(job, description, profile.id)
 
 
 def schedule_sleep_determinate(period):
