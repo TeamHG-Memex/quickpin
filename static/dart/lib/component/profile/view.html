@@ -25,7 +25,8 @@
     </div>
 
     <div class='col-md-8'>
-      <div class='row' ng-show='profile.isStub'>
+      <img ng-show='loadingProfileJobs && profile.isStub' src='/static/img/spinner-blue-on-white.gif'>
+      <div class='row' ng-show='profile.isStub && profileWorkers.length == 0'>
         <div class='col-sm-12'>
           <div class="alert alert-info" role="alert">
             <p>
@@ -108,7 +109,42 @@
         </div>
       </div>
 
-      <div class='row' ng-show='profile.isStub == false'>
+      <div class='row' ng-show='failedTasks == true'>
+        <div class='col-sm-12'>
+          <div class="alert alert-danger" role="alert">
+            <div class="row">
+              <div class="col-sm-8">
+                <em>
+                   Errors were reported by workers for this profile. View  and delete them 
+                   to remove this message.
+                    
+                    
+                </em>
+              </div>
+              <div class="col-sm-4">
+                <span class="pull-right">
+                  <a 
+                    class="btn btn-default" 
+                    href="/admin/background-tasks" 
+                    ng-show="auth.isAdmin()">
+                    View
+                  </a>
+                  <a 
+                    class="btn btn-default" 
+                    ng-show="auth.isAdmin() == false"
+                    href="/admin/background-tasks" 
+                    disabled>
+                    You must be an admin to manage background tasks 
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <img ng-show='loadingProfileJobs && !profile.isStub' src='/static/img/spinner-blue-on-white.gif'>
+      <div class='row' ng-show='profile.isStub == false && profileWorkers.length == 0'>
         <div class='col-sm-12'>
           <div class="alert alert-info" role="alert">
             <div class="row">
@@ -133,8 +169,46 @@
         </div>
       </div>
 
+      <div class='row' ng-show='profileWorkers.length > 0'>
+        <div class='col-sm-12'>
+
+         <table class='table table-striped'>
+           <thead>
+             <tr>
+               <th>Currently Updating</th>
+             </tr>
+           </thead>
+           <tbody>
+             <tr ng-show='workers.length == 0'>
+               <td colspan='100' class='no-rows'>There are no workers.</td>
+             </tr>
+             <tr ng-repeat='worker in profileWorkers'>
+               <td>
+                   <span ng-show='worker["current_job"]["description"] == null'>
+                     No description.
+                   </span>
+                   <span ng-show='worker["current_job"]["description"] != null'>
+                     {{worker["current_job"]["description"]}}
+                   </span>
+                   <span ng-show='worker["current_job"]["progress"] != null'>
+                     ({{worker["current_job"]["progress"] * 100 | number:0}}%)
+                   </span>
+                   <progress-bar ng-show='worker["current_job"]["progress"] != null'
+                                 type='info'
+                                 progress='worker["current_job"]["progress"] * 100'>
+                   </progress-bar>
+               </td>
+             </tr>
+           </tbody>
+         </table>
+
+        </div>
+      </div>
+
     </div>
   </div>
+
+
 
   <div class="row"><!--start row-->
     <div class="col-md-4"><!--start col-->

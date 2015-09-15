@@ -27,6 +27,12 @@ class ProfileComponent {
     List<Profile> friends;
     int id;
     int loading = 0;
+    bool loadingProfileJobs = false;
+    bool loadingFailedTasks = false;
+    bool failedTasks = false;
+    List<Map> workers;
+    List<Map> profileWorkers;
+    Map<String, Map> _runningJobs;
     List<Post> posts;
     Profile profile;
 
@@ -51,6 +57,7 @@ class ProfileComponent {
             this._sse.onAvatar.listen(this._avatarListener),
             this._sse.onProfile.listen((_) => this._fetchProfile()),
             this._sse.onProfilePosts.listen((_) => this._fetchPosts()),
+            this._sse.onWorker.listen(this._workerListener),
             this._sse.onProfileRelations.listen((_) {
                 this._fetchFriends().then((_) => this._fetchFollowers());
             }),
@@ -66,13 +73,40 @@ class ProfileComponent {
         this._fetchProfile()
             .then((_) => this._fetchPosts())
             .then((_) => this._fetchFriends())
-            .then((_) => this._fetchFollowers());
+            .then((_) => this._fetchFollowers())
+            .then((_) => this._fetchProfileWorkers())
+            .then((_) => this._fetchFailedTasks());
     }
 
     /// Listen for avatar image updates.
     void _avatarListener(Event e) {
         Map json = JSON.decode(e.data);
         this.profile.avatarUrl = json['url'];
+    }
+
+    /// Listen for updates from background workers.
+    void _workerListener(Event e) {
+        Map json = JSON.decode(e.data);
+        String status = json['status'];
+
+        if (status == 'queued' || status == 'started' || status == 'finished') {
+            // This information can only be fetched via REST.
+            this._fetchProfileWorkers();
+        } else if (status == 'progress') {
+            Map job = this._runningJobs[json['id']];
+
+            if (job != null) {
+                // Event contains all the data we need: no need for REST call.
+                job['current'] = json['current'];
+                job['progress'] = json['progress'];
+            } else {
+                // This is a job we don't know about: needs REST call.
+                this._fetchProfileWorkers();
+            }
+        } else if (status == 'failed') {
+            this.failedTasks = true;
+            //this._fetchFailedTasks().then((_) => this._fetchWorkers());
+        }
     }
 
     /// Set interest status of profile.
@@ -197,6 +231,63 @@ class ProfileComponent {
             })
             .whenComplete(() {
                 this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
+    }
+
+    /// Fetch worker jobs for profile.
+    Future _fetchProfileWorkers() {
+        Completer completer = new Completer();
+        this.loadingProfileJobs = true;
+
+        this.api
+            .get('/api/tasks/workers', needsAuth: true)
+            .then((response) {
+                this.workers = response.data['workers'];
+                this.profileWorkers = [];
+
+                this._runningJobs = new Map<String, Map>();
+
+                this.workers.forEach((worker) {
+                    Map currentJob = worker['current_job'];
+
+                    if (currentJob != null) {
+                        if (currentJob['profile_id'] == this.id) {
+                        this._runningJobs[currentJob['id']] = currentJob;
+                            this.profileWorkers.add(worker);
+                        }
+                    }
+                });
+            })
+            .whenComplete(() {
+                this.loadingProfileJobs = false;
+                completer.complete();
+            });
+
+        return completer.future;
+    }
+
+    /// Fetch failed task data.
+    Future _fetchFailedTasks() {
+        Completer completer = new Completer();
+        List<Map> failed;
+        this.loadingFailedTasks = true;
+
+        this.api
+            .get('/api/tasks/failed', needsAuth: true)
+            .then((response) {
+                failed = response.data['failed'];
+                failed.forEach((failed_task) {
+                    if (this.id == failed_task['profile_id']) {
+                        this.failedTasks = true;
+                    }
+                });
+                
+            })
+            .whenComplete(() {
+                this.loadingFailedTasks = false;
                 completer.complete();
             });
 
