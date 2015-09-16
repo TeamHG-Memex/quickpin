@@ -144,7 +144,7 @@
         {{profile.postCount | largeNumber:1}} posts.
       </em>
     </p>
-    <div class="btn-group btn-group-sm" role="group" aria-label="...">
+    <div class="btn-group btn-group-sm" ng-show="profile.id != null" role="group" aria-label="...">
       <button 
           type="button" 
           ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
