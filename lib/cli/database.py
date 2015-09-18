@@ -66,6 +66,19 @@ class DatabaseCli(cli.BaseCli):
         piscina_proxy_url = Configuration('piscina_proxy_url', 'http://192.168.31.1:8080')
         session.add(piscina_proxy_url)
 
+        max_posts_twitter = Configuration('max_posts_twitter', 200)
+        session.add(max_posts_twitter)
+
+        max_posts_instagram = Configuration('max_posts_instagram', 200)
+        session.add(max_posts_instagram)
+
+        max_relations_twitter = Configuration('max_relations_twitter', 5000)
+        session.add(max_relations_twitter)
+
+        max_relations_instagram = Configuration('max_relations_instagram', 5000)
+        session.add(max_relations_instagram)
+
+
         session.commit()
 
     def _create_fixture_users(self, config):

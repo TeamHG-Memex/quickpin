@@ -75,7 +75,7 @@ class ProfileComponent {
             .then((_) => this._fetchFriends())
             .then((_) => this._fetchFollowers())
             .then((_) => this._fetchProfileWorkers())
-            .then((_) => this._fetchFailedTasks());
+            .then((_) => this._fetchFailedProfileTasks());
     }
 
     /// Listen for avatar image updates.
@@ -104,8 +104,7 @@ class ProfileComponent {
                 this._fetchProfileWorkers();
             }
         } else if (status == 'failed') {
-            this.failedTasks = true;
-            //this._fetchFailedTasks().then((_) => this._fetchWorkers());
+            this._fetchFailedProfileTasks().then((_) => this._fetchProfileWorkers());
         }
     }
 
@@ -270,7 +269,7 @@ class ProfileComponent {
     }
 
     /// Fetch failed task data.
-    Future _fetchFailedTasks() {
+    Future _fetchFailedProfileTasks() {
         Completer completer = new Completer();
         List<Map> failed;
         this.loadingFailedTasks = true;

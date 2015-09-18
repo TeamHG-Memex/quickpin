@@ -267,6 +267,23 @@ class ProfileView(FlaskView):
             username=profile.username
         )
 
+    @route('/<id_>/posts/fetch')
+    def get_older_posts(self, id_):
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile with id={}.'.format(id_))
+
+        app.queue.schedule_posts(profile, recent=False)
+
+        message = "Fetching older posts for profile ID {} " \
+                  .format(profile.id)
+
+        response = jsonify(message=message)
+        response.status_code = 200
+
+        return response
+
     @route('/<id_>/relations/<reltype>')
     def get_relations(self, id_, reltype):
         '''
@@ -721,7 +738,6 @@ class ProfileView(FlaskView):
         :status 404: profile does not exist
         '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
-        print(profile)
 
         if profile is None:
             raise NotFound('No profile with id={}.'.format(id_))

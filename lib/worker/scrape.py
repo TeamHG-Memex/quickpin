@@ -21,6 +21,8 @@ from model.profile import profile_join_self
 import worker
 import worker.index
 
+#import logging
+#logging.basicConfig(filename='/var/log/quickpin.log', level=logging.WARNING)
 
 class ScrapeException(Exception):
     ''' Represents a user-facing exception. '''
@@ -244,7 +246,7 @@ def scrape_instagram_account(username):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_picture'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
@@ -285,12 +287,12 @@ def scrape_instagram_account_by_id(upstream_id):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_picture'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
-def scrape_instagram_posts(id_):
+def scrape_instagram_posts(id_, recent):
     '''
     Fetch posts for the user identified by id_.
     '''
@@ -526,7 +528,7 @@ def scrape_twitter_account(username):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_image_url_https'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
@@ -564,22 +566,25 @@ def scrape_twitter_account_by_id(upstream_id):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_image_url_https'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
 
 
-def scrape_twitter_posts(id_):
+def scrape_twitter_posts(id_, recent):
     '''
     Fetch tweets for the user identified by id_.
     '''
-
-    worker.start_job()
-    redis = worker.get_redis()
     db = worker.get_session()
+    max_results = _get_max_posts(db)['twitter']
+    worker.start_job(total=max_results)
+    redis = worker.get_redis()
     author = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
+    results = 0
+    max_id = None
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -591,60 +596,84 @@ def scrape_twitter_posts(id_):
 
     url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
     params = {'count': 200, 'user_id': author.upstream_id}
-    # Only fetch posts newer than those already stored in db
-    if post_query.count() > 0:
-        last_post_id = post_query[0].upstream_id
-        params['since_id'] = last_post_id
 
-    response = requests.get(
-        url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    response.raise_for_status()
+    if recent:
+        # Only fetch posts newer than those already stored in db
+        if post_query.count() > 0:
+            last_post_id = post_query[0].upstream_id
+            params['since_id'] = last_post_id
+    else:
+        # Only fetch posts older than those already stored in db
+        if post_query.count() > 0:
+            first_post_id = post_query[post_query.count() -1].upstream_id
+            params['max_id'] = first_post_id
 
-    post_ids = list()
-
-    for tweet in response.json():
-        post = Post(
-            author,
-            tweet['id_str'],
-            dateutil.parser.parse(tweet['created_at']),
-            tweet['text']
+    while results < max_results:
+        response = requests.get(
+            url,
+            params=params,
+            proxies=proxies,
+            verify=False
         )
+        response.raise_for_status()
 
-        if tweet['lang'] is not None:
-            post.language = tweet['lang']
+        post_ids = list()
 
-        if tweet['coordinates'] is not None:
-            post.latitude, post.longitude = tweet['coordinates']
+        tweets = response.json()
+        if len(tweets) == 0:
+            break # no more results
 
-        place = tweet['place']
+        total_tweets = tweets[0]['user']['statuses_count']
+        if total_tweets < max_results:
+            max_results = total_tweets
 
-        if place is not None:
-            # Set longitude/latitude to the center the of bounding polygon.
-            total_lon = 0
-            total_lat = 0
-            num_coords = 0
+        for tweet in tweets:
+            if tweet['id_str'] != max_id:
+                post = Post(
+                    author,
+                    tweet['id_str'],
+                    dateutil.parser.parse(tweet['created_at']),
+                    tweet['text']
+                )
 
-            for lon, lat in place['bounding_box']['coordinates'][0]:
-                total_lon += lon
-                total_lat += lat
-                num_coords += 1
+                if tweet['lang'] is not None:
+                    post.language = tweet['lang']
 
-            post.longitude = total_lon / num_coords
-            post.latitude = total_lat / num_coords
+                if tweet['coordinates'] is not None:
+                    post.latitude, post.longitude = tweet['coordinates']
 
-            # Set location to string identifying the place.
-            post.location = '{}, {}'.format(
-                place['full_name'],
-                place['country']
-            )
+                place = tweet['place']
 
-        db.add(post)
-        db.flush()
-        post_ids.append(post.id)
+                if place is not None:
+                    # Set longitude/latitude to the center the of bounding polygon.
+                    total_lon = 0
+                    total_lat = 0
+                    num_coords = 0
+
+                    for lon, lat in place['bounding_box']['coordinates'][0]:
+                        total_lon += lon
+                        total_lat += lat
+                        num_coords += 1
+
+                    post.longitude = total_lon / num_coords
+                    post.latitude = total_lat / num_coords
+
+                    # Set location to string identifying the place.
+                    post.location = '{}, {}'.format(
+                        place['full_name'],
+                        place['country']
+                    )
+                db.add(post)
+                db.flush()
+                post_ids.append(post.id)
+                max_id = tweet['id_str']
+                params['max_id'] = max_id
+                results += 1
+                worker.update_job(current=results)
+
+                if results == max_results:
+                    break;
+
 
     db.commit()
     worker.finish_job()
@@ -659,10 +688,17 @@ def scrape_twitter_relations(id_):
     Currently only gets the first "page" from each endpoint, e.g. 5000 friends
     and 5000 followers, because it's simpler and saves API calls.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
+    max_results = _get_max_relations(db)['twitter']
+    friends_results = 0
+    friends_ids = []
+    followers_results = 0
+    followers_ids = []
+    friends_cursor = -1
+    followers_cursor = -1
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -670,63 +706,94 @@ def scrape_twitter_relations(id_):
     params = {
         'count': 5000,
         'user_id': profile.upstream_id,
-        'stringify_ids': True
+        'stringify_ids': True,
     }
 
     # Get friends currently stored in db for this profile.
     friends_query = \
-        db.query(Profile) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.friend_id == Profile.id)
-            )
-    current_friends_ids = [friend.id for friend in friends_query]
+            ) \
+            .filter(profile_join_self.c.follower_id == id_)
+    current_friends_ids = [friend.upstream_id for friend in friends_query]
 
 
     # Get followers currently stored in db for this profile.
     followers_query = \
-        db.query(Profile.id) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.follower_id == Profile.id)
-            )
-    current_followers_ids = [follower.id for follower in followers_query]
+            ) \
+            .filter(profile_join_self.c.friend_id == id_)
+    current_followers_ids = [follower.upstream_id for follower in followers_query]
 
     ## Get friend IDs.
     friends_url = 'https://api.twitter.com/1.1/friends/ids.json'
-    friends_response = requests.get(
-        friends_url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    friends_response.raise_for_status()
-    friends_ids = friends_response.json()['ids']
-    # Ignore friends already in the db
-    friends_ids = list(set(friends_ids) - set(current_friends_ids))
+    params['cursor'] = friends_cursor
+
+    while friends_results < max_results:
+        friends_response = requests.get(
+            friends_url,
+            params=params,
+            proxies=proxies,
+            verify=False
+        )
+        friends_response.raise_for_status()
+
+        # Ignore friends already in the db
+        for friend_id in friends_response.json()['ids']:
+            if friend_id not in current_friends_ids:
+                friends_ids.append(friend_id)
+                friends_results += 1
+                if friends_results == max_results:
+                    break
+
+        friends_cursor = friends_response.json()['next_cursor']
+
+        if friends_cursor == 0:
+            break # No more results
+        else:
+            params['cursor'] = friends_cursor
 
     # Get follower IDs.
     followers_url = 'https://api.twitter.com/1.1/followers/ids.json'
-    followers_response = requests.get(
-        followers_url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    followers_response.raise_for_status()
-    followers_ids = followers_response.json()['ids']
-    # Ignore followers already in the db
-    followers_ids = list(set(followers_ids) - set(current_followers_ids))
+    params['cursor'] = followers_cursor
+
+    while followers_results < max_results:
+        followers_response = requests.get(
+            followers_url,
+            params=params,
+            proxies=proxies,
+            verify=False
+        )
+        followers_response.raise_for_status()
+
+        # Ignore followers already in the db
+        for follower_id in followers_response.json()['ids']:
+            if follower_id not in current_followers_ids:
+                followers_ids.append(follower_id)
+                followers_results += 1
+                if followers_results == max_results:
+                    break
+
+        followers_cursor = followers_response.json()['next_cursor']
+
+        if followers_cursor == 0:
+            break # No more results
+        else:
+            params['cursor'] = followers_cursor
 
     # Get username for each of the friend/follower IDs and create
     # a relationship in QuickPin.
     user_ids = [(uid, 'friend') for uid in friends_ids] + \
                [(uid, 'follower') for uid in followers_ids]
-
     worker.start_job(total=len(user_ids))
     chunk_size = 100
     for chunk_start in range(0, len(user_ids), chunk_size):
-        chunk_end = chunk_start + chunk_size - 1
+        chunk_end = chunk_start + chunk_size
         chunk = user_ids[chunk_start:chunk_end]
         chunk_lookup = {id_:relation for id_,relation in chunk}
 
@@ -788,6 +855,82 @@ def _get_proxies(db):
         'http': piscina_url.value,
         'https': piscina_url.value,
     }
+
+def _get_max_posts(db):
+    '''
+    Get a dictionary of max results to scrape from the app configuration.
+    '''
+
+    max_posts_twitter = db.query(Configuration) \
+        .filter(Configuration.key=='max_posts_twitter') \
+        .first()
+
+    if max_posts_twitter is None or max_posts_twitter.value.strip() == '':
+        raise ScrapeException('No max posts configured for twitter.')
+
+    try:
+        max_posts_twitter = int(max_posts_twitter.value)
+    except TypeError:
+        raise ScrapeException('Value configured for max_posts twitter ' \
+                              'must be an integer')
+
+    max_posts_instagram = db.query(Configuration) \
+                            .filter(Configuration.key=='max_posts_instagram') \
+                            .first()
+
+    if (max_posts_instagram is None or
+        max_posts_instagram.value.strip() == ''):
+        raise ScrapeException('No max posts configured for instagram.')
+
+    try:
+        max_posts_instagram = int(max_posts_instagram.value)
+    except TypeError:
+        raise ScrapeException('Value configured for max_posts_instagram ' \
+                              'must be an integer')
+
+    return {
+        'twitter': max_posts_twitter,
+        'instagram': max_posts_instagram,
+    }
+
+def _get_max_relations(db):
+    '''
+    Get a dictionary of max relations to scrape from the app configuration.
+    '''
+
+    max_relations_twitter = db.query(Configuration) \
+        .filter(Configuration.key=='max_relations_twitter') \
+        .first()
+
+    if (max_relations_twitter is None or
+        max_relations_twitter.value.strip() == ''):
+        raise ScrapeException('No max relations configured for twitter.')
+
+    try:
+        max_relations_twitter = int(max_relations_twitter.value)
+    except TypeError:
+        raise ScrapeException('Value configured for max_relations twitter ' \
+                              'must be an integer')
+
+    max_relations_instagram = db.query(Configuration) \
+                            .filter(Configuration.key=='max_relations_instagram') \
+                            .first()
+
+    if (max_relations_instagram is None or
+        max_relations_instagram.value.strip() == ''):
+        raise ScrapeException('No max relations configured for instagram.')
+
+    try:
+        max_relations_instagram = int(max_relations_instagram.value)
+    except TypeError:
+        raise ScrapeException('Value configured for max_relations_instagram ' \
+                              'must be an integer')
+
+    return {
+        'twitter': max_relations_twitter,
+        'instagram': max_relations_instagram,
+    }
+
 
 
 def _twitter_populate_profile(dict_, profile):
