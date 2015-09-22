@@ -131,7 +131,7 @@ class ProfileComponent {
             });
     }
 
-    /// Update profile.
+    /// Request updated data for profile.
     void updateProfile(Event event, String data, Function resetButton) {
         String pageUrl = '/api/profile/${this.id}/update';
         this.loading++;
@@ -268,7 +268,7 @@ class ProfileComponent {
         return completer.future;
     }
 
-    /// Fetch failed task data.
+    /// Fetch failed task data for this profile.
     Future _fetchFailedProfileTasks() {
         Completer completer = new Completer();
         List<Map> failed;

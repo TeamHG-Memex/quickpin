@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:html';
-//import 'dart:js';
 import 'dart:convert';
 
 import 'package:angular/angular.dart';
+import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
@@ -20,6 +20,7 @@ import 'package:quickpin/sse.dart';
 )
 class ProfilePostsComponent extends Object with CurrentPageMixin
                             implements ScopeAware {
+    AuthenticationController auth;
     List<Breadcrumb> crumbs;
 
     String error = '';
@@ -34,7 +35,6 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     bool failedTasks = false;
     List<Map> workers;
     List<Map> profilePostsWorkers;
-    bool loadingProfileJobs = false;
 
     final RestApiController api;
 
@@ -44,14 +44,14 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     final SseController _sse;
 
     /// Constructor.
-    ProfilePostsComponent(this.api, this._rp, this._sse, this._ts) {
+    ProfilePostsComponent(this.api, this.auth, this._rp, this._sse, this._ts) {
         this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._ts.title = 'Posts by ${id}';
         this._updateCrumbs();
-        this._fetchCurrentPage();
-        this._fetchProfilePostsWorkers();
-        this._fetchFailedProfilePostsTasks();
+        this._fetchCurrentPage()
+            .then((_) => this._fetchProfilePostsWorkers())
+            .then((_) => this._fetchFailedProfilePostsTasks());
 
         // Add event listeners...
         List<StreamSubscription> listeners = [
@@ -91,7 +91,8 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     }
 
     /// Fetch list of posts.
-    void _fetchCurrentPage() {
+    Future _fetchCurrentPage() {
+        Completer completer = new Completer();
         this.error = '';
         this.loading++;
         String pageUrl = '/api/profile/${this.id}/posts';
@@ -124,9 +125,15 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
             .catchError((response) {
                 this.error = response.data['message'];
             })
-            .whenComplete(() {this.loading--;});
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
     }
 
+    /// Request extraction of older posts for this profile.
     void fetchMorePosts(Event event, String data, function resetButton) {
         String pageUrl = '/api/profile/${this.id}/posts/fetch';
         this.api
@@ -160,7 +167,6 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     /// Fetch worker jobs for profile.
     Future _fetchProfilePostsWorkers() {
         Completer completer = new Completer();
-        this.loadingProfileJobs = true;
 
         this.api
             .get('/api/tasks/workers', needsAuth: true)
@@ -185,14 +191,13 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
                 });
             })
             .whenComplete(() {
-                this.loadingProfileJobs = false;
                 completer.complete();
             });
 
         return completer.future;
     }
 
-    /// Fetch failed task data.
+    /// Fetch failed post task data for this profile.
     Future _fetchFailedProfilePostsTasks() {
         Completer completer = new Completer();
         List<Map> failed;
@@ -203,7 +208,7 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
                 failed = response.data['failed'];
                 failed.forEach((failed_task) {
                     if (int.parse(this.id) == failed_task['profile_id']) {
-                        if (failed_task['type'] == 'post') {
+                        if (failed_task['type'] == 'posts') {
                             this.failedTasks = true;
                         }
                     }

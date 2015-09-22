@@ -212,31 +212,33 @@
 
   <div class="row"><!--start row-->
     <div class="col-md-4"><!--start col-->
-      <div class="btn-group btn-group-lg" role="group" aria-label="...">
-        <button 
-            type="button" 
-            ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
-            disabled>
-            {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
-        </button>
-        <button 
-            type="button" 
-            ng-click='setProfileInterest(true)'
-            ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
-            <span class="fa fa-check"></span>
-        </button>
-        <button 
-            type="button" 
-            ng-click='setProfileInterest(false)' 
-            ng-class="profile.isInteresting==false ? 'btn btn-danger rounded-right' : 'btn btn-default rounded-right'">
-            <span class="fa fa-remove"></span>
-        </button>
-        <button 
-            ng-click="setProfileInterest()" 
-            ng-show="profile.isInteresting != null"
-            class="btn btn-link btn-lg">
-            clear
-        </button>
+      <div class="text-align-center">
+        <div class="btn-group btn-group-lg" role="group" aria-label="...">
+          <button 
+              type="button" 
+              ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
+              disabled>
+              {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
+          </button>
+          <button 
+              type="button" 
+              ng-click='setProfileInterest(true)'
+              ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
+              <span class="fa fa-check"></span>
+          </button>
+          <button 
+              type="button" 
+              ng-click='setProfileInterest(false)' 
+              ng-class="profile.isInteresting==false ? 'btn btn-danger rounded-right' : 'btn btn-default rounded-right'">
+              <span class="fa fa-remove"></span>
+          </button>
+          <button 
+              ng-click="setProfileInterest()" 
+              ng-show="profile.isInteresting != null"
+              class="btn btn-link btn-lg">
+              clear
+          </button>
+        </div>
       </div>
     </div> <!-- end col -->
   </div> <!--end row -->

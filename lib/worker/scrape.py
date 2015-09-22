@@ -21,9 +21,6 @@ from model.profile import profile_join_self
 import worker
 import worker.index
 
-#import logging
-#logging.basicConfig(filename='/var/log/quickpin.log', level=logging.WARNING)
-
 class ScrapeException(Exception):
     ''' Represents a user-facing exception. '''
 
@@ -576,15 +573,22 @@ def scrape_twitter_account_by_id(upstream_id):
 def scrape_twitter_posts(id_, recent):
     '''
     Fetch tweets for the user identified by id_.
+    Checks tweets already stored in db, and will only fetch older or newer
+    tweets depending on value of the boolean argument 'recent',
+    e.g. recent=True will return recent tweets not already stored in the db.
+    The number of tweets to fetch is configured in the Admin.
     '''
     db = worker.get_session()
     max_results = _get_max_posts(db)['twitter']
+    logging.warning("WORKER max results(1): {}".format(max_results))
     worker.start_job(total=max_results)
     redis = worker.get_redis()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
     results = 0
     max_id = None
+    more_results = True
+    count = 200
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -595,20 +599,22 @@ def scrape_twitter_posts(id_, recent):
                         .order_by(Post.upstream_created.desc())
 
     url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
-    params = {'count': 200, 'user_id': author.upstream_id}
+    params = {'count': count, 'user_id': author.upstream_id}
 
     if recent:
         # Only fetch posts newer than those already stored in db
         if post_query.count() > 0:
-            last_post_id = post_query[0].upstream_id
-            params['since_id'] = last_post_id
+            since_id = post_query[0].upstream_id
+            params['since_id'] = str(since_id)
     else:
         # Only fetch posts older than those already stored in db
         if post_query.count() > 0:
-            first_post_id = post_query[post_query.count() -1].upstream_id
-            params['max_id'] = first_post_id
+            max_id = post_query[post_query.count() -1].upstream_id
+            params['max_id'] = str(max_id)
 
-    while results < max_results:
+    logging.warning("WORKER params: {}".format(",".join(params)))
+
+    while more_results:
         response = requests.get(
             url,
             params=params,
@@ -621,13 +627,14 @@ def scrape_twitter_posts(id_, recent):
 
         tweets = response.json()
         if len(tweets) == 0:
-            break # no more results
+            more_results = False
 
-        total_tweets = tweets[0]['user']['statuses_count']
-        if total_tweets < max_results:
-            max_results = total_tweets
+        if len(tweets) < count:
+            more_results = False
 
         for tweet in tweets:
+            # Twitter API result set includes the tweet with the max_id/since_id
+            # so ignore it.
             if tweet['id_str'] != max_id:
                 post = Post(
                     author,
@@ -663,16 +670,20 @@ def scrape_twitter_posts(id_, recent):
                         place['full_name'],
                         place['country']
                     )
+
                 db.add(post)
                 db.flush()
                 post_ids.append(post.id)
+                # Set the max_id to the last tweet to get the next set of
+                # results
                 max_id = tweet['id_str']
                 params['max_id'] = max_id
                 results += 1
                 worker.update_job(current=results)
 
                 if results == max_results:
-                    break;
+                    more_results = False
+                    break
 
 
     db.commit()
@@ -684,9 +695,7 @@ def scrape_twitter_posts(id_, recent):
 def scrape_twitter_relations(id_):
     '''
     Fetch friends and followers for the Twitter user identified by `id_`.
-
-    Currently only gets the first "page" from each endpoint, e.g. 5000 friends
-    and 5000 followers, because it's simpler and saves API calls.
+    The number of friends and followers to fetch is configured in Admin.
     '''
     redis = worker.get_redis()
     db = worker.get_session()
@@ -858,7 +867,7 @@ def _get_proxies(db):
 
 def _get_max_posts(db):
     '''
-    Get a dictionary of max results to scrape from the app configuration.
+    Get a dictionary of max posts to scrape from the app configuration.
     '''
 
     max_posts_twitter = db.query(Configuration) \

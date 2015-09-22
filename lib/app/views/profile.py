@@ -269,6 +269,26 @@ class ProfileView(FlaskView):
 
     @route('/<id_>/posts/fetch')
     def get_older_posts(self, id_):
+        '''
+        Request fetching of older posts by this profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+            "message": "Fetching older posts for profile ID 22."
+            }
+
+
+        :>header Content-Type: application/json
+        :>json str message: API request confirmation message
+
+        :status 202: accepted for background processing
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: profile does not exist
+        '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
         if profile is None:
@@ -280,7 +300,7 @@ class ProfileView(FlaskView):
                   .format(profile.id)
 
         response = jsonify(message=message)
-        response.status_code = 200
+        response.status_code = 202
 
         return response
 
@@ -388,6 +408,43 @@ class ProfileView(FlaskView):
             total_count=total_count,
             username=profile.username
         )
+
+    @route('/<id_>/relations/fetch')
+    def get_more_relations(self, id_):
+        '''
+        Request fetching of more relations of this profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+            "message": "Fetching more friends & followers for profile ID 22."
+            }
+
+
+        :>header Content-Type: application/json
+        :>json str message: API request confirmation message
+
+        :status 202: accepted for background processing
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: profile does not exist
+        '''
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile with id={}.'.format(id_))
+
+        app.queue.schedule_relations(profile)
+
+        message = "Fetching more friends & followers posts for profile ID {} " \
+                  .format(profile.id)
+
+        response = jsonify(message=message)
+        response.status_code = 202
+
+        return response
 
     def index(self):
         '''

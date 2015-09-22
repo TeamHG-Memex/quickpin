@@ -59,6 +59,8 @@ class TasksView(FlaskView):
                         "exception": "Traceback (most recent call...",
                         "function": "worker.index.reindex_site(1)",
                         "id": "dea6bd20-4f8e-44d2-bee1-b5db78eb4cc8",
+                        "profile_id": "1",
+                        "type": "posts",
                         "original_queue": "index"
                     },
                     ...
@@ -75,6 +77,8 @@ class TasksView(FlaskView):
         :>json str failed[n]["function"]: the function call that was originally
             queued
         :>json str failed[n]["id"]: unique identifier
+        :>json str failed[n]["id"]: ID of profile for which the task was being
+            performed
         :>json str failed[n]["original_queue"]: the queue that this task was
             initially placed on before it failed
 
@@ -98,12 +102,18 @@ class TasksView(FlaskView):
                     else:
                         profile_id = None
 
+                    if 'type' in failed_task.meta:
+                        type_ = failed_task.meta['type']
+                    else:
+                        type_ = None
+
                     failed_tasks.append({
                         'description': desc,
                         'function': failed_task.get_call_string(),
                         'exception': failed_task.exc_info.decode(),
                         'id': failed_task.id,
                         'profile_id': profile_id,
+                        'type': type_,
                         'original_queue': failed_task.origin,
                     })
                 except UnpickleError:
@@ -113,6 +123,7 @@ class TasksView(FlaskView):
                         'exception': failed_task.exc_info.decode(),
                         'id': failed_task.id,
                         'profile_id': profile_id,
+                        'type': type_,
                         'original_queue': failed_task.origin,
                     })
 
@@ -252,6 +263,7 @@ class TasksView(FlaskView):
                             "id": "cc4618c1-22ed-4b5d-a9b8-5186c0259b46",
                             "progress": 0.4520876112251882,
                             "total": 2922,
+                            'profile_id': 1,
                             "type": "index"
                         },
                         "name": "ubuntu.49330",
@@ -278,6 +290,8 @@ class TasksView(FlaskView):
             records processed by this job, expressed as a decimal
         :>json int workers[n]["current_job"]["total"]: the total number of
             records expected to be processed by this job
+        :>json str workers[n]["current_job"]["profile_id"]: the ID of the
+           profile for which the job is being performed (optional)
         :>json str workers[n]["current_job"]["type"]: the type of this job,
             indicating what subsystem it belongs to (optional)
         :>json str workers[n]["name"]: name of the worker process
