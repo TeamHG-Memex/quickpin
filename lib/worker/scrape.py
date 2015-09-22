@@ -298,6 +298,7 @@ def scrape_instagram_posts(id_, recent):
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
+    max_results = _get_max_posts(db)['instagram']
     min_id = None
 
     if author is None:
@@ -580,7 +581,6 @@ def scrape_twitter_posts(id_, recent):
     '''
     db = worker.get_session()
     max_results = _get_max_posts(db)['twitter']
-    logging.warning("WORKER max results(1): {}".format(max_results))
     worker.start_job(total=max_results)
     redis = worker.get_redis()
     author = db.query(Profile).filter(Profile.id==id_).first()
@@ -601,18 +601,15 @@ def scrape_twitter_posts(id_, recent):
     url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
     params = {'count': count, 'user_id': author.upstream_id}
 
-    if recent:
+    if post_query.count() > 0:
         # Only fetch posts newer than those already stored in db
-        if post_query.count() > 0:
+        if recent:
             since_id = post_query[0].upstream_id
             params['since_id'] = str(since_id)
-    else:
         # Only fetch posts older than those already stored in db
-        if post_query.count() > 0:
+        else:
             max_id = post_query[post_query.count() -1].upstream_id
             params['max_id'] = str(max_id)
-
-    logging.warning("WORKER params: {}".format(",".join(params)))
 
     while more_results:
         response = requests.get(
