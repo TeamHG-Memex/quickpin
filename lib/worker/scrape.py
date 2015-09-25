@@ -21,6 +21,7 @@ from model.profile import profile_join_self
 import worker
 import worker.index
 
+
 class ScrapeException(Exception):
     ''' Represents a user-facing exception. '''
 
@@ -291,15 +292,21 @@ def scrape_instagram_account_by_id(upstream_id):
 
 def scrape_instagram_posts(id_, recent):
     '''
-    Fetch posts for the user identified by id_.
+    Fetch instagram posts for the user identified by id_.
+    Checks posts already stored in db, and will only fetch older or newer
+    posts depending on value of the boolean argument 'recent',
+    e.g. recent=True will return recent posts not already stored in the db.
+    The number of posts to fetch is configured in the Admin.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
     max_results = _get_max_posts(db)['instagram']
     min_id = None
+    more_results = True
+    results = 0
+    params = {}
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -308,67 +315,82 @@ def scrape_instagram_posts(id_, recent):
           .format(author.upstream_id)
 
     # Get last post currently stored in db for this profile.
-    last_post_query = db.query(Post) \
+    post_query = db.query(Post) \
                         .filter(Post.author_id == id_) \
                         .order_by(Post.upstream_created.desc()) \
-                        .first()
 
-    # Only fetch posts later than the last_post
-    if last_post_query is not None:
-        min_id = last_post_query.upstream_id
-        url = url + '?min_id={}'.format(min_id)
-
-    response = requests.get(
-        url,
-        proxies=proxies,
-        verify=False
-    )
-
-    response.raise_for_status()
-    post_ids = list()
-    response_json = response.json()['data']
-    worker.start_job(total=len(response_json))
-    current = 1
-
-    # Instagram API result includes post with min_id so remove it
-    response_json[:] = [d for d in response_json if d.get('id') != min_id]
-
-    for gram in response_json:
-        if gram['caption'] is not None:
-            text = gram['caption']['text']
+    if post_query.count() > 0:
+        # Only fetch posts newer than those already stored in db
+        if recent:
+            min_id = post_query[0].upstream_id
+            params['min_id'] = str(min_id)
+        # Only fetch posts older than those already stored in db
         else:
-            text = None
+            max_id = post_query[post_query.count() -1].upstream_id
+            params['max_id'] = str(max_id)
 
-        post = Post(
-            author,
-            gram['id'],
-            datetime.fromtimestamp(int(gram['created_time'])),
-            text
+    worker.start_job(total=max_results)
+    while results < max_results:
+        response = requests.get(
+            url,
+            params=params,
+            proxies=proxies,
+            verify=False
         )
 
-        if gram['location'] is not None:
-            if 'latitude' in gram['location']:
-                post.latitude = gram['location']['latitude']
-                post.longitude = gram['location']['longitude']
+        response.raise_for_status()
+        post_ids = list()
+        response_json = response.json()['data']
+        pagination = response.json()['pagination']
 
-            post.location = gram['location']['name']
+        # Instagram API result includes post with min_id so remove it
+        response_json[:] = [d for d in response_json if d.get('id') != min_id]
 
-            if 'street_address' in gram['location']:
-                post.location += ' ' + gram['location']['street_address']
+        for gram in response_json:
+            if gram['caption'] is not None:
+                text = gram['caption']['text']
+            else:
+                text = None
 
-        if 'images' in gram:
-            image_url = gram['images']['standard_resolution']['url']
-            name = os.path.basename(urlparse(image_url).path)
-            img_response = requests.get(image_url, verify=False)
-            mime = img_response.headers['Content-type']
-            image = img_response.content
-            post.attachments.append(File(name, mime, image))
+            post = Post(
+                author,
+                gram['id'],
+                datetime.fromtimestamp(int(gram['created_time'])),
+                text
+            )
 
-        db.add(post)
-        db.flush()
-        post_ids.append(post.id)
-        worker.update_job(current=current)
-        current += 1
+            if gram['location'] is not None:
+                if 'latitude' in gram['location']:
+                    post.latitude = gram['location']['latitude']
+                    post.longitude = gram['location']['longitude']
+
+                if 'name' in gram['location']:
+                    post.location = gram['location']['name']
+
+                    if 'street_address' in gram['location']:
+                        post.location += ' ' + gram['location']['street_address']
+
+            if 'images' in gram:
+                image_url = gram['images']['standard_resolution']['url']
+                name = os.path.basename(urlparse(image_url).path)
+                img_response = requests.get(image_url, verify=False)
+                mime = img_response.headers['Content-type']
+                image = img_response.content
+                post.attachments.append(File(name, mime, image))
+
+            db.add(post)
+            db.flush()
+            post_ids.append(post.id)
+            worker.update_job(current=results)
+            results += 1
+            if results == max_results:
+                break
+
+        # If there are more results, set the max_id param, otherwise finish
+        if 'next_max_id' in pagination:
+            params['max_id'] = pagination['next_max_id']
+        else:
+            break
 
     db.commit()
     worker.finish_job()
@@ -379,104 +401,146 @@ def scrape_instagram_posts(id_, recent):
 def scrape_instagram_relations(id_):
     '''
     Fetch friends and followers for the Instagram user identified by `id_`.
+    The number of friends and followers to fetch is configured in Admin.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
+    friends_results = 0
+    followers_results = 0
+    max_results = _get_max_relations(db)['instagram']
+    friends_params = {}
+    followers_params = {}
+    total_results = max_results*2
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
     # Get friends currently stored in db for this profile.
     friends_query = \
-        db.query(Profile) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.friend_id == Profile.id)
-            )
-    current_friends_ids = [friend.id for friend in friends_query]
+            ) \
+            .filter(profile_join_self.c.follower_id == id_)
+    current_friends_ids = [friend.upstream_id for friend in friends_query]
 
     # Get followers currently stored in db for this profile.
     followers_query = \
-        db.query(Profile.id) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.follower_id == Profile.id)
-            )
-    current_followers_ids = [follower.id for follower in followers_query]
+            ) \
+            .filter(profile_join_self.c.friend_id == id_)
+    current_followers_ids = [follower.upstream_id for follower in followers_query]
+
+    worker.start_job(total=total_results)
 
     # Get friend IDs.
     friends_url = 'https://api.instagram.com/v1/users/{}/follows' \
                   .format(profile.upstream_id)
-    friends_response = requests.get(
-        friends_url,
-        proxies=proxies,
-        verify=False
-    )
-    friends_response.raise_for_status()
 
-    for friend in friends_response.json()['data']:
-        # Only store friends that are not already in db.
-        if friend['id'] not in current_friends_ids:
-            related_profile = Profile(
-                'instagram',
-                friend['id'],
-                friend['username'],
-                is_stub=True
-            )
+    while friends_results < max_results:
+        # Get friends from Instagram API
+        friends_response = requests.get(
+            friends_url,
+            params=friends_params,
+            proxies=proxies,
+            verify=False
+        )
+        friends_response.raise_for_status()
+        pagination = friends_response.json()['pagination']
 
-            db.add(related_profile)
+        for friend in friends_response.json()['data']:
+            # Only store friends that are not already in db.
+            if friend['id'] not in current_friends_ids:
+                related_profile = Profile(
+                    'instagram',
+                    friend['id'],
+                    friend['username'],
+                    is_stub=True
+                )
 
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                related_profile = db \
-                        .query(Profile) \
-                        .filter(Profile.site=='instagram') \
-                        .filter(Profile.upstream_id==friend['id']) \
-                        .one()
+                db.add(related_profile)
 
-            related_profile.name = friend['full_name']
-            profile.friends.append(related_profile)
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    related_profile = db \
+                            .query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==friend['id']) \
+                            .one()
+
+                related_profile.name = friend['full_name']
+                profile.friends.append(related_profile)
+                friends_results += 1
+                worker.update_job(current=friends_results)
+
+                if friends_results == max_results:
+                    break
+
+        # If there are more results, set the cursor paramater, otherwise finish
+        if 'next_cursor' in pagination:
+            friends_params['cursor'] = pagination['next_cursor']
+        else:
+            break # No more results
 
     # Get follower IDs.
     followers_url = 'https://api.instagram.com/v1/users/{}/followed-by' \
                     .format(profile.upstream_id)
-    followers_response = requests.get(
-        followers_url,
-        proxies=proxies,
-        verify=False
-    )
-    followers_response.raise_for_status()
 
-    for follower in followers_response.json()['data']:
-        # Only store followers that are not already in db.
-        if follower['id'] not in current_followers_ids:
-            related_profile = Profile(
-                'instagram',
-                follower['id'],
-                follower['username'],
-                is_stub=True
-            )
+    # Get followers from Instagram API
+    while followers_results < max_results:
+        # Get friends from Instagram API
+        followers_response = requests.get(
+            followers_url,
+            params=followers_params,
+            proxies=proxies,
+            verify=False
+        )
+        followers_response.raise_for_status()
+        pagination = followers_response.json()['pagination']
 
-            db.add(related_profile)
+        for follower in followers_response.json()['data']:
+            # Only store followers that are not already in db.
+            if follower['id'] not in current_followers_ids:
+                related_profile = Profile(
+                    'instagram',
+                    follower['id'],
+                    follower['username'],
+                    is_stub=True
+                )
 
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                related_profile = db \
-                        .query(Profile) \
-                        .filter(Profile.site=='instagram') \
-                        .filter(Profile.upstream_id==follower['id']) \
-                        .one()
+                db.add(related_profile)
 
-            related_profile.name = follower['full_name']
-            profile.followers.append(related_profile)
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    related_profile = db \
+                            .query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==follower['id']) \
+                            .one()
 
+                related_profile.name = follower['full_name']
+                profile.followers.append(related_profile)
+                followers_results += 1
+                worker.update_job(current=friends_results + followers_results)
+
+                if followers_results == max_results:
+                    break
+
+        # If there are more results, set the cursor paramater, otherwise finish
+        if 'next_cursor' in pagination:
+            followers_params['cursor'] = pagination['next_cursor']
+        else:
+            break # No more results
 
     worker.finish_job()
     redis.publish('profile_relations', json.dumps({'id': id_}))

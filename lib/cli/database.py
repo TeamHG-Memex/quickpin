@@ -75,7 +75,7 @@ class DatabaseCli(cli.BaseCli):
         max_relations_twitter = Configuration('max_relations_twitter', 5000)
         session.add(max_relations_twitter)
 
-        max_relations_instagram = Configuration('max_relations_instagram', 5000)
+        max_relations_instagram = Configuration('max_relations_instagram', 500)
         session.add(max_relations_instagram)
 
 

@@ -25,7 +25,6 @@
     </div>
 
     <div class='col-md-8'>
-      <img ng-show='loadingProfileJobs && profile.isStub' src='/static/img/spinner-blue-on-white.gif'>
       <div class='row' ng-show='profile.isStub && profileWorkers.length == 0'>
         <div class='col-sm-12'>
           <div class="alert alert-info" role="alert">
@@ -143,7 +142,6 @@
         </div>
       </div>
 
-      <img ng-show='loadingProfileJobs && !profile.isStub' src='/static/img/spinner-blue-on-white.gif'>
       <div class='row' ng-show='profile.isStub == false && profileWorkers.length == 0'>
         <div class='col-sm-12'>
           <div class="alert alert-info" role="alert">

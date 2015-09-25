@@ -27,7 +27,6 @@ class ProfileComponent {
     List<Profile> friends;
     int id;
     int loading = 0;
-    bool loadingProfileJobs = false;
     bool loadingFailedTasks = false;
     bool failedTasks = false;
     List<Map> workers;
@@ -239,7 +238,6 @@ class ProfileComponent {
     /// Fetch worker jobs for profile.
     Future _fetchProfileWorkers() {
         Completer completer = new Completer();
-        this.loadingProfileJobs = true;
 
         this.api
             .get('/api/tasks/workers', needsAuth: true)
@@ -261,7 +259,6 @@ class ProfileComponent {
                 });
             })
             .whenComplete(() {
-                this.loadingProfileJobs = false;
                 completer.complete();
             });
 
