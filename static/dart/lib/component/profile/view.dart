@@ -27,7 +27,6 @@ class ProfileComponent {
     List<Profile> friends;
     int id;
     int loading = 0;
-    bool loadingProfileJobs = false;
     bool loadingFailedTasks = false;
     bool failedTasks = false;
     List<Map> workers;
@@ -75,7 +74,7 @@ class ProfileComponent {
             .then((_) => this._fetchFriends())
             .then((_) => this._fetchFollowers())
             .then((_) => this._fetchProfileWorkers())
-            .then((_) => this._fetchFailedTasks());
+            .then((_) => this._fetchFailedProfileTasks());
     }
 
     /// Listen for avatar image updates.
@@ -104,8 +103,7 @@ class ProfileComponent {
                 this._fetchProfileWorkers();
             }
         } else if (status == 'failed') {
-            this.failedTasks = true;
-            //this._fetchFailedTasks().then((_) => this._fetchWorkers());
+            this._fetchFailedProfileTasks().then((_) => this._fetchProfileWorkers());
         }
     }
 
@@ -132,7 +130,7 @@ class ProfileComponent {
             });
     }
 
-    /// Update profile.
+    /// Request updated data for profile.
     void updateProfile(Event event, String data, Function resetButton) {
         String pageUrl = '/api/profile/${this.id}/update';
         this.loading++;
@@ -240,7 +238,6 @@ class ProfileComponent {
     /// Fetch worker jobs for profile.
     Future _fetchProfileWorkers() {
         Completer completer = new Completer();
-        this.loadingProfileJobs = true;
 
         this.api
             .get('/api/tasks/workers', needsAuth: true)
@@ -262,15 +259,14 @@ class ProfileComponent {
                 });
             })
             .whenComplete(() {
-                this.loadingProfileJobs = false;
                 completer.complete();
             });
 
         return completer.future;
     }
 
-    /// Fetch failed task data.
-    Future _fetchFailedTasks() {
+    /// Fetch failed task data for this profile.
+    Future _fetchFailedProfileTasks() {
         Completer completer = new Completer();
         List<Map> failed;
         this.loadingFailedTasks = true;

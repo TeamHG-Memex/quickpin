@@ -113,11 +113,12 @@ def handle_exception(job, exc_type, exc_value, traceback):
     return True
 
 
-def init_job(job, description, profile_id=None):
+def init_job(job, description, profile_id=None, type_=None):
     ''' Initialize job metadata. '''
 
     job.meta['description'] = description
     job.meta['profile_id'] = profile_id
+    job.meta['type'] = type_
     job.save()
 
     notification = json.dumps({

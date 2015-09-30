@@ -18,8 +18,12 @@ import app.index
 import app.queue
 from model import Avatar, Configuration, File, Post, Profile
 from model.profile import profile_join_self
+from model.configuration import get_config
 import worker
 import worker.index
+
+import logging
+logging.basicConfig(filename='/var/log/quickpin.log',level=logging.WARNING)
 
 
 class ScrapeException(Exception):
@@ -244,7 +248,7 @@ def scrape_instagram_account(username):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_picture'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
@@ -285,21 +289,33 @@ def scrape_instagram_account_by_id(upstream_id):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_picture'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
-def scrape_instagram_posts(id_):
+def scrape_instagram_posts(id_, recent):
     '''
-    Fetch posts for the user identified by id_.
+    Fetch instagram posts for the user identified by id_.
+    Checks posts already stored in db, and will only fetch older or newer
+    posts depending on value of the boolean argument 'recent',
+    e.g. recent=True will return recent posts not already stored in the db.
+    The number of posts to fetch is configured in the Admin.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
+    max_results = get_config(db, 'max_posts_instagram', required=True).value
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException('Value of max_posts_instagram must be an integer')
+
     min_id = None
+    more_results = True
+    results = 0
+    params = {}
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -308,67 +324,83 @@ def scrape_instagram_posts(id_):
           .format(author.upstream_id)
 
     # Get last post currently stored in db for this profile.
-    last_post_query = db.query(Post) \
+    post_query = db.query(Post) \
                         .filter(Post.author_id == id_) \
                         .order_by(Post.upstream_created.desc()) \
-                        .first()
 
-    # Only fetch posts later than the last_post
-    if last_post_query is not None:
-        min_id = last_post_query.upstream_id
-        url = url + '?min_id={}'.format(min_id)
-
-    response = requests.get(
-        url,
-        proxies=proxies,
-        verify=False
-    )
-
-    response.raise_for_status()
-    post_ids = list()
-    response_json = response.json()['data']
-    worker.start_job(total=len(response_json))
-    current = 1
-
-    # Instagram API result includes post with min_id so remove it
-    response_json[:] = [d for d in response_json if d.get('id') != min_id]
-
-    for gram in response_json:
-        if gram['caption'] is not None:
-            text = gram['caption']['text']
+    if post_query.count() > 0:
+        # Only fetch posts newer than those already stored in db
+        if recent:
+            min_id = post_query[0].upstream_id
+            params['min_id'] = str(min_id)
+        # Only fetch posts older than those already stored in db
         else:
-            text = None
+            max_id = post_query[post_query.count() -1].upstream_id
+            params['max_id'] = str(max_id)
 
-        post = Post(
-            author,
-            gram['id'],
-            datetime.fromtimestamp(int(gram['created_time'])),
-            text
+    worker.start_job(total=max_results)
+    logging.warning('WORKER max results: {}'.format(max_results))
+    while results < max_results:
+        response = requests.get(
+            url,
+            params=params,
+            proxies=proxies,
+            verify=False
         )
 
-        if gram['location'] is not None:
-            if 'latitude' in gram['location']:
-                post.latitude = gram['location']['latitude']
-                post.longitude = gram['location']['longitude']
+        response.raise_for_status()
+        post_ids = list()
+        response_json = response.json()['data']
+        pagination = response.json()['pagination']
 
-            post.location = gram['location']['name']
+        # Instagram API result includes post with min_id so remove it
+        response_json[:] = [d for d in response_json if d.get('id') != min_id]
 
-            if 'street_address' in gram['location']:
-                post.location += ' ' + gram['location']['street_address']
+        for gram in response_json:
+            if gram['caption'] is not None:
+                text = gram['caption']['text']
+            else:
+                text = None
 
-        if 'images' in gram:
-            image_url = gram['images']['standard_resolution']['url']
-            name = os.path.basename(urlparse(image_url).path)
-            img_response = requests.get(image_url, verify=False)
-            mime = img_response.headers['Content-type']
-            image = img_response.content
-            post.attachments.append(File(name, mime, image))
+            post = Post(
+                author,
+                gram['id'],
+                datetime.fromtimestamp(int(gram['created_time'])),
+                text
+            )
 
-        db.add(post)
-        db.flush()
-        post_ids.append(post.id)
-        worker.update_job(current=current)
-        current += 1
+            if gram['location'] is not None:
+                if 'latitude' in gram['location']:
+                    post.latitude = gram['location']['latitude']
+                    post.longitude = gram['location']['longitude']
+
+                if 'name' in gram['location']:
+                    post.location = gram['location']['name']
+
+                    if 'street_address' in gram['location']:
+                        post.location += ' ' + gram['location']['street_address']
+
+            if 'images' in gram:
+                image_url = gram['images']['standard_resolution']['url']
+                name = os.path.basename(urlparse(image_url).path)
+                img_response = requests.get(image_url, verify=False)
+                mime = img_response.headers['Content-type']
+                image = img_response.content
+                post.attachments.append(File(name, mime, image))
+
+            db.add(post)
+            db.flush()
+            post_ids.append(post.id)
+            worker.update_job(current=results)
+            results += 1
+            if results == max_results:
+                break
+
+        # If there are more results, set the max_id param, otherwise finish
+        if 'next_max_id' in pagination:
+            params['max_id'] = pagination['next_max_id']
+        else:
+            break
 
     db.commit()
     worker.finish_job()
@@ -379,104 +411,155 @@ def scrape_instagram_posts(id_):
 def scrape_instagram_relations(id_):
     '''
     Fetch friends and followers for the Instagram user identified by `id_`.
+    The number of friends and followers to fetch is configured in Admin.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
+    friends_results = 0
+    followers_results = 0
+    #max_results = _get_max_relations(db)['instagram']
+    max_results = get_config(db, 'max_relations_instagram', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException(
+            'Value of max_relations_instagram must be an integer'
+        )
+
+    friends_params = {}
+    followers_params = {}
+    total_results = max_results*2
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
 
     # Get friends currently stored in db for this profile.
     friends_query = \
-        db.query(Profile) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.friend_id == Profile.id)
-            )
-    current_friends_ids = [friend.id for friend in friends_query]
+            ) \
+            .filter(profile_join_self.c.follower_id == id_)
+    current_friends_ids = [friend.upstream_id for friend in friends_query]
 
     # Get followers currently stored in db for this profile.
     followers_query = \
-        db.query(Profile.id) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.follower_id == Profile.id)
-            )
-    current_followers_ids = [follower.id for follower in followers_query]
+            ) \
+            .filter(profile_join_self.c.friend_id == id_)
+    current_followers_ids = [follower.upstream_id for follower in followers_query]
+
+    worker.start_job(total=total_results)
 
     # Get friend IDs.
     friends_url = 'https://api.instagram.com/v1/users/{}/follows' \
                   .format(profile.upstream_id)
-    friends_response = requests.get(
-        friends_url,
-        proxies=proxies,
-        verify=False
-    )
-    friends_response.raise_for_status()
 
-    for friend in friends_response.json()['data']:
-        # Only store friends that are not already in db.
-        if friend['id'] not in current_friends_ids:
-            related_profile = Profile(
-                'instagram',
-                friend['id'],
-                friend['username'],
-                is_stub=True
-            )
+    while friends_results < max_results:
+        # Get friends from Instagram API
+        friends_response = requests.get(
+            friends_url,
+            params=friends_params,
+            proxies=proxies,
+            verify=False
+        )
+        friends_response.raise_for_status()
+        pagination = friends_response.json()['pagination']
 
-            db.add(related_profile)
+        for friend in friends_response.json()['data']:
+            # Only store friends that are not already in db.
+            if friend['id'] not in current_friends_ids:
+                related_profile = Profile(
+                    'instagram',
+                    friend['id'],
+                    friend['username'],
+                    is_stub=True
+                )
 
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                related_profile = db \
-                        .query(Profile) \
-                        .filter(Profile.site=='instagram') \
-                        .filter(Profile.upstream_id==friend['id']) \
-                        .one()
+                db.add(related_profile)
 
-            related_profile.name = friend['full_name']
-            profile.friends.append(related_profile)
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    related_profile = db \
+                            .query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==friend['id']) \
+                            .one()
+
+                related_profile.name = friend['full_name']
+                profile.friends.append(related_profile)
+                friends_results += 1
+                worker.update_job(current=friends_results)
+
+                if friends_results == max_results:
+                    break
+
+        # If there are more results, set the cursor paramater, otherwise finish
+        if 'next_cursor' in pagination:
+            friends_params['cursor'] = pagination['next_cursor']
+        else:
+            break # No more results
 
     # Get follower IDs.
     followers_url = 'https://api.instagram.com/v1/users/{}/followed-by' \
                     .format(profile.upstream_id)
-    followers_response = requests.get(
-        followers_url,
-        proxies=proxies,
-        verify=False
-    )
-    followers_response.raise_for_status()
 
-    for follower in followers_response.json()['data']:
-        # Only store followers that are not already in db.
-        if follower['id'] not in current_followers_ids:
-            related_profile = Profile(
-                'instagram',
-                follower['id'],
-                follower['username'],
-                is_stub=True
-            )
+    # Get followers from Instagram API
+    while followers_results < max_results:
+        # Get friends from Instagram API
+        followers_response = requests.get(
+            followers_url,
+            params=followers_params,
+            proxies=proxies,
+            verify=False
+        )
+        followers_response.raise_for_status()
+        pagination = followers_response.json()['pagination']
 
-            db.add(related_profile)
+        for follower in followers_response.json()['data']:
+            # Only store followers that are not already in db.
+            if follower['id'] not in current_followers_ids:
+                related_profile = Profile(
+                    'instagram',
+                    follower['id'],
+                    follower['username'],
+                    is_stub=True
+                )
 
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                related_profile = db \
-                        .query(Profile) \
-                        .filter(Profile.site=='instagram') \
-                        .filter(Profile.upstream_id==follower['id']) \
-                        .one()
+                db.add(related_profile)
 
-            related_profile.name = follower['full_name']
-            profile.followers.append(related_profile)
+                try:
+                    db.commit()
+                except IntegrityError:
+                    db.rollback()
+                    related_profile = db \
+                            .query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==follower['id']) \
+                            .one()
 
+                related_profile.name = follower['full_name']
+                profile.followers.append(related_profile)
+                followers_results += 1
+                worker.update_job(current=friends_results + followers_results)
+
+                if followers_results == max_results:
+                    break
+
+        # If there are more results, set the cursor paramater, otherwise finish
+        if 'next_cursor' in pagination:
+            followers_params['cursor'] = pagination['next_cursor']
+        else:
+            break # No more results
 
     worker.finish_job()
     redis.publish('profile_relations', json.dumps({'id': id_}))
@@ -526,7 +609,7 @@ def scrape_twitter_account(username):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_image_url_https'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
@@ -564,22 +647,38 @@ def scrape_twitter_account_by_id(upstream_id):
     # Schedule followup jobs.
     app.queue.schedule_avatar(profile, data['profile_image_url_https'])
     app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile)
+    app.queue.schedule_posts(profile, recent=True)
     app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
 
 
-def scrape_twitter_posts(id_):
+def scrape_twitter_posts(id_, recent):
     '''
     Fetch tweets for the user identified by id_.
+    Checks tweets already stored in db, and will only fetch older or newer
+    tweets depending on value of the boolean argument 'recent',
+    e.g. recent=True will return recent tweets not already stored in the db.
+    The number of tweets to fetch is configured in the Admin.
     '''
-
-    worker.start_job()
-    redis = worker.get_redis()
     db = worker.get_session()
+    #max_results = _get_max_posts(db)['twitter']
+    max_results = get_config(db, 'max_posts_twitter', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException('Value of max_posts_twitter must be an integer')
+
+    worker.start_job(total=max_results)
+    redis = worker.get_redis()
     author = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
+    results = 0
+    max_id = None
+    more_results = True
+    count = 200
 
     if author is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -590,61 +689,89 @@ def scrape_twitter_posts(id_):
                         .order_by(Post.upstream_created.desc())
 
     url = 'https://api.twitter.com/1.1/statuses/user_timeline.json'
-    params = {'count': 200, 'user_id': author.upstream_id}
-    # Only fetch posts newer than those already stored in db
+    params = {'count': count, 'user_id': author.upstream_id}
+
     if post_query.count() > 0:
-        last_post_id = post_query[0].upstream_id
-        params['since_id'] = last_post_id
+        # Only fetch posts newer than those already stored in db
+        if recent:
+            since_id = post_query[0].upstream_id
+            params['since_id'] = str(since_id)
+        # Only fetch posts older than those already stored in db
+        else:
+            max_id = post_query[post_query.count() -1].upstream_id
+            params['max_id'] = str(max_id)
 
-    response = requests.get(
-        url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    response.raise_for_status()
-
-    post_ids = list()
-
-    for tweet in response.json():
-        post = Post(
-            author,
-            tweet['id_str'],
-            dateutil.parser.parse(tweet['created_at']),
-            tweet['text']
+    while more_results:
+        response = requests.get(
+            url,
+            params=params,
+            proxies=proxies,
+            verify=False
         )
+        response.raise_for_status()
 
-        if tweet['lang'] is not None:
-            post.language = tweet['lang']
+        post_ids = list()
 
-        if tweet['coordinates'] is not None:
-            post.latitude, post.longitude = tweet['coordinates']
+        tweets = response.json()
+        if len(tweets) == 0:
+            more_results = False
 
-        place = tweet['place']
+        if len(tweets) < count:
+            more_results = False
 
-        if place is not None:
-            # Set longitude/latitude to the center the of bounding polygon.
-            total_lon = 0
-            total_lat = 0
-            num_coords = 0
+        for tweet in tweets:
+            # Twitter API result set includes the tweet with the max_id/since_id
+            # so ignore it.
+            if tweet['id_str'] != max_id:
+                post = Post(
+                    author,
+                    tweet['id_str'],
+                    dateutil.parser.parse(tweet['created_at']),
+                    tweet['text']
+                )
 
-            for lon, lat in place['bounding_box']['coordinates'][0]:
-                total_lon += lon
-                total_lat += lat
-                num_coords += 1
+                if tweet['lang'] is not None:
+                    post.language = tweet['lang']
 
-            post.longitude = total_lon / num_coords
-            post.latitude = total_lat / num_coords
+                if tweet['coordinates'] is not None:
+                    post.latitude, post.longitude = tweet['coordinates']
 
-            # Set location to string identifying the place.
-            post.location = '{}, {}'.format(
-                place['full_name'],
-                place['country']
-            )
+                place = tweet['place']
 
-        db.add(post)
-        db.flush()
-        post_ids.append(post.id)
+                if place is not None:
+                    # Set longitude/latitude to the center the of bounding polygon.
+                    total_lon = 0
+                    total_lat = 0
+                    num_coords = 0
+
+                    for lon, lat in place['bounding_box']['coordinates'][0]:
+                        total_lon += lon
+                        total_lat += lat
+                        num_coords += 1
+
+                    post.longitude = total_lon / num_coords
+                    post.latitude = total_lat / num_coords
+
+                    # Set location to string identifying the place.
+                    post.location = '{}, {}'.format(
+                        place['full_name'],
+                        place['country']
+                    )
+
+                db.add(post)
+                db.flush()
+                post_ids.append(post.id)
+                # Set the max_id to the last tweet to get the next set of
+                # results
+                max_id = tweet['id_str']
+                params['max_id'] = max_id
+                results += 1
+                worker.update_job(current=results)
+
+                if results == max_results:
+                    more_results = False
+                    break
+
 
     db.commit()
     worker.finish_job()
@@ -655,14 +782,28 @@ def scrape_twitter_posts(id_):
 def scrape_twitter_relations(id_):
     '''
     Fetch friends and followers for the Twitter user identified by `id_`.
-
-    Currently only gets the first "page" from each endpoint, e.g. 5000 friends
-    and 5000 followers, because it's simpler and saves API calls.
+    The number of friends and followers to fetch is configured in Admin.
     '''
-
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
+    proxies = _get_proxies(db)
+    #max_results = _get_max_relations(db)['twitter']
+    max_results = get_config(db, 'max_relations_twitter', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException(
+            'Value of max_relations_twitter must be an integer'
+        )
+
+    friends_results = 0
+    friends_ids = []
+    followers_results = 0
+    followers_ids = []
+    friends_cursor = -1
+    followers_cursor = -1
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -670,63 +811,94 @@ def scrape_twitter_relations(id_):
     params = {
         'count': 5000,
         'user_id': profile.upstream_id,
-        'stringify_ids': True
+        'stringify_ids': True,
     }
 
     # Get friends currently stored in db for this profile.
     friends_query = \
-        db.query(Profile) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.friend_id == Profile.id)
-            )
-    current_friends_ids = [friend.id for friend in friends_query]
+            ) \
+            .filter(profile_join_self.c.follower_id == id_)
+    current_friends_ids = [friend.upstream_id for friend in friends_query]
 
 
     # Get followers currently stored in db for this profile.
     followers_query = \
-        db.query(Profile.id) \
+        db.query(Profile.upstream_id) \
             .join(\
                 profile_join_self, \
                 (profile_join_self.c.follower_id == Profile.id)
-            )
-    current_followers_ids = [follower.id for follower in followers_query]
+            ) \
+            .filter(profile_join_self.c.friend_id == id_)
+    current_followers_ids = [follower.upstream_id for follower in followers_query]
 
     ## Get friend IDs.
     friends_url = 'https://api.twitter.com/1.1/friends/ids.json'
-    friends_response = requests.get(
-        friends_url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    friends_response.raise_for_status()
-    friends_ids = friends_response.json()['ids']
-    # Ignore friends already in the db
-    friends_ids = list(set(friends_ids) - set(current_friends_ids))
+    params['cursor'] = friends_cursor
+
+    while friends_results < max_results:
+        friends_response = requests.get(
+            friends_url,
+            params=params,
+            proxies=proxies,
+            verify=False
+        )
+        friends_response.raise_for_status()
+
+        # Ignore friends already in the db
+        for friend_id in friends_response.json()['ids']:
+            if friend_id not in current_friends_ids:
+                friends_ids.append(friend_id)
+                friends_results += 1
+                if friends_results == max_results:
+                    break
+
+        friends_cursor = friends_response.json()['next_cursor']
+
+        if friends_cursor == 0:
+            break # No more results
+        else:
+            params['cursor'] = friends_cursor
 
     # Get follower IDs.
     followers_url = 'https://api.twitter.com/1.1/followers/ids.json'
-    followers_response = requests.get(
-        followers_url,
-        params=params,
-        proxies=_get_proxies(db),
-        verify=False
-    )
-    followers_response.raise_for_status()
-    followers_ids = followers_response.json()['ids']
-    # Ignore followers already in the db
-    followers_ids = list(set(followers_ids) - set(current_followers_ids))
+    params['cursor'] = followers_cursor
+
+    while followers_results < max_results:
+        followers_response = requests.get(
+            followers_url,
+            params=params,
+            proxies=proxies,
+            verify=False
+        )
+        followers_response.raise_for_status()
+
+        # Ignore followers already in the db
+        for follower_id in followers_response.json()['ids']:
+            if follower_id not in current_followers_ids:
+                followers_ids.append(follower_id)
+                followers_results += 1
+                if followers_results == max_results:
+                    break
+
+        followers_cursor = followers_response.json()['next_cursor']
+
+        if followers_cursor == 0:
+            break # No more results
+        else:
+            params['cursor'] = followers_cursor
 
     # Get username for each of the friend/follower IDs and create
     # a relationship in QuickPin.
     user_ids = [(uid, 'friend') for uid in friends_ids] + \
                [(uid, 'follower') for uid in followers_ids]
-
     worker.start_job(total=len(user_ids))
     chunk_size = 100
     for chunk_start in range(0, len(user_ids), chunk_size):
-        chunk_end = chunk_start + chunk_size - 1
+        chunk_end = chunk_start + chunk_size
         chunk = user_ids[chunk_start:chunk_end]
         chunk_lookup = {id_:relation for id_,relation in chunk}
 
@@ -773,13 +945,10 @@ def scrape_twitter_relations(id_):
     worker.finish_job()
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
-
 def _get_proxies(db):
     ''' Get a dictionary of proxy information from the app configuration. '''
 
-    piscina_url = db.query(Configuration) \
-                    .filter(Configuration.key=='piscina_proxy_url') \
-                    .first()
+    piscina_url = get_config(db, 'piscina_proxy_url', required=True)
 
     if piscina_url is None or piscina_url.value.strip() == '':
         raise ScrapeException('No Piscina server configured.')
@@ -788,7 +957,6 @@ def _get_proxies(db):
         'http': piscina_url.value,
         'https': piscina_url.value,
     }
-
 
 def _twitter_populate_profile(dict_, profile):
     '''

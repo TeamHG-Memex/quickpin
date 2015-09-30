@@ -18,3 +18,13 @@ super_password = ##DATABASE_SUPER_PASSWORD##
 ; Generate a random string for Flask to sign cookies.
 
 SECRET_KEY = ##FLASK_SECRET_KEY##
+
+; Uncomment the below to adjust Redis worker timeout limits (in seconds)
+; [redis_worker]
+; posts_timeout = 300
+; relations_timeout = 300
+; solr_timeout = 180
+; avatar_timeout = 180
+; profile_timeout = 60
+
+

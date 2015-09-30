@@ -12,10 +12,82 @@
   <img ng-show='loading > 0' src='/static/img/spinner-blue-on-white.gif'>
 </h1>
 
-<p>
-  Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
-  of {{pager.totalResults | number}} posts.
-</p>
+<div class='row'>
+  <div class="col-sm-5">
+    Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+    of {{pager.totalResults | number}} posts.
+  </div>
+  <div class='col-sm-7'>
+    
+    <div ng-show="failedTasks">
+      <div class="alert alert-danger" role="alert">
+        <div class="row">
+          <div class="col-sm-8">
+            <em>
+               Errors were reported during update for this profile. 
+            </em>
+          </div>
+          <div class="col-sm-4">
+            <span class="pull-right">
+              <a 
+                class="btn btn-default" 
+                href="/admin/background-tasks" 
+                ng-show="auth.isAdmin()">
+                View
+              </a>
+              <a 
+                class="btn btn-default" 
+                ng-show="auth.isAdmin() == false"
+                href="/admin/background-tasks" 
+                disabled>
+                Contact your administrator
+              </a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div ng-show="failedTasks == false">
+      <div ng-show="profilePostsWorkers.length == 0">
+        <busy-button
+          class="btn-sm"
+          type='default'
+          click='fetchMorePosts'
+          data='""'>
+          Fetch Older Posts 
+        </busy-button>
+      </div>
+
+      <div ng-show="profilePostsWorkers.length > 0">
+        <table class='table table-striped' ng-show="profilePostsWorkers.length > 0">
+         <tbody>
+           <tr ng-show='workers.length == 0'>
+             <td colspan='100' class='no-rows'>There are no workers.</td>
+           </tr>
+           <tr ng-repeat='worker in profilePostsWorkers'>
+             <td>
+                 <span ng-show='worker["current_job"]["description"] == null'>
+                   No description.
+                 </span>
+                 <span ng-show='worker["current_job"]["description"] != null'>
+                   {{worker["current_job"]["description"]}}
+                 </span>
+                 <span ng-show='worker["current_job"]["progress"] != null'>
+                   ({{worker["current_job"]["progress"] * 100 | number:0}}%)
+                 </span>
+                 <progress-bar ng-show='worker["current_job"]["progress"] != null'
+                               type='info'
+                               progress='worker["current_job"]["progress"] * 100'>
+                 </progress-bar>
+             </td>
+           </tr>
+         </tbody>
+       </table>
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <pager pager='pager'
        disabled='loading'></pager>
