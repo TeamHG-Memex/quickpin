@@ -18,8 +18,12 @@ import app.index
 import app.queue
 from model import Avatar, Configuration, File, Post, Profile
 from model.profile import profile_join_self
+from model.configuration import get_config
 import worker
 import worker.index
+
+import logging
+logging.basicConfig(filename='/var/log/quickpin.log',level=logging.WARNING)
 
 
 class ScrapeException(Exception):
@@ -302,7 +306,12 @@ def scrape_instagram_posts(id_, recent):
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
-    max_results = _get_max_posts(db)['instagram']
+    max_results = get_config(db, 'max_posts_instagram', required=True).value
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException('Value of max_posts_instagram must be an integer')
+
     min_id = None
     more_results = True
     results = 0
@@ -330,6 +339,7 @@ def scrape_instagram_posts(id_, recent):
             params['max_id'] = str(max_id)
 
     worker.start_job(total=max_results)
+    logging.warning('WORKER max results: {}'.format(max_results))
     while results < max_results:
         response = requests.get(
             url,
@@ -409,7 +419,16 @@ def scrape_instagram_relations(id_):
     proxies = _get_proxies(db)
     friends_results = 0
     followers_results = 0
-    max_results = _get_max_relations(db)['instagram']
+    #max_results = _get_max_relations(db)['instagram']
+    max_results = get_config(db, 'max_relations_instagram', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException(
+            'Value of max_relations_instagram must be an integer'
+        )
+
     friends_params = {}
     followers_params = {}
     total_results = max_results*2
@@ -644,7 +663,14 @@ def scrape_twitter_posts(id_, recent):
     The number of tweets to fetch is configured in the Admin.
     '''
     db = worker.get_session()
-    max_results = _get_max_posts(db)['twitter']
+    #max_results = _get_max_posts(db)['twitter']
+    max_results = get_config(db, 'max_posts_twitter', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException('Value of max_posts_twitter must be an integer')
+
     worker.start_job(total=max_results)
     redis = worker.get_redis()
     author = db.query(Profile).filter(Profile.id==id_).first()
@@ -762,7 +788,16 @@ def scrape_twitter_relations(id_):
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
-    max_results = _get_max_relations(db)['twitter']
+    #max_results = _get_max_relations(db)['twitter']
+    max_results = get_config(db, 'max_relations_twitter', required=True).value
+
+    try:
+        max_results = int(max_results)
+    except:
+        raise ScrapeException(
+            'Value of max_relations_twitter must be an integer'
+        )
+
     friends_results = 0
     friends_ids = []
     followers_results = 0
@@ -910,13 +945,10 @@ def scrape_twitter_relations(id_):
     worker.finish_job()
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
-
 def _get_proxies(db):
     ''' Get a dictionary of proxy information from the app configuration. '''
 
-    piscina_url = db.query(Configuration) \
-                    .filter(Configuration.key=='piscina_proxy_url') \
-                    .first()
+    piscina_url = get_config(db, 'piscina_proxy_url', required=True)
 
     if piscina_url is None or piscina_url.value.strip() == '':
         raise ScrapeException('No Piscina server configured.')
@@ -925,83 +957,6 @@ def _get_proxies(db):
         'http': piscina_url.value,
         'https': piscina_url.value,
     }
-
-def _get_max_posts(db):
-    '''
-    Get a dictionary of max posts to scrape from the app configuration.
-    '''
-
-    max_posts_twitter = db.query(Configuration) \
-        .filter(Configuration.key=='max_posts_twitter') \
-        .first()
-
-    if max_posts_twitter is None or max_posts_twitter.value.strip() == '':
-        raise ScrapeException('No max posts configured for twitter.')
-
-    try:
-        max_posts_twitter = int(max_posts_twitter.value)
-    except TypeError:
-        raise ScrapeException('Value configured for max_posts twitter ' \
-                              'must be an integer')
-
-    max_posts_instagram = db.query(Configuration) \
-                            .filter(Configuration.key=='max_posts_instagram') \
-                            .first()
-
-    if (max_posts_instagram is None or
-        max_posts_instagram.value.strip() == ''):
-        raise ScrapeException('No max posts configured for instagram.')
-
-    try:
-        max_posts_instagram = int(max_posts_instagram.value)
-    except TypeError:
-        raise ScrapeException('Value configured for max_posts_instagram ' \
-                              'must be an integer')
-
-    return {
-        'twitter': max_posts_twitter,
-        'instagram': max_posts_instagram,
-    }
-
-def _get_max_relations(db):
-    '''
-    Get a dictionary of max relations to scrape from the app configuration.
-    '''
-
-    max_relations_twitter = db.query(Configuration) \
-        .filter(Configuration.key=='max_relations_twitter') \
-        .first()
-
-    if (max_relations_twitter is None or
-        max_relations_twitter.value.strip() == ''):
-        raise ScrapeException('No max relations configured for twitter.')
-
-    try:
-        max_relations_twitter = int(max_relations_twitter.value)
-    except TypeError:
-        raise ScrapeException('Value configured for max_relations twitter ' \
-                              'must be an integer')
-
-    max_relations_instagram = db.query(Configuration) \
-                            .filter(Configuration.key=='max_relations_instagram') \
-                            .first()
-
-    if (max_relations_instagram is None or
-        max_relations_instagram.value.strip() == ''):
-        raise ScrapeException('No max relations configured for instagram.')
-
-    try:
-        max_relations_instagram = int(max_relations_instagram.value)
-    except TypeError:
-        raise ScrapeException('Value configured for max_relations_instagram ' \
-                              'must be an integer')
-
-    return {
-        'twitter': max_relations_twitter,
-        'instagram': max_relations_instagram,
-    }
-
-
 
 def _twitter_populate_profile(dict_, profile):
     '''
