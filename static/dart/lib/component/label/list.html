@@ -1,0 +1,78 @@
+<breadcrumbs crumbs=crumbs></breadcrumbs>
+
+<div class='buttons'>
+  <div class='btn-group pull-right'>
+    <a class='btn btn-primary btn-sm pull-right'
+       ng-disabled='showAdd'
+       ng-click='showAddDialog()'>
+      <i class='fa fa-user-plus'></i>
+      Add Labels 
+    </a>
+  </div>
+</div>
+
+<h1>
+  Labels 
+  <img ng-show='loading' src='/static/img/spinner-blue-on-white.gif'>
+</h1>
+
+<form ng-show='showAdd' class='form-inline add-label-form pull-right'>
+  <div class='form-group'>
+    <div class='input-group'>
+      <div class='input-group-addon'><strong>Add Label</strong></div>
+      <input type='text'
+             id='newLabel'
+             class='form-control'
+             ng-model='newLabel'
+             ng-keypress='handleAddLabelKeypress($event)'
+             ng-disabled='submittingLabel'
+             placeholder='Enter a label name.'>
+    </div>
+  </div>
+
+  <button class='btn btn-success'
+          ng-click='addLabel()'
+          ng-disabled='submittingLabel'>
+    <i class='fa fa-user-plus'></i>
+    Add
+  </button>
+
+  <button class='btn btn-danger'
+          ng-click='hideAddDialog()'
+          ng-disabled='submittingLabel'>
+    <i class='fa fa-times'></i>
+    Cancel
+  </button>
+</form>
+<div class='row'>
+  <div class="col-sm-5">
+    Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+    of {{pager.totalResults | number}} posts.
+  </div>
+</div>
+
+<pager pager='pager'
+       disabled='loading'></pager>
+
+<div class='alert alert-danger' role='alert' ng-show='error != null'>
+  {{error}}
+</div>
+
+<div class='alert alert-success' role='alert' ng-show='labelCreated'>
+  New label '{{newLabel}}' created.
+</div>
+
+
+<masonry column-width='250' column-gap='25'>
+  <div ng-repeat='label in labels' class='masonry-item'>
+    <p class='profile-name'>
+      <edit-text text='label.name'
+                 onsave='saveLabel(label.name)'
+                 size='20'></edit-text>
+    </p>
+  </div>
+</masonry>
+
+<p ng-show='labels.length == 0'>
+  There are currently no labels. Try clicking "Add Labels" to get started.
+</p>

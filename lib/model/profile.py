@@ -11,6 +11,7 @@ from sqlalchemy.orm import relationship
 import app.config
 from model import Base
 from model.avatar import Avatar
+from model.label import Label
 
 
 SOCIAL_SITES = {
@@ -34,6 +35,12 @@ profile_join_self = Table(
     Column('friend_id', Integer, ForeignKey('profile.id'), primary_key=True),
 )
 
+label_join_profile = Table(
+    'label_join_profile',
+    Base.metadata,
+    Column('label_id', Integer, ForeignKey('label.id'), primary_key=True),
+    Column('profile_id', Integer, ForeignKey('profile.id'), primary_key=True),
+)
 
 class Profile(Base):
     ''' Data model for a profile. '''
@@ -110,6 +117,12 @@ class Profile(Base):
 
     # A user can mark a profile as interesting
     is_interesting = Column(Boolean, nullable=True)
+
+    # One profile has 0-n tags.
+    labels = relationship(
+        'Label',
+        secondary=label_join_profile
+    )
 
     def __init__(self, site, upstream_id, username, is_stub=False):
         ''' Constructor. '''

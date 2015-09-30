@@ -258,6 +258,9 @@ def init_views(flask_app, config):
     from app.views.user import UserView
     UserView.register(flask_app, route_base='/api/user/')
 
+    from app.views.label import LabelView
+    LabelView.register(flask_app, route_base='/api/label/')
+
     # Make sure to import the Angular view last so that it will match
     # all remaining routes.
     import app.views.angular
