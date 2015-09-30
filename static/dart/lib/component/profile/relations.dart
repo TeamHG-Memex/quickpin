@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:angular/angular.dart';
+import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
@@ -18,8 +19,11 @@ import 'package:quickpin/sse.dart';
 )
 class ProfileRelationsComponent extends Object with CurrentPageMixin
                                 implements ScopeAware {
+
+    AuthenticationController auth;
     List<Breadcrumb> crumbs;
     String error = '';
+    bool failedTasks = false;
     String id;
     int loading = 0;
     Pager pager;
@@ -40,7 +44,7 @@ class ProfileRelationsComponent extends Object with CurrentPageMixin
     final SseController _sse;
 
     /// Constructor.
-    ProfileRelationsComponent(this.api, this._rp, this._sse, this._ts) {
+    ProfileRelationsComponent(this.api, this.auth, this._rp, this._sse, this._ts) {
         this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._relType = this._rp.parameters['reltype'];

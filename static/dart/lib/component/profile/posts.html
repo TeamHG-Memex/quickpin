@@ -18,15 +18,13 @@
     of {{pager.totalResults | number}} posts.
   </div>
   <div class='col-sm-7'>
+    
     <div ng-show="failedTasks">
       <div class="alert alert-danger" role="alert">
         <div class="row">
           <div class="col-sm-8">
             <em>
-               Errors were reported by workers for this profile. View  and delete them 
-               to remove this message.
-                
-                
+               Errors were reported during update for this profile. 
             </em>
           </div>
           <div class="col-sm-4">
@@ -42,7 +40,7 @@
                 ng-show="auth.isAdmin() == false"
                 href="/admin/background-tasks" 
                 disabled>
-                You must be an admin to manage background tasks 
+                Contact your administrator
               </a>
             </span>
           </div>
@@ -59,6 +57,7 @@
           Fetch Older Posts 
         </busy-button>
       </div>
+
       <div ng-show="profilePostsWorkers.length > 0">
         <table class='table table-striped' ng-show="profilePostsWorkers.length > 0">
          <tbody>
