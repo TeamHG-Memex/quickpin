@@ -1,7 +1,7 @@
 from flask.ext.classy import FlaskView
 from flask import g, jsonify, request
 import json
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import IntegrityError, DBAPIError
 from werkzeug.exceptions import BadRequest, NotFound
 
 import worker
@@ -96,7 +96,6 @@ class LabelView(FlaskView):
         '''
 
         request_json = request.get_json()
-        labels = list()
         redis = worker.get_redis()
 
         # Validate input and create labels
@@ -105,19 +104,16 @@ class LabelView(FlaskView):
                 raise BadRequest('Label name is required')
             else:
                 label = Label(name=t['name'])
-                g.db.add(label)
-                labels.append(label)
+                try:
+                    g.db.add(label)
+                    g.db.flush()
+                    redis.publish('label', json.dumps(label.as_dict()))
+                except IntegrityError:
+                    g.db.rollback()
+                    raise BadRequest('Label "{}" already exists'.format(label.name))
 
         # Save labels
-        try:
-            g.db.commit()
-        except DBAPIError as e:
-            g.db.rollback()
-            raise BadRequest('Database error: {}'.format(e))
-
-        # Send sse notifications
-        for label in labels:
-            redis.publish('label', json.dumps(label.as_dict()))
+        g.db.commit()
 
         message = '{} new labels created'.format(len(request_json['labels']))
         response = jsonify(message=message)

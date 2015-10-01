@@ -22,7 +22,6 @@ class LabelListComponent extends Object with CurrentPageMixin
                            implements ScopeAware, ShadowRootAware {
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
-        new Breadcrumb('Profiles'),
         new Breadcrumb('Labels'),
     ];
 
@@ -30,7 +29,8 @@ class LabelListComponent extends Object with CurrentPageMixin
     String id;
     bool loading = false;
     String newLabel;
-    List<Label> labels;
+    List<String> labelIds;
+    Map<String,Function> labels;
     Pager pager;
     Scope scope;
     bool showAdd = false;
@@ -76,7 +76,6 @@ class LabelListComponent extends Object with CurrentPageMixin
 
     /// Submit a new label.
     void addLabel() {
-        //Label label = this._newLabel(this.newLabel);
         String pageUrl = '/api/label/';
         this.error = null;
         this.submittingLabel = true;
@@ -91,7 +90,8 @@ class LabelListComponent extends Object with CurrentPageMixin
             .post(pageUrl, body, needsAuth: true)
             .then((response) {
                 this.labelCreated = true;
-                new Timer(new Duration(seconds:5), () {
+                this._fetchCurrentPage();
+                new Timer(new Duration(seconds:3), () {
                     this.labelCreated = false;
                     this.newLabel = '';
                 });
@@ -105,9 +105,30 @@ class LabelListComponent extends Object with CurrentPageMixin
     }
 
     /// Save an edited label.
-    void saveLabel(String value) {
-        //String pageUrl = '/api/label/${id_.toString()}';
-        window.alert('hi');
+    void saveLabel(String id_, String name) {
+        String pageUrl = '/api/label/${id_}';
+        this.error = null;
+        this.submittingLabel = true;
+
+        Map body = {
+            'name': name,
+        };
+
+        this.api
+            .put(pageUrl, body, needsAuth: true)
+            .then((response) {
+                this.labels[id_]['name'] = name;
+
+                new Future(() {
+                    this.scope.broadcast('masonry.layout');
+                });
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {
+                this.submittingLabel = false;
+            });
     }
 
     /// Trigger add label when the user presses enter in the label input.
@@ -150,16 +171,19 @@ class LabelListComponent extends Object with CurrentPageMixin
             'rpp': this._resultsPerPage,
         };
 
-
         this.api
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
-                this.labels = new List<Label>();
+                this.labels = new Map<String>();
 
                 response.data['labels'].forEach((label) {
-                    this.labels.add(new Label.fromJson(label));
+                    this.labels[label['id']] = {
+                        'name': label['name'],
+                        'save': (v) => this.saveLabel(label['id'], v),
+                    };
                 });
 
+                this.labelIds = new List<String>.from(this.labels.keys);
                 this.pager = new Pager(response.data['total_count'],
                                        this.currentPage,
                                        resultsPerPage:this._resultsPerPage);
@@ -177,53 +201,18 @@ class LabelListComponent extends Object with CurrentPageMixin
             });
     }
 
-
-    /// Make a map of arguments for a URL query string.
-    void _makeUrlArgs() {
-        var args = new Map<String>();
-
-        return args;
-    }
-
-    /// Create an empty profile object and insert it into the profile list.
-    Label _newLabel(String name) {
-        Label label = new Label(name);
-        this.labels.insert(0, label);
-
-
-        // Update layout after Angular finishes next digest cycle.
-        new Timer(new Duration(milliseconds: 100), () {
-            if (this.scope != null) {
-                this.scope.broadcast('masonry.layout');
-            }
-        });
-
-        return label;
-    }
-
-    /// Listen for profile updates.
+    /// Listen for label updates.
     void labelListener(Event e) {
-        bool showError;
         Map json = JSON.decode(e.data);
-        String name = json['name'].toLowerCase();
-        int id = json['id'];
         Label label;
 
         if (json['error'] == null) {
-            // This was added by another client.
-            //label = this._newLabel(name);
-            label = new Label(name);
-            label.id =  id;
-            this.labels.insert(0, label);
+            label = new Label.fromJson(json);
+            this._fetchCurrentPage();
 
         } else if (label != null) {
             // Only display errors for labels added by this client.
             label.error = json['error'];
-        }
-
-        if (this.scope != null) {
-            scope.apply();
-            this.scope.broadcast('masonry.layout');
         }
     }
 }
