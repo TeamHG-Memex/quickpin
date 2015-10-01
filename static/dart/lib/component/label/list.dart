@@ -27,7 +27,7 @@ class LabelListComponent extends Object with CurrentPageMixin
 
     String error;
     String id;
-    bool loading = false;
+    int loading = 0;
     String newLabel;
     List<String> labelIds;
     Map<String,Function> labels;
@@ -79,6 +79,7 @@ class LabelListComponent extends Object with CurrentPageMixin
         String pageUrl = '/api/label/';
         this.error = null;
         this.submittingLabel = true;
+        this.loading++;
 
         Map body = {
             'labels': [{
@@ -101,6 +102,7 @@ class LabelListComponent extends Object with CurrentPageMixin
             })
             .whenComplete(() {
                 this.submittingLabel = false;
+                this.loading--;
             });
     }
 
@@ -108,7 +110,7 @@ class LabelListComponent extends Object with CurrentPageMixin
     void saveLabel(String id_, String name) {
         String pageUrl = '/api/label/${id_}';
         this.error = null;
-        this.submittingLabel = true;
+        this.loading++;
 
         Map body = {
             'name': name,
@@ -127,7 +129,7 @@ class LabelListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {
-                this.submittingLabel = false;
+                this.loading--;
             });
     }
 
@@ -164,7 +166,7 @@ class LabelListComponent extends Object with CurrentPageMixin
     Future _fetchCurrentPage() {
         Completer completer = new Completer();
         this.error = null;
-        this.loading = true;
+        this.loading++;
         String pageUrl = '/api/label/';
         Map urlArgs = {
             'page': this.currentPage,
@@ -196,7 +198,7 @@ class LabelListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {
-                this.loading = false;
+                this.loading--;
                 completer.complete();
             });
     }
