@@ -349,7 +349,7 @@
       <h2>Labels</h2>
     </div>
     <div class="col-md-2 col-sm-4">
-        <div class="buttons">
+        <div class="buttons pull-right">
           <div class='btn-group'>
             <a class='btn btn-primary btn-sm pull-right'
                ng-disabled='showAddLabel'
@@ -361,34 +361,47 @@
         </div>
     </div>
   </div>
-
-  <form ng-show='showAddLabel' class='form-inline'>
-    <div class='form-group'>
-      <div class='input-group'>
-        <div class='input-group-addon'><strong>Add Label</strong></div>
-        
-        <autocomplete-text text='"help"'
-                           size='20'
-                           css-class='form-control input-sm'>
-        </autocomplete-text>
+  <div class="row">
+    <div class="col-md-6 col-sm-12">
+      <div class='alert alert-danger' role='alert' ng-show='labelError != null'>
+        {{labelError}}
       </div>
     </div>
+  </div>
 
-    <button class='btn btn-sm btn-success'
-            ng-click='addProfileLabel()'
-            ng-disabled='submittingLabel'>
-      <i class='fa fa-circle-plus'></i>
-      Add
-    </button>
+  <div class="row">
+    <div class="col-md-6 col-sm-12">
+      <form ng-show='showAddLabel' class='form-inline pull-right'>
+        <div class='form-group'>
+          <div class='input-group'>
+            <div class='input-group-addon'><strong>Add Label</strong></div>
+            
+            <autocomplete-text text='""'
+                               size='20'
+                               cssid='newLabelText'
+                               onsave='addProfileLabel'
+                               css-class='form-control add-label-form input-sm'>
+            </autocomplete-text>
+          </div>
+        </div>
 
-    <button class='btn btn-sm btn-danger'
-            ng-click='hideAddLabelDialog()'
-            ng-disabled='submittingLabel'>
-      <i class='fa fa-times'></i>
-      Cancel
-    </button>
+        <button class='btn btn-sm btn-success'
+                ng-click='addProfileLabel()'
+                ng-disabled='submittingLabel'>
+          <i class='fa fa-circle-plus'></i>
+          Add
+        </button>
 
-  </form>
+        <button class='btn btn-sm btn-danger'
+                ng-click='hideAddLabelDialog()'
+                ng-disabled='submittingLabel'>
+          <i class='fa fa-times'></i>
+          Cancel
+        </button>
+
+      </form>
+    </div>
+  </div>
 
   <div class='row'><!--start row -->
     <div class='col-md-6 col-sm-12'><!--start col-->
@@ -396,7 +409,6 @@
         <thead>
           <tr>
             <th>Labels</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -404,8 +416,13 @@
             <td colspan='100' class='no-rows'>No labels found.</td>
           </tr>
           <tr ng-repeat='label in profile.labels'>
-            <td>{{label.name}}</td>
-            <td><a href="">remove</a></td>
+            <td>
+              <button class="btn btn-xs"
+                      ng-click="removeProfileLabelAtIndex($index)">
+              <i class='fa fa-times'></i>
+              {{label.name}} 
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>

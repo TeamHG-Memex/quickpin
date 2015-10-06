@@ -143,6 +143,9 @@ class Profile(Base):
 
     def as_dict(self):
         ''' Return dictionary representation of this profile. '''
+        # Sort labels by name
+        labels = [label.as_dict() for label in self.labels]
+        sorted_labels = sorted(labels, key=lambda x: x['name'])
         return {
             'description': self.description,
             'follower_count': self.follower_count,
@@ -151,7 +154,8 @@ class Profile(Base):
             'id': self.id,
             'is_stub': self.is_stub,
             'join_date': self.join_date and self.join_date.isoformat(),
-            'labels': [label.as_dict() for label in self.labels],
+            #'labels': sorted([label.as_dict() for label in self.labels], key=lambda x:['name']),
+            'labels': sorted_labels,
             'last_update': self.last_update.replace(microsecond=0).isoformat(),
             'location': self.location,
             'name': self.name,

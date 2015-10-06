@@ -19,7 +19,7 @@ import 'package:dquery/dquery.dart';
 @Component(
     selector: 'profile',
     templateUrl: 'packages/quickpin/component/profile/view.html',
-    useShadowDom: false
+    useShadowDom: false 
 )
 class ProfileComponent {
     AuthenticationController auth;
@@ -33,12 +33,14 @@ class ProfileComponent {
     bool submittingLabel = false;
     bool failedTasks = false;
     List<Label> labels;
-    String newLabel;
+    String newLabelText;
+    String labelError;
     List<Map> workers;
     List<Map> profileWorkers;
     Map<String, Map> _runningJobs;
     List<Post> posts;
     Profile profile;
+    InputElement _inputLabelEl;
 
     final RestApiController api;
     final RouteProvider _rp;
@@ -86,44 +88,108 @@ class ProfileComponent {
     /// Hide the "add label" dialog.
     void hideAddLabelDialog() {
         this.showAddLabel = false;
-        this.newLabel = '';
+        this.newLabelText = '';
     }
 
     /// Show the "add label" dialog.
     void showAddLabelDialog() {
         this.showAddLabel = true;
 
-        if (this._inputEl != null) {
+        if (this._inputLabelEl != null) {
             // Allow Angular to digest showAddLabel before trying to focus. (Can't
             // focus a hidden element.)
-            new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+            new Timer(new Duration(seconds:0.1), () => this._inputLabelEl.focus());
         }
     }
 
+    /// Get a reference to this element.
+    void onShadowRoot(ShadowRoot shadowRoot) {
+        this._inputLabelEl = this._element.querySelector('#newLabelText');
+    }
+
+    /// Submit a new label.
+    //Label _createNewLabel(String name) {
+    //    String pageUrl = '/api/label/';
+    //    this.labelError = null;
+    //    this.submittingLabel = true;
+    //    this.loading++;
+    //    Label createdLabel;
+
+    //    Map body = {
+    //        'labels': [{
+    //            'name': name,
+    //        }],
+    //    };
+
+    //    HttpResponse response = this.api.post(pageUrl, body, needsAuth: true);
+
+    //    this.api
+    //        .post(pageUrl, body, needsAuth: true)
+    //        .then((response) {
+    //            createdLabel = new Label.fromJson(response.data['labels'][0]);
+    //        })
+    //        .catchError((response) {
+    //            this.labelError = response.data['message'];
+    //        })
+    //        .whenComplete(() {
+    //            window.alert('createdLabel func: ${createdLabel.toString()}');
+    //            return createdLabel;
+    //        });
+    //   
+    //}
+
     void addProfileLabel() {
+        InputElement labelEl = querySelector('#newLabelText');
+
+       
+        if (labelEl.value == null || labelEl.value == '') {
+            this.labelError = 'You must enter text for the label.';
+            return;
+        } else {
+            this.labelError = null;
+        }
+        this.profile.labels.add(new Label(labelEl.value));
+        this._updateProfileLabels();
+        this._updateProfileLabels().then((_) => labelEl.value = '');
+
+    }
+
+    void removeProfileLabelAtIndex(int index) {
+        this.profile.labels.removeAt(index);
+        this._updateProfileLabels();
+    }
+
+    Future _updateProfileLabels() {
+        Completer completer = new Completer();
+
+        
         this.submittingLabel = true;
-        window.alert('adding label'); 
         String pageUrl = '/api/profile/${this.id.toString()}';
         this.loading++;
-        List<Label> newLabels = profile.labels;
-
+        List<Map> profileLabels = new List();
+        this.profile.labels.forEach((label) {
+            profileLabels.add({'name': label.name});
+        });
 
         Map body = {
-            'labels': newLabels, 
+            'labels': profileLabels, 
         };
 
         this.api
             .put(pageUrl, body, needsAuth: true)
             .then((response) {
-                profile.labels = newLabels;
+                //profile.labels = profileLabels;
             })
             .catchError((response) {
-                this.error = response.data['message'];
+                this.labelError = response.data['message'];
             })
             .whenComplete(() {
                 this.loading--;
                 this.submittingLabel = false;
             });
+
+        completer.complete();
+        return completer.future;
     }
 
     /// Listen for avatar image updates.
@@ -347,35 +413,40 @@ class ProfileComponent {
         int page = 1;
         bool finished = false;
         this.labels = new List<Label>();
+        int totalCount = 0;
         
         while (!finished) {
-            window.alert(page.toString());
             Map urlArgs = {
                 'rpp': 100,
                 'page': page
             };
-            this.api
-                .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
-                .then((response) {
+            new Future(() {
+                this.api
+                    .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
+                    .then((response) {
+                        response.data['labels'].forEach((label) {
+                            this.labels.add(new Label.fromJson(label));
 
-                    response.data['labels'].forEach((label) {
-                        window.alert('we get here');
-                        this.labels.add(new Label.fromJson(label));
+                        });
+                        if (response.data.containsKey('total_count')) {
+                            totalCount = response.data['total_count'];
+                        }
 
+                    })
+                    .catchError((response) {
+                        this.labelError = response.data['message'];
+                    })
+                    .whenComplete(() {
                     });
+            });
 
-                })
-                .catchError((response) {
-                    this.error = response.data['message'];
-                })
-                .whenComplete(() {
-                    if (int.parse(response.data['total_count']) == this.labels.length) {
-                        finished = true;
-                    }
-                });
-
-             page++;
-        }
+            if (totalCount == this.labels.length) {
+                finished = true;
+            } 
+            else {
+                page++;
+            }
+        };
         this.loading--;
         completer.complete();
         return completer.future;

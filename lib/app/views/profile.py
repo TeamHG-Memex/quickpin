@@ -17,6 +17,7 @@ from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
 from model import Avatar, Post, Profile, Label
 from model.profile import avatar_join_profile, profile_join_self
+import worker
 
 
 class ProfileView(FlaskView):
@@ -701,6 +702,8 @@ class ProfileView(FlaskView):
         is_interesting is the only modiifiable attribute.
         '''
 
+        redis = worker.get_redis()
+
         # Get profile.
         id_ = get_int_arg('id_', id_)
 
@@ -726,21 +729,24 @@ class ProfileView(FlaskView):
                 raise BadRequest("Attribute 'is_interesting' is type boolean,"
                                  " or can be set as null")
 
+        # labels expects the string 'name' rather than id, to avoid the need to
+        # create labels before adding them.
         if 'labels' in request_json:
             labels = []
             if isinstance(request_json['labels'], list):
                 for label_json in request_json['labels']:
-                    if 'id' in label_json:
+                    if 'name' in label_json:
                         label = g.db.query(Label) \
-                                    .filter(Label.id==label_json['id']) \
+                                    .filter(Label.name==label_json['name']) \
                                     .first()
                         if label is None:
-                            raise BadRequest("Label ID: {} does not exist") \
-                                .format(label_json['id'])
+                            label = Label(name=label_json['name'])
+                            g.db.add(label)
+                            redis.publish('label', json.dumps(label.as_dict()))
 
                         labels.append(label)
                     else:
-                        raise BadRequest("Label 'id' is required")
+                        raise BadRequest("Label 'name' is required")
 
                 profile.labels = labels
             else:
@@ -753,6 +759,7 @@ class ProfileView(FlaskView):
         # Save the profile
         try:
             g.db.commit()
+            redis.publish('profile', json.dumps(profile.as_dict()))
         except DBAPIError as e:
             g.db.rollback()
             raise BadRequest('Profile could not be saved')

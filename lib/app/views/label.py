@@ -97,6 +97,7 @@ class LabelView(FlaskView):
 
         request_json = request.get_json()
         redis = worker.get_redis()
+        labels = list()
 
         # Validate input and create labels
         for t in request_json['labels']:
@@ -108,6 +109,7 @@ class LabelView(FlaskView):
                     g.db.add(label)
                     g.db.flush()
                     redis.publish('label', json.dumps(label.as_dict()))
+                    labels.append(label.as_dict())
                 except IntegrityError:
                     g.db.rollback()
                     raise BadRequest('Label "{}" already exists'.format(label.name))
@@ -116,7 +118,11 @@ class LabelView(FlaskView):
         g.db.commit()
 
         message = '{} new labels created'.format(len(request_json['labels']))
-        response = jsonify(message=message)
+        labels = labels
+        response = jsonify(
+            message=message,
+            labels=labels
+        )
         response.status_code = 202
 
         return response
