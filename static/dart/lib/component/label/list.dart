@@ -44,7 +44,7 @@ class LabelListComponent extends Object with CurrentPageMixin
     final Element _element;
     final Router _router;
     final RouteProvider _rp;
-    final int _resultsPerPage = 20;
+    final int _resultsPerPage = 5;
     final SseController _sse;
     final TitleService _ts;
 
@@ -54,13 +54,13 @@ class LabelListComponent extends Object with CurrentPageMixin
         this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this._ts.title = 'Labels';
         this.id = this._rp.parameters['id'];
-        //this._updateCrumbs();
 
         // Add event listeners...
         RouteHandle rh = this._rp.route.newHandle();
 
         List<StreamSubscription> listeners = [
             this._sse.onLabel.listen(this.labelListener),
+            //this._sse.onLabel.listen(this._fetchCurrentPage()),
             rh.onEnter.listen((e) {
                 this._fetchCurrentPage();
             }),
@@ -91,10 +91,13 @@ class LabelListComponent extends Object with CurrentPageMixin
             .post(pageUrl, body, needsAuth: true)
             .then((response) {
                 this.labelCreated = true;
-                this._fetchCurrentPage();
-                new Timer(new Duration(seconds:3), () {
+                new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+                new Timer(new Duration(seconds:2), () {
                     this.labelCreated = false;
                     this.newLabel = '';
+                });
+                new Future(() {
+                    this.scope.broadcast('masonry.layout');
                 });
             })
             .catchError((response) {
@@ -162,7 +165,6 @@ class LabelListComponent extends Object with CurrentPageMixin
         }
     }
 
-    /// Fetch list of labels.
     Future _fetchCurrentPage() {
         Completer completer = new Completer();
         this.error = null;
@@ -177,6 +179,7 @@ class LabelListComponent extends Object with CurrentPageMixin
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
                 this.labels = new Map<String>();
+                this.labelIds = new List<String>();
 
                 response.data['labels'].forEach((label) {
                     this.labels[label['id']] = {
@@ -185,12 +188,12 @@ class LabelListComponent extends Object with CurrentPageMixin
                     };
                 });
 
-                this.labelIds = new List<String>.from(this.labels.keys);
                 this.pager = new Pager(response.data['total_count'],
                                        this.currentPage,
                                        resultsPerPage:this._resultsPerPage);
 
                 new Future(() {
+                    this.labelIds = new List<String>.from(this.labels.keys);
                     this.scope.broadcast('masonry.layout');
                 });
             })
@@ -201,20 +204,16 @@ class LabelListComponent extends Object with CurrentPageMixin
                 this.loading--;
                 completer.complete();
             });
+
+       return completer.future;
     }
 
     /// Listen for label updates.
     void labelListener(Event e) {
         Map json = JSON.decode(e.data);
-        Label label;
 
         if (json['error'] == null) {
-            label = new Label.fromJson(json);
             this._fetchCurrentPage();
-
-        } else if (label != null) {
-            // Only display errors for labels added by this client.
-            label.error = json['error'];
-        }
+        } 
     }
 }

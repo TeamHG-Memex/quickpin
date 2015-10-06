@@ -15,7 +15,7 @@ import app.database
 import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
-from model import Avatar, Post, Profile
+from model import Avatar, Post, Profile, Label
 from model.profile import avatar_join_profile, profile_join_self
 
 
@@ -42,6 +42,12 @@ class ProfileView(FlaskView):
                 "is_stub": false,
                 "is_interesting": false,
                 "join_date": "2012-01-30T15:11:35",
+                "labels": [
+                    {
+                        "id": 1,
+                        "name": "male"
+                    },
+                ],
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
                 "name": "John Doe",
@@ -55,8 +61,8 @@ class ProfileView(FlaskView):
                 "username": "mehaase",
                 "usernames": [
                     {
-                        "end_date": "2012-06-30T15:00:00",,
-                        "start_date": "2012-01-01T12:00:00",,
+                        "end_date": "2012-06-30T15:00:00",
+                        "start_date": "2012-01-01T12:00:00",
                         "username": "mehaase"
                     },
                     ...
@@ -80,6 +86,9 @@ class ProfileView(FlaskView):
             marked as interesting. The value can be null.
         :>json str join_date: the date this profile joined its social network
             (ISO-8601)
+        :>json list labels: list of labels for this profile
+        :>json int label[n].id: the unique id for this label
+        :>json str label[n].name: the label
         :>json str last_update: the last time that information about this
             profile was retrieved from the social media site (ISO-8601)
         :>json str location: geographic location provided by the user, as free
@@ -705,8 +714,9 @@ class ProfileView(FlaskView):
             raise NotFound("Profile '%s' does not exist." % id_)
 
         request_json = request.get_json()
+
         # Validate put data and set attributes
-        # Currently, only 'is_interesting' is modifiable
+        # Only 'is_interesting' and 'labels' are modifiable
         if 'is_interesting' in request_json:
             if isinstance(request_json['is_interesting'], bool):
                 profile.is_interesting = request_json['is_interesting']
@@ -716,16 +726,36 @@ class ProfileView(FlaskView):
                 raise BadRequest("Attribute 'is_interesting' is type boolean,"
                                  " or can be set as null")
 
+        if 'labels' in request_json:
+            labels = []
+            if isinstance(request_json['labels'], list):
+                for label_json in request_json['labels']:
+                    if 'id' in label_json:
+                        label = g.db.query(Label) \
+                                    .filter(Label.id==label_json['id']) \
+                                    .first()
+                        if label is None:
+                            raise BadRequest("Label ID: {} does not exist") \
+                                .format(label_json['id'])
+
+                        labels.append(label)
+                    else:
+                        raise BadRequest("Label 'id' is required")
+
+                profile.labels = labels
+            else:
+                raise BadRequest("'labels' must be a list")
+
+
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)
 
         # Save the profile
-        # ToDo - explicit error handling
         try:
             g.db.commit()
         except DBAPIError as e:
             g.db.rollback()
-            raise BadRequest('Database error: {}'.format(e))
+            raise BadRequest('Profile could not be saved')
 
         # Create usernames list.
         usernames = list()

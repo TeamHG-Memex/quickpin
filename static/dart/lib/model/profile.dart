@@ -1,3 +1,5 @@
+import 'package:quickpin/model/label.dart';
+
 /// A model for a social media profile.
 class Profile {
     static final ICON_CLASSES = {
@@ -24,6 +26,7 @@ class Profile {
     String upstreamId;
     String username;
     List<ProfileUsername> usernames;
+    List<Label> labels;
 
     // Errors related to creating or loading this profile.
     String error;
@@ -65,6 +68,13 @@ class Profile {
             this.usernames = new List.generate(
                 json['usernames'].length,
                 (index) => new ProfileUsername.fromJson(json['usernames'][index])
+            );
+        }
+
+        if (json['labels'] != null) {
+            this.labels = new List.generate(
+                json['labels'].length,
+                (index) => new Label.fromJson(json['labels'][index])
             );
         }
     }

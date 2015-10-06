@@ -7,6 +7,7 @@ import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/title.dart';
+import 'package:quickpin/model/label.dart';
 import 'package:quickpin/model/post.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
@@ -28,7 +29,11 @@ class ProfileComponent {
     int id;
     int loading = 0;
     bool loadingFailedTasks = false;
+    bool showAddLabel = false;
+    bool submittingLabel = false;
     bool failedTasks = false;
+    List<Label> labels;
+    String newLabel;
     List<Map> workers;
     List<Map> profileWorkers;
     Map<String, Map> _runningJobs;
@@ -73,8 +78,52 @@ class ProfileComponent {
             .then((_) => this._fetchPosts())
             .then((_) => this._fetchFriends())
             .then((_) => this._fetchFollowers())
+            .then((_) => this._fetchLabels())
             .then((_) => this._fetchProfileWorkers())
             .then((_) => this._fetchFailedProfileTasks());
+    }
+
+    /// Hide the "add label" dialog.
+    void hideAddLabelDialog() {
+        this.showAddLabel = false;
+        this.newLabel = '';
+    }
+
+    /// Show the "add label" dialog.
+    void showAddLabelDialog() {
+        this.showAddLabel = true;
+
+        if (this._inputEl != null) {
+            // Allow Angular to digest showAddLabel before trying to focus. (Can't
+            // focus a hidden element.)
+            new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+        }
+    }
+
+    void addProfileLabel() {
+        this.submittingLabel = true;
+        window.alert('adding label'); 
+        String pageUrl = '/api/profile/${this.id.toString()}';
+        this.loading++;
+        List<Label> newLabels = profile.labels;
+
+
+        Map body = {
+            'labels': newLabels, 
+        };
+
+        this.api
+            .put(pageUrl, body, needsAuth: true)
+            .then((response) {
+                profile.labels = newLabels;
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {
+                this.loading--;
+                this.submittingLabel = false;
+            });
     }
 
     /// Listen for avatar image updates.
@@ -287,6 +336,48 @@ class ProfileComponent {
                 completer.complete();
             });
 
+        return completer.future;
+    }
+
+    /// Fetch list of labels.
+    Future _fetchLabels() {
+        Completer completer = new Completer();
+        this.loading++;
+        String pageUrl = '/api/label/';
+        int page = 1;
+        bool finished = false;
+        this.labels = new List<Label>();
+        
+        while (!finished) {
+            window.alert(page.toString());
+            Map urlArgs = {
+                'rpp': 100,
+                'page': page
+            };
+            this.api
+                .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
+                .then((response) {
+
+                    response.data['labels'].forEach((label) {
+                        window.alert('we get here');
+                        this.labels.add(new Label.fromJson(label));
+
+                    });
+
+                })
+                .catchError((response) {
+                    this.error = response.data['message'];
+                })
+                .whenComplete(() {
+                    if (int.parse(response.data['total_count']) == this.labels.length) {
+                        finished = true;
+                    }
+                });
+
+             page++;
+        }
+        this.loading--;
+        completer.complete();
         return completer.future;
     }
 
