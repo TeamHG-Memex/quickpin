@@ -107,37 +107,6 @@ class ProfileComponent {
         this._inputLabelEl = this._element.querySelector('#newLabelText');
     }
 
-    /// Submit a new label.
-    //Label _createNewLabel(String name) {
-    //    String pageUrl = '/api/label/';
-    //    this.labelError = null;
-    //    this.submittingLabel = true;
-    //    this.loading++;
-    //    Label createdLabel;
-
-    //    Map body = {
-    //        'labels': [{
-    //            'name': name,
-    //        }],
-    //    };
-
-    //    HttpResponse response = this.api.post(pageUrl, body, needsAuth: true);
-
-    //    this.api
-    //        .post(pageUrl, body, needsAuth: true)
-    //        .then((response) {
-    //            createdLabel = new Label.fromJson(response.data['labels'][0]);
-    //        })
-    //        .catchError((response) {
-    //            this.labelError = response.data['message'];
-    //        })
-    //        .whenComplete(() {
-    //            window.alert('createdLabel func: ${createdLabel.toString()}');
-    //            return createdLabel;
-    //        });
-    //   
-    //}
-
     void addProfileLabel() {
         InputElement labelEl = querySelector('#newLabelText');
 

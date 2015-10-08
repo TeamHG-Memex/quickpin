@@ -1,6 +1,32 @@
 <breadcrumbs crumbs=crumbs></breadcrumbs>
 
 <div class='buttons'>
+
+  <div class='btn-group pull-right'>
+    <button type='button'
+            class='btn btn-primary btn-sm dropdown-toggle'
+            data-toggle='dropdown'
+            aria-expanded='false'>
+      Label: {{labelFilterDescription}} <span class='caret'></span>
+    </button>
+    <ul class='dropdown-menu sort-by' role='menu'>
+      <li><a ng-click='filterLabels(null)'>All Labels</a></li>
+      <li class='divider'></li>
+      <li ng-repeat='label in labels'>
+        <a ng-show="!labelFilters.contains(label.name)"
+           ng-click='filterLabels(label.name)'>
+          {{label.name}}
+        </a>
+        <a ng-show="labelFilters.contains(label.name)" 
+           ng-click='filterLabelsRemove(label.name)'>
+          <i class='fa fa-check'></i>
+          {{label.name}}
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  
   <div class='btn-group pull-right'>
     <button type='button'
             class='btn btn-primary btn-sm dropdown-toggle'
@@ -11,6 +37,7 @@
     <ul class='dropdown-menu sort-by' role='menu'>
       <li><a ng-click='filterInterest(null)'>All Profiles</a></li>
       <li class='divider'></li>
+
       <li><a ng-click='filterInterest("yes")'>Yes</a></li>
       <li><a ng-click='filterInterest("no")'>No</a></li>
       <li><a ng-click='filterInterest("unset")'>Unset</a></li>

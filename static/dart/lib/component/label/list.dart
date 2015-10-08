@@ -60,7 +60,6 @@ class LabelListComponent extends Object with CurrentPageMixin
 
         List<StreamSubscription> listeners = [
             this._sse.onLabel.listen(this.labelListener),
-            //this._sse.onLabel.listen(this._fetchCurrentPage()),
             rh.onEnter.listen((e) {
                 this._fetchCurrentPage();
             }),
@@ -165,6 +164,7 @@ class LabelListComponent extends Object with CurrentPageMixin
         }
     }
 
+    // Fetch a page of labels.
     Future _fetchCurrentPage() {
         Completer completer = new Completer();
         this.error = null;

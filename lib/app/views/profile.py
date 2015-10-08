@@ -16,6 +16,7 @@ import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
 from model import Avatar, Post, Profile, Label
+from model.label import DISALLOWED_LABEL_CHARS
 from model.profile import avatar_join_profile, profile_join_self
 import worker
 
@@ -550,13 +551,16 @@ class ProfileView(FlaskView):
 
         page, results_per_page = get_paging_arguments(request.args)
         current_avatar_id = self._current_avatar_subquery()
-        site = request.args.get('site', None)
 
-        is_interesting = request.args.get('interesting', None)
 
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
                     .filter(Profile.is_stub == False)
+
+        # Parse filter arguments
+        site = request.args.get('site', None)
+        is_interesting = request.args.get('interesting', None)
+        labels = request.args.get('label', None)
 
         if site is not None:
             query = query.filter(Profile.site == site)
@@ -568,6 +572,10 @@ class ProfileView(FlaskView):
                 query = query.filter(Profile.is_interesting == False)
             elif is_interesting == 'unset':
                 query = query.filter(Profile.is_interesting == None)
+
+        if labels is not None:
+            for label in labels.split(','):
+                query = query.filter(Profile.labels.any(Label.name==label))
 
 
 
@@ -740,9 +748,23 @@ class ProfileView(FlaskView):
                                     .filter(Label.name==label_json['name']) \
                                     .first()
                         if label is None:
-                            label = Label(name=label_json['name'])
-                            g.db.add(label)
-                            redis.publish('label', json.dumps(label.as_dict()))
+                            try:
+                                label = Label(name=label_json['name'])
+                                g.db.add(label)
+                                g.db.flush()
+                                redis.publish('label', json.dumps(label.as_dict()))
+                            except IntegrityError:
+                                g.db.rollback()
+                                raise BadRequest('Label could not be saved')
+                            except AssertionError:
+                                g.db.rollback()
+                                raise BadRequest(
+                                    'Label "{}" contains invalid character: {}'
+                                    .format(
+                                        label_json['name'],
+                                        ','.join(DISALLOWED_LABEL_CHARS)
+                                    )
+                                )
 
                         labels.append(label)
                     else:
