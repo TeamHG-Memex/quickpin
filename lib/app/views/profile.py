@@ -16,7 +16,6 @@ import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, heatmap_column, isodate, url_for
 from model import Avatar, Post, Profile, Label
-from model.label import DISALLOWED_LABEL_CHARS
 from model.profile import avatar_join_profile, profile_join_self
 import worker
 
@@ -575,10 +574,9 @@ class ProfileView(FlaskView):
 
         if labels is not None:
             for label in labels.split(','):
-                query = query.filter(Profile.labels.any(Label.name==label))
-
-
-
+                query = query.filter(
+                    Profile.labels.any(Label.name==label.lower())
+                )
 
         total_count = query.count()
 
@@ -707,7 +705,117 @@ class ProfileView(FlaskView):
     def put(self, id_):
         '''
         Update the profile identified by `id` with submitted data.
-        is_interesting is the only modiifiable attribute.
+        The following attribute are modifiable:
+           * is_interesting
+           * lables
+
+        **Example Request**
+
+        .. sourcecode:: json
+
+            {
+                "is_interesting": true,
+                "labels": [
+                    {"name": "male"},
+                    {"name": "british"},
+                    ...
+                ],
+                ...
+            }
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+                "avatar_url": "https://quickpin/api/file/1",
+                "avatar_thumb_url": "https://quickpin/api/file/2",
+                "description": "A human being.",
+                "follower_count": 71,
+                "friend_count": 28,
+                "id": 1,
+                "is_stub": false,
+                "is_interesting": true,
+                "join_date": "2012-01-30T15:11:35",
+                "labels": [
+                    {
+                        "id": 1,
+                        "name": "male"
+                    },
+                    {
+                        "id": 2,
+                        "name": "british"
+                    },
+                ],
+                "last_update": "2015-08-18T10:51:16",
+                "location": "Washington, DC",
+                "name": "John Doe",
+                "post_count": 1666,
+                "private": false,
+                "site": "twitter",
+                "site_name": "Twitter",
+                "time_zone": "Central Time (US & Canada)",
+                "upstream_id": "11009418",
+                "url": "https://quickpin/api/profile/1",
+                "username": "mehaase",
+                "usernames": [
+                    {
+                        "end_date": "2012-06-30T15:00:00",
+                        "start_date": "2012-01-01T12:00:00",
+                        "username": "mehaase"
+                    },
+                    ...
+                ]
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :>json bool is_interesting: whether profile is marked as interesting
+        :>json list labels: whether profile is marked as interesting
+
+        :>header Content-Type: application/json
+        :>json str avatar_url: URL to the user's current avatar
+        :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
+            current avatar
+        :>json str description: profile description
+        :>json int follower_count: number of followers
+        :>json int friend_count: number of friends (a.k.a. followees)
+        :>json int id: unique identifier for profile
+        :>json bool is_stub: indicates that this is a stub profile, e.g.
+            related to another profile but has not been fully imported
+        :>json bool is_interesting: indicates whether this profile has been
+            marked as interesting. The value can be null.
+        :>json str join_date: the date this profile joined its social network
+            (ISO-8601)
+        :>json list labels: list of labels for this profile
+        :>json int label[n].id: the unique id for this label
+        :>json str label[n].name: the label
+        :>json str last_update: the last time that information about this
+            profile was retrieved from the social media site (ISO-8601)
+        :>json str location: geographic location provided by the user, as free
+            text
+        :>json str name: the full name provided by this user
+        :>json int post_count: the number of posts made by this profile
+        :>json bool private: true if this is a private account (i.e. not world-
+            readable)
+        :>json str site: machine-readable site name that this profile belongs to
+        :>json str site_name: human-readable site name that this profile belongs
+            to
+        :>json str time_zone: the user's provided time zone as free text
+        :>json str upstream_id: the user ID assigned by the social site
+        :>json str url: URL endpoint for retriving more data about this profile
+        :>json str username: the current username for this profile
+        :>json list usernames: list of known usernames for this profile
+        :>json str usernames[n].end_date: the last known date this username was
+            used for this profile
+        :>json str usernames[n].start_date: the first known date this username
+            was used for this profile
+        :>json str usernames[n].username: a username used for this profile
+
+        :status 202: accepted for background processing
+        :status 400: invalid request body
+        :status 401: authentication required
+
         '''
 
         redis = worker.get_redis()
@@ -749,20 +857,26 @@ class ProfileView(FlaskView):
                                     .first()
                         if label is None:
                             try:
-                                label = Label(name=label_json['name'])
+                                label = Label(
+                                    name=label_json['name'].lower().strip()
+                                )
+
                                 g.db.add(label)
                                 g.db.flush()
-                                redis.publish('label', json.dumps(label.as_dict()))
+
+                                redis.publish(
+                                    'label',
+                                    json.dumps(label.as_dict())
+                                )
                             except IntegrityError:
                                 g.db.rollback()
                                 raise BadRequest('Label could not be saved')
                             except AssertionError:
                                 g.db.rollback()
                                 raise BadRequest(
-                                    'Label "{}" contains invalid character: {}'
+                                    '"{}" contains non-alphanumeric character'
                                     .format(
-                                        label_json['name'],
-                                        ','.join(DISALLOWED_LABEL_CHARS)
+                                        label_json['name']
                                     )
                                 )
 
@@ -781,7 +895,7 @@ class ProfileView(FlaskView):
         # Save the profile
         try:
             g.db.commit()
-            redis.publish('profile', json.dumps(profile.as_dict()))
+            redis.publish('profile_update', json.dumps(profile.as_dict()))
         except DBAPIError as e:
             g.db.rollback()
             raise BadRequest('Profile could not be saved')

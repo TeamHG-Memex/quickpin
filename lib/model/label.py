@@ -5,10 +5,6 @@ from sqlalchemy.orm import validates
 
 from model import Base
 
-DISALLOWED_LABEL_CHARS = [
-    ','
-]
-
 
 class Label(Base):
 
@@ -30,10 +26,8 @@ class Label(Base):
             'name': self.name,
         }
 
-    # Don't allow commas in label names
+    # Allow only alphanumeric and whitespace
     @validates('name')
     def validate_name(self, key, name):
-        for char in DISALLOWED_LABEL_CHARS:
-            assert char not in name
-
+        assert name.replace(' ', '').isalnum()
         return name

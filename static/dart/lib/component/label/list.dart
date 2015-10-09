@@ -44,7 +44,7 @@ class LabelListComponent extends Object with CurrentPageMixin
     final Element _element;
     final Router _router;
     final RouteProvider _rp;
-    final int _resultsPerPage = 5;
+    final int _resultsPerPage = 50;
     final SseController _sse;
     final TitleService _ts;
 

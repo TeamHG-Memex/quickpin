@@ -325,11 +325,13 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map siteProfiles = this.newProfilesMap[json['site']];
         Profile profile;
 
+        
         if (siteProfiles != null) {
             profile = siteProfiles[username];
         }
 
         if (json['error'] == null) {
+
             if (profile == null &&
                 (this.siteFilter == null || this.siteFilter == json['site'])) {
                 // This was added by another client.
@@ -345,7 +347,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.isInteresting = json['is_interesting'];
 
             this.idProfilesMap[json['id']] = profile;
-            this.newProfilesMap[json['site']].remove(username);
+            if (this.newProfilesMap[json['site']] != null) {
+                this.newProfilesMap[json['site']].remove(username);
+            }
         } else if (profile != null) {
             // Only display errors for profiles added by this client.
             profile.error = json['error'];
@@ -363,10 +367,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (json['error'] == null) {
             this._fetchLabels();
-        } 
-    }
-
-    /// Show the "add profile" dialog.
+        } } /// Show the "add profile" dialog.
     void showAddDialog() {
         this.showAdd = true;
 

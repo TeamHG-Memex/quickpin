@@ -98,13 +98,14 @@ class ProfileComponent {
         if (this._inputLabelEl != null) {
             // Allow Angular to digest showAddLabel before trying to focus. (Can't
             // focus a hidden element.)
-            new Timer(new Duration(seconds:0.1), () => this._inputLabelEl.focus());
+            new Timer(new Duration(seconds:0.1), () => labelEl.focus());
         }
     }
 
     /// Get a reference to this element.
     void onShadowRoot(ShadowRoot shadowRoot) {
         this._inputLabelEl = this._element.querySelector('#newLabelText');
+
     }
 
     void addProfileLabel() {
@@ -117,9 +118,16 @@ class ProfileComponent {
         } else {
             this.labelError = null;
         }
-        this.profile.labels.add(new Label(labelEl.value));
-        this._updateProfileLabels();
-        this._updateProfileLabels().then((_) => labelEl.value = '');
+        List<String> labelNames = new List();
+        this.profile.labels.forEach((label) {
+            labelNames.add(label.name);
+        });
+
+        if (!labelNames.contains(labelEl.value)) {
+           this.profile.labels.add(new Label(labelEl.value));
+           this._updateProfileLabels();
+        }
+        labelEl.value = '';
 
     }
 

@@ -107,10 +107,16 @@ class TasksView(FlaskView):
                     else:
                         type_ = None
 
+                    exception_info = failed_task.exc_info
+                    if exception_info is not None:
+                        exception_info = exception_info.decode()
+                    else:
+                        exception_info = 'Unknown error'
+
                     failed_tasks.append({
                         'description': desc,
                         'function': failed_task.get_call_string(),
-                        'exception': failed_task.exc_info.decode(),
+                        'exception': exception_info,
                         'id': failed_task.id,
                         'profile_id': profile_id,
                         'type': type_,

@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError, DBAPIError
 from werkzeug.exceptions import BadRequest, NotFound
 
 import worker
-from model.label import Label, DISALLOWED_LABEL_CHARS
+from model.label import Label
 from app.authorization import login_required
 from app.rest import get_int_arg
 from app.rest import get_paging_arguments
@@ -105,7 +105,7 @@ class LabelView(FlaskView):
                 raise BadRequest('Label name is required')
             else:
                 try:
-                    label = Label(name=t['name'])
+                    label = Label(name=t['name'].lower().strip())
                     g.db.add(label)
                     g.db.flush()
                     redis.publish('label', json.dumps(label.as_dict()))
@@ -118,8 +118,8 @@ class LabelView(FlaskView):
                 except AssertionError:
                     g.db.rollback()
                     raise BadRequest(
-                        'Label "{}" contains an invalid character: "{}"'
-                        .format(t['name'], ','.join(DISALLOWED_LABEL_CHARS))
+                        '"{}" contains non-alphanumeric character'
+                        .format(t['name'])
                     )
 
         # Save labels
@@ -241,7 +241,7 @@ class LabelView(FlaskView):
         # Validate data and set attributes
         if 'name' in request_json:
             if request_json['name'].strip() != '':
-                label.name = request_json['name']
+                label.name = request_json['name'].lower().strip()
             else:
                 raise BadRequest('Attribute "name" cannot be an empty string')
         else:
