@@ -116,7 +116,7 @@ class TasksView(FlaskView):
                     failed_tasks.append({
                         'description': desc,
                         'function': failed_task.get_call_string(),
-                        'exception': exception_info,
+                        'exception': failed_task.exc_info.decode(),
                         'id': failed_task.id,
                         'profile_id': profile_id,
                         'type': type_,

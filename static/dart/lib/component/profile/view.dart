@@ -40,7 +40,7 @@ class ProfileComponent {
     Map<String, Map> _runningJobs;
     List<Post> posts;
     Profile profile;
-    InputElement _inputLabelEl;
+    InputElement inputLabelEl;
 
     final RestApiController api;
     final RouteProvider _rp;
@@ -94,25 +94,19 @@ class ProfileComponent {
     /// Show the "add label" dialog.
     void showAddLabelDialog() {
         this.showAddLabel = true;
+        this.inputLabelEl = querySelector('#newLabelText');
 
-        if (this._inputLabelEl != null) {
+        if (this.inputLabelEl != null) {
             // Allow Angular to digest showAddLabel before trying to focus. (Can't
             // focus a hidden element.)
-            new Timer(new Duration(seconds:0.1), () => labelEl.focus());
+            new Timer(new Duration(seconds:0.1), () => this.inputLabelEl.focus());
         }
     }
 
-    /// Get a reference to this element.
-    void onShadowRoot(ShadowRoot shadowRoot) {
-        this._inputLabelEl = this._element.querySelector('#newLabelText');
-
-    }
-
+    // Add a profile label
     void addProfileLabel() {
-        InputElement labelEl = querySelector('#newLabelText');
-
        
-        if (labelEl.value == null || labelEl.value == '') {
+        if (this.inputLabelEl.value == null || this.inputLabelEl.value == '') {
             this.labelError = 'You must enter text for the label.';
             return;
         } else {
@@ -123,11 +117,11 @@ class ProfileComponent {
             labelNames.add(label.name);
         });
 
-        if (!labelNames.contains(labelEl.value)) {
-           this.profile.labels.add(new Label(labelEl.value));
+        if (!labelNames.contains(this.inputLabelEl.value)) {
+           this.profile.labels.add(new Label(this.inputLabelEl.value));
            this._updateProfileLabels();
         }
-        labelEl.value = '';
+        this.inputLabelEl.value = '';
 
     }
 
@@ -136,6 +130,7 @@ class ProfileComponent {
         this._updateProfileLabels();
     }
 
+    // Update profile labels. 
     Future _updateProfileLabels() {
         Completer completer = new Completer();
 
