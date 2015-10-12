@@ -20,9 +20,11 @@ class NotificationView(FlaskView):
 
     CHANNELS = (
         'avatar',
+        'label',
         'profile',
         'profile_posts',
         'profile_relations',
+        'profile_update',
         'worker',
     )
 

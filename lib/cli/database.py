@@ -60,24 +60,26 @@ class DatabaseCli(cli.BaseCli):
 
         session = app.database.get_session(self._db)
 
-        piscina_ui_url = Configuration('piscina_ui_url', 'http://192.168.31.1:8000')
-        session.add(piscina_ui_url)
+        #piscina_ui_url = Configuration('piscina_ui_url', '')
+        #session.add(piscina_ui_url)
 
-        piscina_proxy_url = Configuration('piscina_proxy_url', 'http://192.168.31.1:8080')
-        session.add(piscina_proxy_url)
+        #piscina_proxy_url = Configuration('piscina_proxy_url', '')
+        #session.add(piscina_proxy_url)
 
-        max_posts_twitter = Configuration('max_posts_twitter', 200)
-        session.add(max_posts_twitter)
+        #max_posts_twitter = Configuration('max_posts_twitter', '')
+        #session.add(max_posts_twitter)
 
-        max_posts_instagram = Configuration('max_posts_instagram', 200)
-        session.add(max_posts_instagram)
+        #max_posts_instagram = Configuration('max_posts_instagram', '')
+        #session.add(max_posts_instagram)
 
-        max_relations_twitter = Configuration('max_relations_twitter', 5000)
-        session.add(max_relations_twitter)
+        #max_relations_twitter = Configuration('max_relations_twitter', '')
+        #session.add(max_relations_twitter)
 
-        max_relations_instagram = Configuration('max_relations_instagram', 500)
-        session.add(max_relations_instagram)
+        #max_relations_instagram = Configuration('max_relations_instagram', '')
+        #session.add(max_relations_instagram)
 
+        for key, value in config.items('config_table'):
+            session.add(Configuration(key, value))
 
         session.commit()
 

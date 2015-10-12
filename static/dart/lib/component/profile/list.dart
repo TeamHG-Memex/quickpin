@@ -5,6 +5,7 @@ import 'dart:html';
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
+import 'package:quickpin/model/label.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/profile.dart';
@@ -31,12 +32,15 @@ class ProfileListComponent extends Object with CurrentPageMixin
     List<Profile> profiles;
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
+    List<Label> labels;
     Scope scope;
     bool showAdd = false;
     String siteFilter, siteFilterDescription;
     String interestFilter, interestFilterDescription;
     bool submittingProfile = false;
     bool updatingProfile = false;
+    List<String> labelFilters;
+    String labelFilterDescription;
 
     InputElement _inputEl;
 
@@ -63,9 +67,11 @@ class ProfileListComponent extends Object with CurrentPageMixin
         List<StreamSubscription> listeners = [
             this._sse.onAvatar.listen(this.avatarListener),
             this._sse.onProfile.listen(this.profileListener),
+            this._sse.onLabel.listen(this.labelListener),
             rh.onEnter.listen((e) {
                 this._parseQueryParameters(e.queryParameters);
                 this._fetchCurrentPage();
+                this._fetchLabels();
             }),
         ];
 
@@ -75,6 +81,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         });
 
         this._fetchCurrentPage();
+        this._fetchLabels();
     }
 
     /// Listen for avatar image updates.
@@ -125,6 +132,53 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 this.error = response.data['message'];
             })
             .whenComplete(() {this.submittingProfile = false;});
+    }
+
+    /// Fetch list of labels.
+    Future _fetchLabels() {
+        Completer completer = new Completer();
+        this.loading = true;
+        String pageUrl = '/api/label/';
+        int page = 1;
+        bool finished = false;
+        this.labels = new List<Label>();
+        int totalCount = 0;
+        
+        while (!finished) {
+            Map urlArgs = {
+                'rpp': 100,
+                'page': page
+            };
+            new Future(() {
+                this.api
+                    .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
+                    .then((response) {
+                        response.data['labels'].forEach((label) {
+                            this.labels.add(new Label.fromJson(label));
+
+                        });
+                        if (response.data.containsKey('total_count')) {
+                            totalCount = response.data['total_count'];
+                        }
+
+                    })
+                    .catchError((response) {
+                        this.labelError = response.data['message'];
+                    })
+                    .whenComplete(() {
+                    });
+            });
+
+            if (totalCount == this.labels.length) {
+                finished = true;
+            } 
+            else {
+                page++;
+            }
+        };
+        this.loading = false;
+        completer.complete();
+        return completer.future;
     }
 
     /// Remove a profile at the specified index. (Usually done because of an
@@ -205,6 +259,46 @@ class ProfileListComponent extends Object with CurrentPageMixin
                         queryParameters: args);
     }
 
+    /// Filter profile list by labels.
+    void filterLabels(String label) {
+        Map args = this._makeUrlArgs();
+
+        if (label == null) {
+            args.remove('label');
+        } else {
+            if (this.labelFilters == null) {
+                this.labelFilters = new List();
+            }
+            if (!this.labelFilters.contains(label)) {
+                this.labelFilters.add(label);
+                args['label'] = this.labelFilters.join(',');
+            }
+        }
+
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
+    }
+
+    /// Remove specified label from list of profile label filters.
+    void filterLabelsRemove(String label) {
+        Map args = this._makeUrlArgs();
+        if (this.labelFilters != null) {
+            this.labelFilters.remove(label);
+
+            if (this.labelFilters.length == 0) {
+                args.remove('label');
+                this.labelFilters = null;
+            } else {
+                args['label'] = this.labelFilters.join(',');
+            }
+
+            this._router.go('profile_list',
+                            this._rp.route.parameters,
+                            queryParameters: args);
+        }
+    }
+
     /// Trigger add profile when the user presses enter in the profile input.
     void handleAddProfileKeypress(Event e) {
         if (e.charCode == 13) {
@@ -231,11 +325,13 @@ class ProfileListComponent extends Object with CurrentPageMixin
         Map siteProfiles = this.newProfilesMap[json['site']];
         Profile profile;
 
+        
         if (siteProfiles != null) {
             profile = siteProfiles[username];
         }
 
         if (json['error'] == null) {
+
             if (profile == null &&
                 (this.siteFilter == null || this.siteFilter == json['site'])) {
                 // This was added by another client.
@@ -251,7 +347,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.isInteresting = json['is_interesting'];
 
             this.idProfilesMap[json['id']] = profile;
-            this.newProfilesMap[json['site']].remove(username);
+            if (this.newProfilesMap[json['site']] != null) {
+                this.newProfilesMap[json['site']].remove(username);
+            }
         } else if (profile != null) {
             // Only display errors for profiles added by this client.
             profile.error = json['error'];
@@ -263,7 +361,13 @@ class ProfileListComponent extends Object with CurrentPageMixin
         }
     }
 
-    /// Show the "add profile" dialog.
+    /// Listen for label updates.
+    void labelListener(Event e) {
+        Map json = JSON.decode(e.data);
+
+        if (json['error'] == null) {
+            this._fetchLabels();
+        } } /// Show the "add profile" dialog.
     void showAddDialog() {
         this.showAdd = true;
 
@@ -294,6 +398,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (this.interestFilter != null) {
             urlArgs['interesting'] = this.interestFilter;
+        }
+
+        if (this.labelFilters != null) {
+            urlArgs['label'] = this.labelFilters.join(',');
         }
 
         this.api
@@ -346,6 +454,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             args['interesting'] = this.interestFilter;
         }
 
+        if (this.labelFilters != null) {
+            args['label'] = this.labelFilters.join(',');
+        }
+
         return args;
     }
 
@@ -380,17 +492,28 @@ class ProfileListComponent extends Object with CurrentPageMixin
         String interesting = this._getQPString(qp['interesting']);
         this.interestFilter = interesting;
 
+        String labels = this._getQPString(qp['label']);
+
         if (site == null) {
             this.siteFilterDescription = 'All Sites';
         } else {
             String initial = site[0].toUpperCase();
             this.siteFilterDescription = site.replaceRange(0, 1, initial);
         }
+
         if (interesting == null) {
             this.interestFilterDescription = 'All Profiles';
         } else {
             String initial = interesting[0].toUpperCase();
             this.interestFilterDescription = interesting.replaceRange(0, 1, initial);
+        }
+
+        if (labels == null) {
+            this.labelFilterDescription = 'All Labels';
+            this.labelFilters = null; 
+        } else {
+            this.labelFilters = labels.split(','); 
+            this.labelFilterDescription = '${labelFilters.length.toString()} active';
         }
     }
 }

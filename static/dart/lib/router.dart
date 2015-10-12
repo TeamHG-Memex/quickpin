@@ -85,6 +85,12 @@ class QuickPinRouteInitializer implements Function {
                 preEnter: auth.requireLogin,
                 viewHtml: '<user></user>'
             ),
+            'label_list': ngRoute(
+                path: '/label',
+                preEnter: auth.requireLogin,
+                dontLeaveOnParamChanges: true,
+                viewHtml: '<label-list></label-list>'
+            ),
 
         });
     }

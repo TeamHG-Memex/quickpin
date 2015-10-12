@@ -114,10 +114,7 @@
             <div class="row">
               <div class="col-sm-8">
                 <em>
-                   Errors were reported by workers for this profile. View  and delete them 
-                   to remove this message.
-                    
-                    
+                   Errors were reported by while updating this profile. 
                 </em>
               </div>
               <div class="col-sm-4">
@@ -133,7 +130,7 @@
                     ng-show="auth.isAdmin() == false"
                     href="/admin/background-tasks" 
                     disabled>
-                    You must be an admin to manage background tasks 
+                    Contact your administrator 
                   </a>
                 </span>
               </div>
@@ -205,8 +202,6 @@
 
     </div>
   </div>
-
-
 
   <div class="row"><!--start row-->
     <div class="col-md-4"><!--start col-->
@@ -347,5 +342,91 @@
       </table>
     </div>
   </div>
+
+
+  <div class="row">
+    <div class="col-md-4 col-sm-8">
+      <h2>Labels</h2>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="buttons pull-right">
+          <div class='btn-group'>
+            <a class='btn btn-primary btn-sm pull-right'
+               ng-disabled='showAddLabel'
+               ng-click='showAddLabelDialog()'>
+              <i class='fa fa-user-plus'></i>
+              Add Labels 
+            </a>
+          </div>
+        </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-6 col-sm-12">
+      <div class='alert alert-danger' role='alert' ng-show='labelError != null'>
+        {{labelError}}
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 col-sm-12">
+      <form ng-show='showAddLabel' class='form-inline pull-right'>
+        <div class='form-group'>
+          <div class='input-group'>
+            <div class='input-group-addon'><strong>Add Label</strong></div>
+            
+            <autocomplete-text text='""'
+                               size='20'
+                               cssid='newLabelText'
+                               onsave='addProfileLabel'
+                               cssclass='form-control add-label-form input-sm'>
+            </autocomplete-text>
+          </div>
+        </div>
+
+        <button class='btn btn-sm btn-success'
+                ng-click='addProfileLabel()'
+                ng-disabled='submittingLabel'>
+          <i class='fa fa-circle-plus'></i>
+          Add
+        </button>
+
+        <button class='btn btn-sm btn-danger'
+                ng-click='hideAddLabelDialog()'
+                ng-disabled='submittingLabel'>
+          <i class='fa fa-times'></i>
+          Cancel
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <div class='row'><!--start row -->
+    <div class='col-md-6 col-sm-12'><!--start col-->
+      <table class='table table-striped'>
+        <thead>
+          <tr>
+            <th>Labels</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr ng-if='profile.labels.length == 0'>
+            <td colspan='100' class='no-rows'>No labels found.</td>
+          </tr>
+          <tr ng-repeat='label in profile.labels'>
+            <td>
+              <button class="btn btn-xs"
+                      ng-click="removeProfileLabelAtIndex($index)">
+              <i class='fa fa-times'></i>
+              {{label.name}} 
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div><!-- end col -->
+  </div><!-- end row -->
 </div>
 

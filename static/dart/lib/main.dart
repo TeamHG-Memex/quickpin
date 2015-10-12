@@ -61,7 +61,7 @@ class QuickPinApplication extends Module {
 
         bind(AdminIndexComponent);
         bind(AuthenticationController);
-        bind(AutoCompleteTextComponent);
+        bind(AutocompleteTextComponent);
         bind(BackgroundTasksComponent);
         bind(BreadcrumbsComponent);
         bind(BusyButtonComponent);
