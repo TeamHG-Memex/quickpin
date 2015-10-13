@@ -22,9 +22,6 @@ from model.configuration import get_config
 import worker
 import worker.index
 
-import logging
-logging.basicConfig(filename='/var/log/quickpin.log',level=logging.WARNING)
-
 
 class ScrapeException(Exception):
     ''' Represents a user-facing exception. '''

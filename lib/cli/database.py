@@ -60,24 +60,6 @@ class DatabaseCli(cli.BaseCli):
 
         session = app.database.get_session(self._db)
 
-        #piscina_ui_url = Configuration('piscina_ui_url', '')
-        #session.add(piscina_ui_url)
-
-        #piscina_proxy_url = Configuration('piscina_proxy_url', '')
-        #session.add(piscina_proxy_url)
-
-        #max_posts_twitter = Configuration('max_posts_twitter', '')
-        #session.add(max_posts_twitter)
-
-        #max_posts_instagram = Configuration('max_posts_instagram', '')
-        #session.add(max_posts_instagram)
-
-        #max_relations_twitter = Configuration('max_relations_twitter', '')
-        #session.add(max_relations_twitter)
-
-        #max_relations_instagram = Configuration('max_relations_instagram', '')
-        #session.add(max_relations_instagram)
-
         for key, value in config.items('config_table'):
             session.add(Configuration(key, value))
 
@@ -318,6 +300,24 @@ class DatabaseCli(cli.BaseCli):
             self._logger.info('Dropping database tables.')
             self._drop_all()
 
+            # Delete Solr indexes whenever we drop database
+            self._logger.info('Deleting Solr index.')
+            solr_index_cli_path = get_path('bin/index.py')
+
+            process = subprocess.Popen(
+                ['python3', solr_index_cli_path, 'delete-all'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+
+            process.wait()
+
+            if process.returncode != 0:
+                args = (process.returncode, process.stderr.read().decode('ascii'))
+                self._logger.error('External process `Delete Solr index` ' \
+                                'failed with error code (%d):\n%s' % args)
+                sys.exit(1)
+
         if args.action == 'build':
             self._logger.info('Running Agnostic\'s bootstrap.')
             self._agnostic_bootstrap(config)
@@ -331,3 +331,20 @@ class DatabaseCli(cli.BaseCli):
         if args.action == 'build' and args.sample_data:
             self._logger.info('Creating sample data.')
             self._create_samples(config)
+
+            # Create Solr indexes when we build database with sample data
+            self._logger.info('Creating Solr index.')
+            solr_index_cli_path = get_path('bin/index.py')
+
+            process = subprocess.Popen(
+                ['python3', solr_index_cli_path, 'add-all'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+            process.wait()
+
+            if process.returncode != 0:
+                args = (process.returncode, process.stderr.read().decode('ascii'))
+                self._logger.error('External process `Create Solr index` ' \
+                                'failed with error code (%d):\n%s' % args)
+                sys.exit(1)
