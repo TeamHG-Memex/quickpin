@@ -64,7 +64,10 @@ class AuthenticationController {
         Map loginArgs = {};
 
         if (expired) {
-            this._stashedUrl = window.location.pathname;
+            this._stashedUrl = window.location.pathname +
+                               window.location.search +
+                               window.location.hash;
+
             loginArgs['expired'] = 'true';
         }
 
@@ -77,7 +80,10 @@ class AuthenticationController {
 
         this._loggedInCompleter.future.then((result) {
             if (!result) {
-                this._stashedUrl = window.location.pathname;
+                this._stashedUrl = window.location.pathname +
+                                   window.location.search +
+                                   window.location.hash;
+
                 this._router.go('login', {});
             }
         });
