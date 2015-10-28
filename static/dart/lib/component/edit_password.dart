@@ -21,8 +21,6 @@ class EditPasswordComponent implements ShadowRootAware {
 
     bool editing = false;
 
-    String password_text = '';
-
     final Element _element;
     HTMLElement _input;
 
@@ -60,9 +58,6 @@ class EditPasswordComponent implements ShadowRootAware {
     void onShadowRoot(HtmlElement shadowRoot) {
         document.addEventListener('start-edit', this.handleEditEvent);
         this._input = this._element.querySelector('input');
-        for(int i=0; i<this.text.length;i++) {
-            this.password_text += '*';
-        }
     }
 
     /// Update element text and call save event handler.
