@@ -367,7 +367,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (json['error'] == null) {
             this._fetchLabels();
-        } } /// Show the "add profile" dialog.
+        } 
+    } 
+    
+    /// Show the "add profile" dialog.
     void showAddDialog() {
         this.showAdd = true;
 

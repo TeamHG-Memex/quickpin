@@ -261,6 +261,9 @@ def init_views(flask_app, config):
     from app.views.label import LabelView
     LabelView.register(flask_app, route_base='/api/label/')
 
+    from app.views.intents import IntentsView
+    IntentsView.register(flask_app, route_base='/api/intents/')
+
     # Make sure to import the Angular view last so that it will match
     # all remaining routes.
     import app.views.angular

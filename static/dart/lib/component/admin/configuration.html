@@ -26,9 +26,16 @@
         {{key}}
       </td>
       <td>
-        <edit-text text='configuration[key]["value"]'
-                   onsave='configuration[key]["save"]'
-                   size='60'></edit-text>
+        <div ng-show='!key.contains("password")'>
+          <edit-text text='configuration[key]["value"]'
+                     onsave='configuration[key]["save"]'
+                     size='60'></edit-text>
+        </div>
+        <div ng-show='key.contains("password")'>
+          <edit-password text='configuration[key]["value"]'
+                     onsave='configuration[key]["save"]'
+                     size='60'></edit-text>
+        </div>
       </td>
     </tr>
   </tbody>

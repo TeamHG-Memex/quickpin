@@ -18,6 +18,7 @@ import 'package:quickpin/component/d3/heatmap.dart';
 import 'package:quickpin/component/d3/sparkline.dart';
 import 'package:quickpin/component/edit_select.dart';
 import 'package:quickpin/component/edit_text.dart';
+import 'package:quickpin/component/edit_password.dart';
 import 'package:quickpin/component/excerpt.dart';
 import 'package:quickpin/component/home.dart';
 import 'package:quickpin/component/label/list.dart';
@@ -70,6 +71,7 @@ class QuickPinApplication extends Module {
         bind(DefaultFormatter);
         bind(EditSelectComponent);
         bind(EditTextComponent);
+        bind(EditPasswordComponent);
         bind(ExcerptComponent);
         bind(GripComponent);
         bind(HeatmapComponent);
