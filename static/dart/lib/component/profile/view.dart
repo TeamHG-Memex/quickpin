@@ -26,7 +26,9 @@ class ProfileComponent {
     List<Breadcrumb> crumbs;
     List<Profile> followers;
     List<Profile> friends;
+    String error;
     int id;
+    List<Map> intents;
     int loading = 0;
     bool loadingFailedTasks = false;
     bool showAddLabel = false;
@@ -231,6 +233,69 @@ class ProfileComponent {
                 resetButton();
                 this.loading--;
             });
+    }
+
+    /// Parse intent item obtained from the QCR intents server
+    Map _parseIntent(Map intent) {
+        String identifier;
+        Map parsedIntent = {
+            'name': intent['name'],
+        };
+
+        if(intent['intents'].containsKey('user')) {
+            identifier = intent['intents']['user'];
+            RegExp regex = new RegExp(r'{{user}}', caseSensitive: false);
+            identifier = identifier.replaceAll(regex, this.profile.username); 
+        }
+
+        if(identifier != null) {
+            if(identifier.startsWith('?')) {
+                parsedIntent['url'] = intent['url'] + identifier;
+            } else {
+                if(!intent['url'].endsWith('/')) {
+                    intent['url'] += '/';
+                }
+                parsedIntent['url'] = intent['url'] +  identifier;
+            }
+        } 
+
+        return parsedIntent;    
+    }
+    
+    /// Fetch external links to QCR apps
+    Future fetchQCRIntents() {
+        Completer completer = new Completer();
+        this.loading++;
+        String url = '/api/intents/';
+        this.intents = new List<Map>();
+
+        this.api
+            .get(url, needsAuth: true)
+            .catchError((response) {
+                this.error = 'External apps could not be obtained. Contact your administrator.';
+            })
+            .then((response) {
+                response.data.forEach((k,v) {
+                    Map intent = this._parseIntent(v);
+                    if(!intent['name'].contains(new RegExp(r'quickpin', caseSensitive: false))) {
+                        if(intent.containsKey('url') && !this.intents.contains(intent)) {
+                            this.intents.add(intent);
+                        }    
+                    }
+                });
+
+                if(this.intents.length > 1) {
+                    this.intents.sort((a,b) {
+                        return a['name'].compareTo(b['name']);
+                    });
+                }
+            })
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
+
+        return completer.future;
     }
 
     /// Fetch a page of followers for this profile.
