@@ -5,6 +5,7 @@ import 'dart:html';
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
+import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/model/label.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/mixin/current_page.dart';
@@ -32,6 +33,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     List<Profile> profiles;
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
+    Pager pager;
     List<Label> labels;
     Scope scope;
     bool showAdd = false;
@@ -56,6 +58,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Constructor.
     ProfileListComponent(this.api, this.auth, this._element, this._router,
                          this._rp, this._sse, this._ts) {
+        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this._ts.title = 'Profiles';
         this._parseQueryParameters(this._rp.route.queryParameters);
         this.idProfilesMap = new Map<num, Profile>();
@@ -393,7 +396,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.error = null;
         this.loading = true;
         String pageUrl = '/api/profile/';
-        Map urlArgs = new Map();
+        Map urlArgs = {
+            'page': this.currentPage,
+            'rpp': this._resultsPerPage,
+        };
 
         if (this.siteFilter != null) {
             urlArgs['site'] = this.siteFilter;
@@ -414,6 +420,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
                     response.data['profiles'].length,
                     (index) => new Profile.fromJson(response.data['profiles'][index])
                 );
+
+                this.pager = new Pager(response.data['total_count'],
+                                       this.currentPage,
+                                       resultsPerPage:this._resultsPerPage);
 
                 new Timer(new Duration(milliseconds: 100), () {
                     if (this.scope != null) {

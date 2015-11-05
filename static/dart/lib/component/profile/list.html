@@ -78,6 +78,13 @@
   {{error}}
 </div>
 
+<div class='row'>
+  <div class="col-sm-12">
+    Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+    of {{pager.totalResults | number}} labels.
+  </div>
+</div>
+
 <form ng-show='showAdd' class='form-inline add-profile-form'>
   <div class='form-group'>
     <div class='input-group'>
@@ -120,6 +127,13 @@
     Cancel
   </button>
 </form>
+
+<div class="row">
+  <div class="col-sm-12">
+    <pager pager='pager'
+          disabled='loading'></pager>
+  </div>
+</div>
 
 <masonry column-width='250' column-gap='25'>
   <div ng-repeat='profile in profiles' class='masonry-item'>
