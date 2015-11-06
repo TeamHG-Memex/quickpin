@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
-
+import 'package:collection/equality.dart';
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
@@ -30,6 +30,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     bool loading = false;
     String newProfile, newProfileSite;
     String newProfileSiteDescription = 'Select A Site';
+    bool newQP = false;
     List<Profile> profiles;
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
@@ -73,8 +74,13 @@ class ProfileListComponent extends Object with CurrentPageMixin
             this._sse.onLabel.listen(this.labelListener),
             rh.onEnter.listen((e) {
                 this._parseQueryParameters(e.queryParameters);
-                this._fetchCurrentPage();
-                this._fetchLabels();
+                if (this.newQP) {
+                    new Timer(new Duration(seconds:1), () {
+                        this._fetchCurrentPage();
+                        this._fetchLabels();
+                        this.newQP = false;
+                    }); 
+                }
             }),
         ];
 
@@ -162,6 +168,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
                         });
                         if (response.data.containsKey('total_count')) {
                             totalCount = response.data['total_count'];
+                        } else {
+                            finished = true;
                         }
 
                     })
@@ -241,7 +249,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['site'] = site;
         }
-
+        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -256,7 +264,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['interesting'] = interesting;
         }
-
+        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -269,15 +277,15 @@ class ProfileListComponent extends Object with CurrentPageMixin
         if (label == null) {
             args.remove('label');
         } else {
-            if (this.labelFilters == null) {
-                this.labelFilters = new List();
-            }
-            if (!this.labelFilters.contains(label)) {
-                this.labelFilters.add(label);
-                args['label'] = this.labelFilters.join(',');
+            if (this.labelFilters != null) {
+                if (!this.labelFilters.contains(label)) {
+                    args['label'] += ',${label}';
+                }
+            } else {
+                args['label'] = label;
             }
         }
-
+        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -287,15 +295,18 @@ class ProfileListComponent extends Object with CurrentPageMixin
     void filterLabelsRemove(String label) {
         Map args = this._makeUrlArgs();
         if (this.labelFilters != null) {
-            this.labelFilters.remove(label);
-
-            if (this.labelFilters.length == 0) {
+            List labels = new List();
+            this.labelFilters.forEach((labelFilter) {
+                if (labelFilter != label) {
+                    labels.add(labelFilter);
+                }
+            });
+            if (labels.length == 0) {
                 args.remove('label');
-                this.labelFilters = null;
             } else {
-                args['label'] = this.labelFilters.join(',');
+                args['label'] = labels.join(',');
             }
-
+            this.newQP = true;
             this._router.go('profile_list',
                             this._rp.route.parameters,
                             queryParameters: args);
@@ -412,7 +423,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
         if (this.labelFilters != null) {
             urlArgs['label'] = this.labelFilters.join(',');
         }
-
         this.api
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
@@ -499,7 +509,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
     /// Take a map of query parameters and parse/load into member variables.
     void _parseQueryParameters(qp) {
-        this.error = '';
+        this.error = null;
         String site = this._getQPString(qp['site']);
         this.siteFilter = site;
         String interesting = this._getQPString(qp['interesting']);
