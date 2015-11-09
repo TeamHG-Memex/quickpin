@@ -633,7 +633,7 @@ class ProfileView(FlaskView):
             {
                 "profiles": [
                     {"username": "johndoe", "site": "instagram"},
-                    {"username": "janedoe", "site": "twitter"},
+                    {"id": "2232324", "site": "twitter"},
                     ...
                 ]
             }
@@ -667,16 +667,32 @@ class ProfileView(FlaskView):
         request_json = request.get_json()
 
         for profile in request_json['profiles']:
-            if 'username' not in profile or profile['username'].strip() == '':
-                raise BadRequest('Username is required for all profiles.')
+            if 'username' not in profile and 'id' not in profile:
+                raise BadRequest('Username or ID required for all profiles.')
+
+            if 'username' in profile:
+                if profile['username'].strip() == '':
+                    raise BadRequest('Username cannot be an empty string.')
+
+            if 'id' in profile:
+                if profile['id'].strip() == '':
+                    raise BadRequest('ID cannot be an empty string.')
 
             if 'site' not in profile or profile['site'].strip() == '':
                 raise BadRequest('Site is required for all profiles.')
 
+            if profile['site'].strip() == '':
+                raise BadRequest('Site cannot be an empty string.')
+
         for profile in request_json['profiles']:
-            site = profile['site']
-            username = profile['username']
-            app.queue.schedule_profile(site, username)
+            if 'id' in profile:
+                site = profile['site']
+                id_ = profile['id']
+                app.queue.schedule_profile_id(site, id_)
+            else:
+                site = profile['site']
+                username = profile['username']
+                app.queue.schedule_profile(site, username)
 
         count = len(request_json['profiles'])
         message = "{} new profile{} submitted." \
