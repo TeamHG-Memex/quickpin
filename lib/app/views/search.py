@@ -175,6 +175,7 @@ class SearchView(FlaskView):
             'name': ['name_txt_en', 'username_s'],
             'post': ['content_txt_en'],
             'site': ['site_name_txt_en'],
+            'upstream_id': ['upstream_id_s'],
         }
 
         # Boost fields. E.g. a match to a username ranks a result higher
@@ -315,6 +316,7 @@ class SearchView(FlaskView):
             'site': site_name,
             'type': doc['type_s'],
             'username': username,
+            'upstream_id': doc['upstream_id_s'],
         }
 
         if 'join_date_tdt' in doc:

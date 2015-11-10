@@ -633,7 +633,7 @@ class ProfileView(FlaskView):
             {
                 "profiles": [
                     {"username": "johndoe", "site": "instagram"},
-                    {"id": "2232324", "site": "twitter"},
+                    {"upstream_id": "2232324", "site": "twitter"},
                     ...
                 ]
             }
@@ -665,18 +665,24 @@ class ProfileView(FlaskView):
         '''
 
         request_json = request.get_json()
+        if request_json is None:
+            raise BadRequest("Post request requires json data")
+
+        if 'profiles' not in request_json:
+            raise BadRequest("'profiles' is a required json dictionary key")
+
 
         for profile in request_json['profiles']:
-            if 'username' not in profile and 'id' not in profile:
-                raise BadRequest('Username or ID required for all profiles.')
+            if 'username' not in profile and 'upstream_id' not in profile:
+                raise BadRequest('Username or upstream_id required for all profiles.')
 
             if 'username' in profile:
                 if profile['username'].strip() == '':
                     raise BadRequest('Username cannot be an empty string.')
 
-            if 'id' in profile:
-                if profile['id'].strip() == '':
-                    raise BadRequest('ID cannot be an empty string.')
+            if 'upstream_id' in profile:
+                if profile['upstream_id'].strip() == '':
+                    raise BadRequest('Upstream ID cannot be an empty string.')
 
             if 'site' not in profile or profile['site'].strip() == '':
                 raise BadRequest('Site is required for all profiles.')
@@ -685,10 +691,10 @@ class ProfileView(FlaskView):
                 raise BadRequest('Site cannot be an empty string.')
 
         for profile in request_json['profiles']:
-            if 'id' in profile:
+            if 'upstream_id' in profile:
                 site = profile['site']
-                id_ = profile['id']
-                app.queue.schedule_profile_id(site, id_)
+                upstream_id = profile['upstream_id']
+                app.queue.schedule_profile_id(site, upstream_id)
             else:
                 site = profile['site']
                 username = profile['username']

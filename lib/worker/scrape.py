@@ -256,10 +256,6 @@ def scrape_instagram_account_by_id(upstream_id):
     db_session = worker.get_session()
     proxies = _get_proxies(db_session)
 
-    profile = db_session.query(Profile) \
-                        .filter(Profile.site=='instagram') \
-                        .filter(Profile.upstream_id==upstream_id) \
-                        .one()
 
     # Instagram API request.
     api_url = 'https://api.instagram.com/v1/users/{}'.format(upstream_id)
@@ -272,6 +268,21 @@ def scrape_instagram_account_by_id(upstream_id):
 
     response.raise_for_status()
     data = response.json()['data']
+
+    # Update the profile.
+    data = response.json()[0]
+    profile = Profile('instagram', upstream_id, data['screen_name'])
+    db_session.add(profile)
+
+    try:
+        db_session.commit()
+    except IntegrityError:
+        # Already exists: use the existing profile.
+        db_session.rollback()
+        profile = db_session.query(Profile) \
+                            .filter(Profile.site=='instagram') \
+                            .filter(Profile.upstream_id==upstream_id) \
+                            .one()
 
     # Update profile
     profile.description = data['bio']
@@ -619,11 +630,6 @@ def scrape_twitter_account_by_id(upstream_id):
 
     db_session = worker.get_session()
 
-    profile = db_session.query(Profile) \
-                        .filter(Profile.site=='twitter') \
-                        .filter(Profile.upstream_id==upstream_id) \
-                        .one()
-
     # Request from Twitter API.
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
     params = {'user_id': upstream_id}
@@ -637,6 +643,19 @@ def scrape_twitter_account_by_id(upstream_id):
 
     # Update the profile.
     data = response.json()[0]
+    profile = Profile('twitter', upstream_id, data['screen_name'])
+    db_session.add(profile)
+
+    try:
+        db_session.commit()
+    except IntegrityError:
+        # Already exists: use the existing profile.
+        db_session.rollback()
+        profile = db_session.query(Profile) \
+                            .filter(Profile.site=='twitter') \
+                            .filter(Profile.upstream_id==upstream_id) \
+                            .one()
+
     _twitter_populate_profile(data, profile)
     profile.is_stub = False
     db_session.commit()
