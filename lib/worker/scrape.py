@@ -3,10 +3,8 @@
 import bs4
 from datetime import datetime
 import dateutil.parser
-import hashlib
 import json
 import os
-import pickle
 from urllib.parse import urlparse
 
 import requests
@@ -16,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Avatar, Configuration, File, Post, Profile
+from model import Avatar, File, Post, Profile
 from model.profile import profile_join_self
 from model.configuration import get_config
 import worker
@@ -40,7 +38,7 @@ def scrape_avatar(id_, site, url):
     redis = worker.get_redis()
     db_session = worker.get_session()
     avatar = None
-    profile = db_session.query(Profile).filter(Profile.id==id_).first()
+    profile = db_session.query(Profile).filter(Profile.id == id_).first()
 
     if profile is None:
         raise ValueError('No profile exists with id={}'.format(id_))
@@ -83,7 +81,7 @@ def scrape_avatar(id_, site, url):
     }))
 
 
-def scrape_profile(site, username):
+def scrape_profile(site, usernames, stub=False):
     ''' Scrape a twitter or instagram account. '''
 
     redis = worker.get_redis()
@@ -91,18 +89,27 @@ def scrape_profile(site, username):
 
     try:
         if site == 'twitter':
-            profile = scrape_twitter_account(username)
+            profiles = scrape_twitter_account(usernames, stub)
         elif site == 'instagram':
-            profile = scrape_instagram_account(username)
+            profiles = []
+            for username in usernames:
+                profile = scrape_instagram_account(username, stub)
+                profiles.append(profile)
         else:
             raise ScrapeException('No scraper exists for site: {}'.format(site))
 
-        redis.publish('profile', json.dumps(profile))
+        for profile in profiles:
+            redis.publish('profile', json.dumps(profile))
+
         worker.finish_job()
 
     except requests.exceptions.HTTPError as he:
         response = he.response
-        message = {'username': username, 'site': site, 'code': response.status_code}
+        message = {
+            'usernames': usernames,
+            'site': site,
+            'code': response.status_code
+        }
 
         if response.status_code == 404:
             message['error'] = 'Does not exist on Twitter.'
@@ -114,22 +121,23 @@ def scrape_profile(site, username):
 
     except ScrapeException as se:
         message = {
-            'username': username,
+            'usernames': usernames,
             'site': site,
             'error': se.message,
         }
         redis.publish('profile', json.dumps(message))
 
-    except Exception as e:
+    except:
         message = {
-            'username': username,
+            'usernames': usernames,
             'site': site,
             'error': 'Unknown error while fetching profile.',
         }
         redis.publish('profile', json.dumps(message))
         raise
 
-def scrape_profile_by_id(site, upstream_id):
+
+def scrape_profile_by_id(site, upstream_ids, stub=False):
     ''' Scrape a twitter or instagram account using the user ID. '''
 
     redis = worker.get_redis()
@@ -137,18 +145,23 @@ def scrape_profile_by_id(site, upstream_id):
 
     try:
         if site == 'twitter':
-            profile = scrape_twitter_account_by_id(upstream_id)
+            profiles = scrape_twitter_account_by_id(upstream_ids, stub)
         elif site == 'instagram':
-            profile = scrape_instagram_account_by_id(upstream_id)
+            profiles = []
+            for upstream_id in upstream_ids:
+                profile = scrape_instagram_account(upstream_id, stub)
+                profiles.append(profile)
         else:
             raise ScrapeException('No scraper exists for site: {}'.format(site))
 
-        redis.publish('profile', json.dumps(profile))
+        for profile in profiles:
+            redis.publish('profile', json.dumps(profile))
+
         worker.finish_job()
 
     except requests.exceptions.HTTPError as he:
         response = he.response
-        message = {'upstream_id': upstream_id, 'site': site, 'code': response.status_code}
+        message = {'upstream_ids': upstream_ids, 'site': site, 'code': response.status_code}
 
         if response.status_code == 404:
             message['error'] = 'Does not exist on Twitter.'
@@ -160,15 +173,15 @@ def scrape_profile_by_id(site, upstream_id):
 
     except ScrapeException as se:
         message = {
-            'upstream_id': upstream_id,
+            'upstream_ids': upstream_ids,
             'site': site,
             'error': se.message,
         }
         redis.publish('profile', json.dumps(message))
 
-    except Exception as e:
+    except:
         message = {
-            'upstream_id': upstream_id,
+            'upstream_ids': upstream_ids,
             'site': site,
             'error': 'Unknown error while fetching profile.',
         }
@@ -176,9 +189,8 @@ def scrape_profile_by_id(site, upstream_id):
         raise
 
 
-def scrape_instagram_account(username):
+def scrape_instagram_account(username, stub=False):
     ''' Scrape instagram bio data and create (or update) a profile. '''
-
     # Getting a user ID is more difficult than it ought to be: you need to
     # search for the username and iterate through the search results results to
     # find an exact match.
@@ -229,8 +241,8 @@ def scrape_instagram_account(username):
         # Already exists: use the existing profile.
         db_session.rollback()
         profile = db_session.query(Profile) \
-                            .filter(Profile.site=='instagram') \
-                            .filter(Profile.upstream_id==user_id) \
+                            .filter(Profile.site == 'instagram') \
+                            .filter(Profile.upstream_id == user_id) \
                             .one()
 
     profile.description = data['bio']
@@ -239,23 +251,24 @@ def scrape_instagram_account(username):
     profile.homepage = data['website']
     profile.name = data['full_name']
     profile.post_count = int(data['counts']['media'])
-    profile.is_stub = False
+    profile.is_stub = stub
     db_session.commit()
 
     # Schedule followup jobs.
-    app.queue.schedule_avatar(profile, data['profile_picture'])
-    app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile, recent=True)
-    app.queue.schedule_relations(profile)
+    if not stub:
+        app.queue.schedule_avatar(profile, data['profile_picture'])
+        app.queue.schedule_index_profile(profile)
+        app.queue.schedule_posts(profile, recent=True)
+        app.queue.schedule_relations(profile)
 
     return profile.as_dict()
 
-def scrape_instagram_account_by_id(upstream_id):
+
+def scrape_instagram_account_by_id(upstream_id, stub=False):
     ''' Scrape instagram bio data for upstream ID and update a profile. '''
 
     db_session = worker.get_session()
     proxies = _get_proxies(db_session)
-
 
     # Instagram API request.
     api_url = 'https://api.instagram.com/v1/users/{}'.format(upstream_id)
@@ -280,8 +293,8 @@ def scrape_instagram_account_by_id(upstream_id):
         # Already exists: use the existing profile.
         db_session.rollback()
         profile = db_session.query(Profile) \
-                            .filter(Profile.site=='instagram') \
-                            .filter(Profile.upstream_id==upstream_id) \
+                            .filter(Profile.site == 'instagram') \
+                            .filter(Profile.upstream_id == upstream_id) \
                             .one()
 
     # Update profile
@@ -291,16 +304,18 @@ def scrape_instagram_account_by_id(upstream_id):
     profile.homepage = data['website']
     profile.name = data['full_name']
     profile.post_count = int(data['counts']['media'])
-    profile.is_stub = False
+    profile.is_stub = stub
     db_session.commit()
 
     # Schedule followup jobs.
-    app.queue.schedule_avatar(profile, data['profile_picture'])
-    app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile, recent=True)
-    app.queue.schedule_relations(profile)
+    if not stub:
+        app.queue.schedule_avatar(profile, data['profile_picture'])
+        app.queue.schedule_index_profile(profile)
+        app.queue.schedule_posts(profile, recent=True)
+        app.queue.schedule_relations(profile)
 
     return profile.as_dict()
+
 
 def scrape_instagram_posts(id_, recent):
     '''
@@ -312,7 +327,7 @@ def scrape_instagram_posts(id_, recent):
     '''
     redis = worker.get_redis()
     db = worker.get_session()
-    author = db.query(Profile).filter(Profile.id==id_).first()
+    author = db.query(Profile).filter(Profile.id == id_).first()
     proxies = _get_proxies(db)
     max_results = get_config(db, 'max_posts_instagram', required=True).value
     try:
@@ -321,7 +336,6 @@ def scrape_instagram_posts(id_, recent):
         raise ScrapeException('Value of max_posts_instagram must be an integer')
 
     min_id = None
-    more_results = True
     results = 0
     params = {}
 
@@ -333,8 +347,8 @@ def scrape_instagram_posts(id_, recent):
 
     # Get last post currently stored in db for this profile.
     post_query = db.query(Post) \
-                        .filter(Post.author_id == id_) \
-                        .order_by(Post.upstream_created.desc()) \
+        .filter(Post.author_id == id_) \
+        .order_by(Post.upstream_created.desc()) \
 
     if post_query.count() > 0:
         # Only fetch posts newer than those already stored in db
@@ -343,11 +357,10 @@ def scrape_instagram_posts(id_, recent):
             params['min_id'] = str(min_id)
         # Only fetch posts older than those already stored in db
         else:
-            max_id = post_query[post_query.count() -1].upstream_id
+            max_id = post_query[post_query.count() - 1].upstream_id
             params['max_id'] = str(max_id)
 
     worker.start_job(total=max_results)
-    logging.warning('WORKER max results: {}'.format(max_results))
     while results < max_results:
         response = requests.get(
             url,
@@ -573,100 +586,122 @@ def scrape_instagram_relations(id_):
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
 
-def scrape_twitter_account(username):
+def scrape_twitter_account(usernames, stub=False):
     '''
-    Scrape twitter bio data and create (or update) a profile.
-
-    TODO The API call used here supports up to 100 usernames at a time. We
-    could easily modify this function to populate many profiles at once.
+    Scrape twitter bio data and create (or update) a list of profile
+    usernames.
     '''
 
+    if len(usernames) > 100:
+        raise ScrapeException('Twitter API max is 100 user IDs per request.')
+
+    profiles = []
     # Request from Twitter API.
     db_session = worker.get_session()
 
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
-    params = {'screen_name': username}
-    response = requests.get(
+    payload = {'screen_name': ','.join(usernames)}
+    response = requests.post(
         api_url,
-        params=params,
+        data=payload,
         proxies=_get_proxies(db_session),
         verify=False
     )
     response.raise_for_status()
 
     # Get Twitter ID and upsert the profile.
-    data = response.json()[0] # TODO Only supports getting 1 profile right now...
-    user_id = data['id_str']
-    profile = Profile('twitter', user_id, data['screen_name'])
-    db_session.add(profile)
+    for profile_json in response.json():
+        user_id = profile_json['id_str']
+        profile = Profile('twitter', user_id, profile_json['screen_name'])
+        profile.is_stub = stub
+        db_session.add(profile)
 
-    try:
+        try:
+            db_session.commit()
+        except IntegrityError:
+            # Already exists: use the existing profile.
+            db_session.rollback()
+            profile = db_session.query(Profile) \
+                                .filter(Profile.site=='twitter') \
+                                .filter(Profile.upstream_id==user_id) \
+                                .one()
+
+        _twitter_populate_profile(profile_json, profile)
         db_session.commit()
-    except IntegrityError:
-        # Already exists: use the existing profile.
-        db_session.rollback()
-        profile = db_session.query(Profile) \
-                            .filter(Profile.site=='twitter') \
-                            .filter(Profile.upstream_id==user_id) \
-                            .one()
+        profiles.append(profile.as_dict())
 
-    _twitter_populate_profile(data, profile)
-    profile.is_stub = False
-    db_session.commit()
+        # Schedule followup jobs.
+        if not stub:
+            app.queue.schedule_avatar(profile, profile_json['profile_image_url_https'])
+            app.queue.schedule_index_profile(profile)
+            app.queue.schedule_posts(profile, recent=True)
+            app.queue.schedule_relations(profile)
 
-    # Schedule followup jobs.
-    app.queue.schedule_avatar(profile, data['profile_image_url_https'])
-    app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile, recent=True)
-    app.queue.schedule_relations(profile)
+    return profiles
 
-    return profile.as_dict()
 
-def scrape_twitter_account_by_id(upstream_id):
+def scrape_twitter_account_by_id(upstream_ids, stub=False):
     '''
-    Scrape twitter bio data for upstream ID and update a profile.
+    Scrape twitter bio data for upstream IDs and/or updates a profile.
     Accepts twitter ID rather than username.
     '''
+    if len(upstream_ids) > 100:
+        raise ScrapeException('Twitter API max is 100 user IDs per request.')
 
     db_session = worker.get_session()
+    profiles = []
 
     # Request from Twitter API.
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
-    params = {'user_id': upstream_id}
+    payload = {'user_id': ','.join(upstream_ids)}
     response = requests.post(
         api_url,
-        params=params,
+        data=payload,
         proxies=_get_proxies(db_session),
         verify=False
     )
     response.raise_for_status()
 
     # Update the profile.
-    data = response.json()[0]
-    profile = Profile('twitter', upstream_id, data['screen_name'])
-    db_session.add(profile)
+    for profile_json in response.json():
+        #data = response.json()[0]
+        profile = Profile(
+            'twitter',
+            profile_json['id_str'],
+            profile_json['screen_name']
+        )
+        profile.is_stub = stub
+        db_session.add(profile)
 
-    try:
+        try:
+            db_session.commit()
+        except IntegrityError:
+            # Already exists: use the existing profile.
+            db_session.rollback()
+            profile = db_session.query(Profile) \
+                                .filter(Profile.site=='twitter') \
+                                .filter(
+                                    Profile.upstream_id==profile_json['id_str']
+                                )\
+                                .one()
+            # Profiles already in the system are either not stubs or
+            # being updated to full profiles
+            profile.is_stub = False
+
+        _twitter_populate_profile(profile_json, profile)
         db_session.commit()
-    except IntegrityError:
-        # Already exists: use the existing profile.
-        db_session.rollback()
-        profile = db_session.query(Profile) \
-                            .filter(Profile.site=='twitter') \
-                            .filter(Profile.upstream_id==upstream_id) \
-                            .one()
+        profiles.append(profile.as_dict())
 
-    _twitter_populate_profile(data, profile)
-    profile.is_stub = False
-    db_session.commit()
+        # Schedule followup jobs.
+        if not stub:
+            app.queue.schedule_avatar(
+                profile, profile_json['profile_image_url_https']
+            )
+            app.queue.schedule_index_profile(profile)
+            app.queue.schedule_posts(profile, recent=True)
+            app.queue.schedule_relations(profile)
 
-    # Schedule followup jobs.
-    app.queue.schedule_avatar(profile, data['profile_image_url_https'])
-    app.queue.schedule_index_profile(profile)
-    app.queue.schedule_posts(profile, recent=True)
-    app.queue.schedule_relations(profile)
-
-    return profile.as_dict()
+    return profiles
 
 
 

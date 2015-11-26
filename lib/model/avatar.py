@@ -45,6 +45,9 @@ class Avatar(Base):
 
         thumb_file = io.BytesIO(image)
         thumb = Image.open(thumb_file)
+        # Handle files that are in palette rather than RGB mode
+        if thumb.mode != 'RGB':
+            thumb = thumb.convert('RGB')
         thumb.thumbnail(THUMB_SIZE)
         thumb_file.seek(0)
         thumb.save(thumb_file, format='JPEG')

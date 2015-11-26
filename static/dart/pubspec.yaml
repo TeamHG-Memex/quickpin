@@ -5,6 +5,7 @@ dependencies:
     bootjack: any
     browser: any
     collection: any
+    dialog: any
     dnd: any
     intl: any
     web_components: any

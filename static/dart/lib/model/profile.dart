@@ -21,6 +21,7 @@ class Profile {
     String name;
     int postCount;
     bool private;
+    double score;
     String site, siteName;
     String timeZone;
     String upstreamId;
@@ -58,6 +59,7 @@ class Profile {
         this.name = json['name'];
         this.postCount = json['post_count'];
         this.private = json['private'];
+        this.score = json['score'];
         this.site = json['site'];
         this.siteName = json['site_name'];
         this.timeZone = json['time_zone'];

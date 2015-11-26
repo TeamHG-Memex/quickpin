@@ -49,6 +49,10 @@ packages:
     description: di
     source: hosted
     version: "3.3.4"
+  dialog:
+    description: dialog
+    source: hosted
+    version: "0.5.0"
   dnd:
     description: dnd
     source: hosted

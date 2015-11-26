@@ -53,7 +53,7 @@ def schedule_index_posts(post_ids):
 
     job = _index_queue.enqueue_call(
         func=worker.index.index_posts,
-        kwargs={'post_ids':post_ids},
+        kwargs={'post_ids': post_ids},
         timeout=_redis_worker['solr_timeout']
     )
 
@@ -63,12 +63,12 @@ def schedule_index_posts(post_ids):
     worker.init_job(job=job, description=description)
 
 
-def schedule_profile(site, username):
+def schedule_profile(site, username, stub=False):
     ''' Queue a job to fetch the specified profile from a social media site. '''
 
     job = _scrape_queue.enqueue_call(
         func=worker.scrape.scrape_profile,
-        args=(site,username),
+        args=(site, [username], stub),
         timeout=_redis_worker['profile_timeout']
     )
 
@@ -76,17 +76,102 @@ def schedule_profile(site, username):
     worker.init_job(job=job, description=description)
 
 
-def schedule_profile_id(site, upstream_id, profile_id=None):
+def schedule_profile_id(site, upstream_id, profile_id=None, stub=False):
     ''' Queue a job to fetch the specified profile from a social media site. '''
 
     job = _scrape_queue.enqueue_call(
         func=worker.scrape.scrape_profile_by_id,
-        args=(site,upstream_id),
+        args=(site, [upstream_id], stub),
         timeout=_redis_worker['profile_timeout']
     )
 
     description = 'Scraping bio for "{}" on {}'.format(upstream_id, site)
     worker.init_job(job=job, description=description, profile_id=profile_id)
+
+
+def schedule_profiles(profiles, stub=False):
+    '''
+    Queue jobs to fetch a list of profiles from a social media site.
+
+    Profile scraping jobs are chunked according to maximum API request size
+
+    Twitter:
+        Supports 100 users per lookup:
+        https://dev.twitter.com/rest/reference/get/users/lookup
+
+    Instagram:
+        Supports 1 user per lookup:
+        https://instagram.com/developer/endpoints/users/#get_users_search
+
+    Parameters:
+
+        'profiles' (list) - A list of profile dictionaries
+
+            Each dictionary specifiies profile username or id and social media
+            site name ("twitter", "instagram").
+
+            Example:
+
+                profiles = [
+                    {
+                        'username': 'hyperiongray',
+                        'site': 'twitter',
+                    },
+                    {
+                        'upstream_id': '343432',
+                        'site': 'instagram',
+                    },
+                    ...
+                ]
+
+        'stub' (bool) - whether or not to import the profile as a stub
+    '''
+
+    # Aggregate profiles by site and API request type (username or ID)
+    site_profiles = {}
+    for profile in profiles:
+        if profile['site'] not in site_profiles:
+            site_profiles[profile['site']] = {
+                'username': [],
+                'upstream_id': []
+            }
+        if 'upstream_id' in profile:
+            site_profiles[profile['site']]['upstream_id'].append(profile)
+        else:
+            site_profiles[profile['site']]['username'].append(profile)
+
+    # Spawn scraping jobs
+    for site, type_profiles in site_profiles.items():
+        if site == 'twitter':
+            chunk_size = 100
+        else:
+            chunk_size = 1
+        # Break jobs into  API request type - username or ID
+        for type_, t_profiles in type_profiles.items():
+            # Chunk by API request size
+            for i in range(0, len(t_profiles), chunk_size):
+                chunk = t_profiles[i:i+chunk_size]
+                if type_ == 'upstream_id':
+                    ids = [i['upstream_id'] for i in chunk]
+                    job = _scrape_queue.enqueue_call(
+                        func=worker.scrape.scrape_profile_by_id,
+                        args=(site, ids, stub),
+                        timeout=_redis_worker['profile_timeout']
+                    )
+                else:
+                    usernames = [i['username'] for i in chunk]
+                    job = _scrape_queue.enqueue_call(
+                        func=worker.scrape.scrape_profile,
+                        args=(site, usernames, stub),
+                        timeout=_redis_worker['profile_timeout']
+                    )
+
+                description = (
+                    'Scraping bios for {} {} profiles'
+                    .format(len(chunk), site)
+                )
+
+                worker.init_job(job=job, description=description)
 
 
 def schedule_posts(profile, recent=True):
@@ -99,9 +184,8 @@ def schedule_posts(profile, recent=True):
 
     description = 'Getting posts for "{}" on {}' \
                   .format(profile.username, profile.site_name())
-    type_ ='posts'
+    type_ = 'posts'
 
-    #job = _scrape_queue.enqueue(scrapers[profile.site], profile.id, recent)
     job = _scrape_queue.enqueue_call(
         func=scrapers[profile.site],
         args=(profile.id, recent),

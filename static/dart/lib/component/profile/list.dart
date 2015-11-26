@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
-import 'package:collection/equality.dart';
+
 import 'package:angular/angular.dart';
+import 'package:bootjack/bootjack.dart';
+import 'package:collection/equality.dart';
+import 'package:dialog/dialogs/alert.dart';
+
+import 'package:dquery/dquery.dart';
 import 'package:quickpin/authentication.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
@@ -35,10 +40,12 @@ class ProfileListComponent extends Object with CurrentPageMixin
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
     Pager pager;
+    List<String> profileAlerts;
     List<Label> labels;
     Scope scope;
     bool showAdd = false;
     String siteFilter, siteFilterDescription;
+    String stubFilter, stubFilterDescription;
     String interestFilter, interestFilterDescription;
     bool submittingProfile = false;
     bool updatingProfile = false;
@@ -313,6 +320,21 @@ class ProfileListComponent extends Object with CurrentPageMixin
         }
     }
 
+    /// Filter profile list by specified stub value.
+    void filterStub(String stub) {
+        Map args = this._makeUrlArgs();
+
+        if (stub == null) {
+            args.remove('stub');
+        } else {
+            args['stub'] = stub;
+        }
+        this.newQP = true;
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
+    }
+
     /// Trigger add profile when the user presses enter in the profile input.
     void handleAddProfileKeypress(Event e) {
         if (e.charCode == 13) {
@@ -331,27 +353,76 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this._inputEl = this._element.querySelector('.add-profile-form input');
     }
 
+    // Return whether profile json should be filtered from the current view.
+    bool _isFiltered(profile_json) {
+        bool filtered = true;
+        bool interestFiltered = true;
+        bool labelFiltered = true;
+        List<String> labels = new List<String>();
+        bool siteFiltered = true;
+        bool stubFiltered = true;
+        
+        // Determine if the profile is filtered by 'site'.
+        if (profile_json['site'] == this.siteFilter || this.siteFilter == null) {
+            siteFiltered = false;
+        }
+        // Determine if profile is filtered by 'is_interesting'.
+        if (profile_json['is_interesting'] == this.interestFilter || this.interestFilter == null) {
+            interestFiltered = false;
+        }
+        // Determine if the profile is filtered by 'is_stub'.
+        if ((profile_json['is_stub'] && this.stubFilter == '1') 
+                || (!profile_json['is_stub'] && this.stubFilter == '0') 
+                || this.stubFilter == null) {
+            stubFiltered = false;
+        }
+        // Determine if the profile is filtered by label.
+        profile_json['labels'].forEach((label_json) {
+            labels.add(label_json['text']);
+        });
+        labels.sort();
+        Function eq = const ListEquality().equals;
+        if (eq(labels, this.labelFilters) || this.labelFilters == null) {
+            labelFiltered = false;
+        }
+        // If any filters apply, the profile is filtered.
+        if (!siteFiltered && !interestFiltered && !stubFiltered && !labelFiltered) {
+            filtered = false;
+        }
+        return filtered;
+    }
+
     /// Listen for profile updates.
     void profileListener(Event e) {
-        bool showError;
         Map json = JSON.decode(e.data);
-        String username = json['username'].toLowerCase();
-        Map siteProfiles = this.newProfilesMap[json['site']];
         Profile profile;
+        bool showError;
+        Map siteProfiles = this.newProfilesMap[json['site']];
+        bool thisClient = false;
+        String username = json['username'].toLowerCase();
 
-        
-        if (siteProfiles != null) {
-            profile = siteProfiles[username];
+        // May be an update to existing profile.
+        // As you cannot edit profiles in list view, this is event is from another client
+        this.profiles.forEach((existingProfile) {
+            if(existingProfile.id == json['id']) {
+                profile = existingProfile;
+            }
+        });
+
+        // May be a new profile added by this client
+        if (profile == null && siteProfiles != null) {
+            if (siteProfiles.containsKey(username)) {
+                profile = siteProfiles[username];
+                thisClient = true;
+            }
         }
 
+        // Only process if there is not an error on the profile event
         if (json['error'] == null) {
-
-            if (profile == null &&
-                (this.siteFilter == null || this.siteFilter == json['site'])) {
-                // This was added by another client.
+            // If profile still null it is a profile added by another client
+            if (profile == null) {
                 profile = this._newProfile(username, json['site']);
             }
-
             profile.id = json['id'];
             profile.description = json['description'];
             profile.friendCount = json['friend_count'];
@@ -359,13 +430,34 @@ class ProfileListComponent extends Object with CurrentPageMixin
             profile.postCount = json['post_count'];
             profile.username = json['username'];
             profile.isInteresting = json['is_interesting'];
-
-            this.idProfilesMap[json['id']] = profile;
+            profile.score = json['score'];
             if (this.newProfilesMap[json['site']] != null) {
                 this.newProfilesMap[json['site']].remove(username);
             }
-        } else if (profile != null) {
-            // Only display errors for profiles added by this client.
+            if (!this._isFiltered(json)){
+                this.idProfilesMap[json['id']] = profile;
+            } 
+            else if (thisClient) {
+                String message = """
+                    You added a profile that is filtered from your current view. 
+                    Reset your filters to view all profiles.
+                    """;
+                this.profileAlerts.add(message);
+                new Timer(new Duration(seconds:2), () {
+                    //alert('Yo!');
+                    this.idProfilesMap[json['id']] = profile;
+                    this.idProfilesMap.remove(json['id']);
+                    this.profiles.remove(profile);
+                    if (this.scope != null) {
+                        scope.apply();
+                        this.scope.broadcast('masonry.layout');
+                    }
+                }); 
+            }
+
+        }
+        else if(thisClient) {
+            // Only show errors on events triggered by this client
             profile.error = json['error'];
         }
 
@@ -405,6 +497,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Fetch a page of profiles.
     void _fetchCurrentPage() {
         this.error = null;
+        this.profileAlerts = new List<String>();
         this.loading = true;
         String pageUrl = '/api/profile/';
         Map urlArgs = {
@@ -423,6 +516,11 @@ class ProfileListComponent extends Object with CurrentPageMixin
         if (this.labelFilters != null) {
             urlArgs['label'] = this.labelFilters.join(',');
         }
+
+        if (this.stubFilter != null) {
+            urlArgs['stub'] = this.stubFilter;
+        }
+
         this.api
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
@@ -481,6 +579,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             args['label'] = this.labelFilters.join(',');
         }
 
+        if (this.stubFilter != null) {
+            args['stub'] = this.stubFilter;
+        }
+
         return args;
     }
 
@@ -514,6 +616,8 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.siteFilter = site;
         String interesting = this._getQPString(qp['interesting']);
         this.interestFilter = interesting;
+        String stub = this._getQPString(qp['stub']);
+        this.stubFilter = stub;
 
         String labels = this._getQPString(qp['label']);
 
@@ -536,7 +640,15 @@ class ProfileListComponent extends Object with CurrentPageMixin
             this.labelFilters = null; 
         } else {
             this.labelFilters = labels.split(','); 
-            this.labelFilterDescription = '${labelFilters.length.toString()} active';
+            this.labelFilters.sort();
+            this.labelFilterDescription = '${this.labelFilters.length.toString()} active';
+        }
+        if (stub == null) {
+            this.stubFilterDescription = 'All Profiles';
+        } else if (stub == '1'){
+            this.stubFilterDescription = 'Yes';
+        } else {
+            this.stubFilterDescription = 'No';
         }
     }
 }
