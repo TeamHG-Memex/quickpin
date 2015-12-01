@@ -63,7 +63,7 @@ class Profile {
         this.site = json['site'];
         this.siteName = json['site_name'];
         this.timeZone = json['time_zone'];
-        this.upstreamId = json['original_id'];
+        this.upstreamId = json['upstream_id'];
         this.username = json['username'];
 
         if (json['usernames'] != null) {
