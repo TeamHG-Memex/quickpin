@@ -7,6 +7,22 @@
             class='btn btn-primary btn-sm dropdown-toggle'
             data-toggle='dropdown'
             aria-expanded='false'>
+      Stub: {{stubFilterDescription}} <span class='caret'></span>
+    </button>
+    <ul class='dropdown-menu sort-by' role='menu'>
+      <li><a ng-click='filterStub(null)'>All Profiles</a></li>
+      <li class='divider'></li>
+
+      <li><a ng-click='filterStub("1")'>Yes</a></li>
+      <li><a ng-click='filterStub("0")'>No</a></li>
+    </ul>
+  </div>
+
+  <div class='btn-group pull-right'>
+    <button type='button'
+            class='btn btn-primary btn-sm dropdown-toggle'
+            data-toggle='dropdown'
+            aria-expanded='false'>
       Label: {{labelFilterDescription}} <span class='caret'></span>
     </button>
     <ul class='dropdown-menu sort-by' role='menu'>
@@ -26,7 +42,6 @@
     </ul>
   </div>
 
-  
   <div class='btn-group pull-right'>
     <button type='button'
             class='btn btn-primary btn-sm dropdown-toggle'
@@ -75,7 +90,13 @@
 </h1>
 
 <div class='alert alert-danger' role='alert' ng-show='error != null'>
-  {{error}}
+  {{error}} 
+</div>
+
+<div class="row" ng-repeat="alert in profileAlerts">
+  <div class='alert alert-info' role='alert'>
+    {{alert}}
+  </div>
 </div>
 
 <div class='row'>
@@ -135,6 +156,28 @@
   </div>
 </div>
 
+<div class='modal fade' id='filtered-profile-modal' role='dialog'>
+  <div class='modal-dialog'> <!-- Start modal dialog -->
+    
+    <div class='modal-content'> <!-- Start modal content -->
+
+      <div class='modal-header'> <!-- Start modal header -->
+      </div><!-- End modal header -->
+
+      <div class='modal-body'><!--Start modal body -->
+      </div><!-- End modal body -->
+
+      <div class='modal-footer'><!-- Start modal footer -->
+        <button type='button' class='btn btn-default pull-left' data-dismiss='modal'>
+          OK 
+        </button>
+      </div><!-- End modal footer -->
+
+    </div><!-- End modal content -->
+
+  </div> <!-- End modal dialog -->
+</div>
+
 <masonry column-width='250' column-gap='25'>
   <div ng-repeat='profile in profiles' class='masonry-item'>
     <a ng-href='{{profile.id != null ? "/profile/" + profile.id : ""}}'>
@@ -178,6 +221,10 @@
       <strong class='text-muted'>Location:</strong>
       {{profile.location}}
     </div>
+    <div class='info' ng-show='profile.score != null'>
+      <strong class='text-muted'>Score:</strong>
+      {{profile.score}} 
+    </div>
     <p ng-show='profile.postCount != null'>
       <em>
         {{profile.friendCount | largeNumber:1}} friends,
@@ -217,3 +264,4 @@
   There are currently no profiles. Try clicking "Add Profiles" to get started.
 </p>
 <p ng-show='profiles.length == 0 && siteFilter != null'> No profiles match the current filter. Try changing the filter or click "Add Profiles" to add new profiles.  </p>
+

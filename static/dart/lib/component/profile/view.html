@@ -256,6 +256,27 @@
         </div>
       </div>
     </div> <!-- end col -->
+
+    <div class="col-md-8"><!--start col-->
+      
+      <div class='pull-right'>
+        <div class="score col-sm-6">
+          Score:
+        </div>
+        <div class="col-sm-6">
+          <div class="score">
+            <edit-text text="profile.score != null ? profile.score : 'None'"
+                       onsave="setProfileScore"
+                       size='20'></edit-text>
+         </div>
+          <div ng-show='profile.score != null'>
+            <a ng-click="setProfileScore(null)">clear</a>
+         </div>
+        </div>
+       </div>
+
+   </div><!-- end col -->
+
   </div> <!--end row -->
 
   <h2>Social Activity</h2>
@@ -452,3 +473,24 @@
   </div><!-- end row -->
 </div>
 
+  <h2>Notes</h2>
+  <div class='row'>
+    <div class='col-sm-12'>
+      <table class='table table-striped'>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Note</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Evidence Tweet</td>
+            <td>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur varius erat pulvinar sapien convallis efficitur. Duis cursus lorem sapien, non lacinia purus dignissim sit amet.</td>
+            <td>Mon Apr 27 18:15:45 +0000 2015</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>

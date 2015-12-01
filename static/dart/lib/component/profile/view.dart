@@ -219,6 +219,28 @@ class ProfileComponent {
             });
     }
 
+    void setProfileScore(double score) {
+        String pageUrl = '/api/profile/${this.id.toString()}';
+        this.loading++;
+
+        Map body = {
+            'score': score, 
+        };
+
+        this.api
+            .put(pageUrl, body, needsAuth: true)
+            .then((response) {
+                //new Timer(new Duration(seconds:0.1), () => this._inputEl.focus());
+                profile.score = score;
+            })
+            .catchError((response) {
+                this.error = response.data['message'];
+            })
+            .whenComplete(() {
+                this.loading--;
+            });
+    }
+
     /// Request updated data for profile.
     void updateProfile(Event event, String data, Function resetButton) {
         String pageUrl = '/api/profile/${this.id}/update';

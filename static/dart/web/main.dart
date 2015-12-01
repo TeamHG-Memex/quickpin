@@ -3,6 +3,8 @@ import 'dart:html';
 import 'package:angular/angular.dart';
 import 'package:angular/application_factory.dart';
 import 'package:bootjack/bootjack.dart';
+import 'package:dialog/dialogs/alert.dart';
+import 'package:dialog/dialogs/confirm.dart';
 import 'package:dquery/dquery.dart';
 import 'package:logging/logging.dart';
 

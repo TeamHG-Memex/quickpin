@@ -51,6 +51,7 @@ def make_profile_doc(profile):
         'site_name_txt_en': profile.site_name(),
         'type_s': 'Profile',
         'username_s': [u.username for u in profile.usernames],
+        'upstream_id_s': profile.upstream_id,
     }
 
     if profile.join_date is not None:

@@ -124,6 +124,9 @@ class Profile(Base):
         secondary=label_join_profile
     )
 
+    # A user can give a profile a score
+    score = Column(Float, nullable=True)
+
     def __init__(self, site, upstream_id, username, is_stub=False):
         ''' Constructor. '''
 
@@ -161,6 +164,7 @@ class Profile(Base):
             'name': self.name,
             'post_count': self.post_count,
             'private': self.private,
+            'score': self.score,
             'site': self.site,
             'site_name': self.site_name(),
             'upstream_id': self.upstream_id,

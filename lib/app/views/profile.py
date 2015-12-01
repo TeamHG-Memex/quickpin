@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from dateutil.relativedelta import relativedelta
 from flask import g, json, jsonify, request, send_from_directory
@@ -54,6 +54,7 @@ class ProfileView(FlaskView):
                 "name": "John Doe",
                 "post_count": 1666,
                 "private": false,
+                "score": "-2.0621606863",
                 "site": "twitter",
                 "site_name": "Twitter",
                 "time_zone": "Central Time (US & Canada)",
@@ -98,6 +99,7 @@ class ProfileView(FlaskView):
         :>json int post_count: the number of posts made by this profile
         :>json bool private: true if this is a private account (i.e. not world-
             readable)
+        :>json str score: user defined score for this profile
         :>json str site: machine-readable site name that this profile belongs to
         :>json str site_name: human-readable site name that this profile belongs
             to
@@ -485,6 +487,7 @@ class ProfileView(FlaskView):
                         "name": "John Q. Doe",
                         "post_count": 230,
                         "private": false,
+                        "score": "-2.0621606863",
                         "site": "twitter",
                         "time_zone": "Central Time (US & Canada)",
                         "upstream_id": "123456",
@@ -529,6 +532,7 @@ class ProfileView(FlaskView):
             profile
         :>json bool profiles[n].private: true if this is a private account (i.e.
             not world-readable)
+        :>json str profiles[n].score: user-defined score for this profile
         :>json str profiles[n].site: machine-readable site name that this
             profile belongs to
         :>json str profiles[n].site_name: human-readable site name that this
@@ -551,18 +555,24 @@ class ProfileView(FlaskView):
         page, results_per_page = get_paging_arguments(request.args)
         current_avatar_id = self._current_avatar_subquery()
 
-
         query = g.db.query(Profile, Avatar) \
                     .outerjoin(Avatar, Avatar.id==current_avatar_id) \
-                    .filter(Profile.is_stub == False)
+                   # .filter(Profile.is_stub == is_stub)
 
         # Parse filter arguments
+        is_stub = request.args.get('stub', None)
         site = request.args.get('site', None)
         is_interesting = request.args.get('interesting', None)
         labels = request.args.get('label', None)
 
         if site is not None:
             query = query.filter(Profile.site == site)
+
+        if is_stub is not None:
+            if is_stub == '1':
+                query = query.filter(Profile.is_stub == True)
+            elif is_stub == '0':
+                query = query.filter(Profile.is_stub == False)
 
         if is_interesting is not None:
             if is_interesting == 'yes':
@@ -632,10 +642,18 @@ class ProfileView(FlaskView):
 
             {
                 "profiles": [
-                    {"username": "johndoe", "site": "instagram"},
-                    {"id": "2232324", "site": "twitter"},
+                    {
+                        "username": "johndoe",
+                        "site": "instagram",
+                        "stub": true
+                    },
+                    {
+                        "upstream_id": "2232324",
+                        "site": "twitter"
+                    },
                     ...
-                ]
+                ],
+                "stub": true
             }
 
         **Example Response**
@@ -650,7 +668,9 @@ class ProfileView(FlaskView):
         :<header X-Auth: the client's auth token
         :>json list profiles: a list of profiles to create
         :>json str profiles[n].username: username of profile to create
+        :>json str profiles[n].upstream_id: upstream id of profile to create
         :>json str profiles[n].site: machine-readable name of social media site
+        :>json bool stub: whether to fetch profiles as stubs
 
         :>header Content-Type: application/json
         :>json int id: unique identifier for new profile
@@ -665,18 +685,33 @@ class ProfileView(FlaskView):
         '''
 
         request_json = request.get_json()
+        # Validate post data
+        if request_json is None:
+            raise BadRequest("Post request requires json data")
+
+        if 'profiles' not in request_json:
+            raise BadRequest("'profiles' is a required json dictionary key")
+
+        if 'stub' in request_json:
+            if not isinstance(request_json['stub'], bool):
+                raise BadRequest("'stub' must be boolean.")
+            else:
+                stub = request_json['stub']
+        else:
+            stub = False
 
         for profile in request_json['profiles']:
-            if 'username' not in profile and 'id' not in profile:
-                raise BadRequest('Username or ID required for all profiles.')
+
+            if 'username' not in profile and 'upstream_id' not in profile:
+                raise BadRequest('Username or upstream_id required for all profiles.')
 
             if 'username' in profile:
                 if profile['username'].strip() == '':
                     raise BadRequest('Username cannot be an empty string.')
 
-            if 'id' in profile:
-                if profile['id'].strip() == '':
-                    raise BadRequest('ID cannot be an empty string.')
+            if 'upstream_id' in profile:
+                if profile['upstream_id'].strip() == '':
+                    raise BadRequest('Upstream ID cannot be an empty string.')
 
             if 'site' not in profile or profile['site'].strip() == '':
                 raise BadRequest('Site is required for all profiles.')
@@ -684,15 +719,16 @@ class ProfileView(FlaskView):
             if profile['site'].strip() == '':
                 raise BadRequest('Site cannot be an empty string.')
 
-        for profile in request_json['profiles']:
-            if 'id' in profile:
-                site = profile['site']
-                id_ = profile['id']
-                app.queue.schedule_profile_id(site, id_)
-            else:
-                site = profile['site']
-                username = profile['username']
-                app.queue.schedule_profile(site, username)
+        app.queue.schedule_profiles(request_json['profiles'], stub)
+        #for profile in request_json['profiles']:
+        #    if 'upstream_id' in profile:
+        #        site = profile['site']
+        #        upstream_id = profile['upstream_id']
+        #        app.queue.schedule_profile_id(site, upstream_id, stub=stub)
+        #    else:
+        #        site = profile['site']
+        #        username = profile['username']
+        #        app.queue.schedule_profile(site, username, stub=stub)
 
         count = len(request_json['profiles'])
         message = "{} new profile{} submitted." \
@@ -768,6 +804,7 @@ class ProfileView(FlaskView):
                 "name": "John Doe",
                 "post_count": 1666,
                 "private": false,
+                "score": "-2.0621606863",
                 "site": "twitter",
                 "site_name": "Twitter",
                 "time_zone": "Central Time (US & Canada)",
@@ -814,6 +851,7 @@ class ProfileView(FlaskView):
         :>json int post_count: the number of posts made by this profile
         :>json bool private: true if this is a private account (i.e. not world-
             readable)
+        :>json str site: user-defined score for this profile. Can be null.
         :>json str site: machine-readable site name that this profile belongs to
         :>json str site_name: human-readable site name that this profile belongs
             to
@@ -851,7 +889,7 @@ class ProfileView(FlaskView):
         request_json = request.get_json()
 
         # Validate put data and set attributes
-        # Only 'is_interesting' and 'labels' are modifiable
+        # Only 'is_interesting', 'score', and 'labels' are modifiable
         if 'is_interesting' in request_json:
             if isinstance(request_json['is_interesting'], bool):
                 profile.is_interesting = request_json['is_interesting']
@@ -859,6 +897,16 @@ class ProfileView(FlaskView):
                 profile.is_interesting = None
             else:
                 raise BadRequest("Attribute 'is_interesting' is type boolean,"
+                                 " or can be set as null")
+
+        if 'score' in request_json:
+            if request_json['score'] is None:
+                profile.score = None
+            else:
+                try:
+                    profile.score = float(request_json['score'])
+                except:
+                    raise BadRequest("Attribute 'score' is type float,"
                                  " or can be set as null")
 
         # labels expects the string 'name' rather than id, to avoid the need to
@@ -904,6 +952,9 @@ class ProfileView(FlaskView):
             else:
                 raise BadRequest("'labels' must be a list")
 
+        # Add a millisecond to last_update to prevent sqlalchemy updating
+        # with current time.
+        profile.last_update = profile.last_update - timedelta(milliseconds=1)
 
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)
@@ -911,7 +962,7 @@ class ProfileView(FlaskView):
         # Save the profile
         try:
             g.db.commit()
-            redis.publish('profile_update', json.dumps(profile.as_dict()))
+            redis.publish('profile', json.dumps(profile.as_dict()))
         except DBAPIError as e:
             g.db.rollback()
             raise BadRequest('Profile could not be saved')
