@@ -270,6 +270,16 @@ class ProfileComponent {
             identifier = identifier.replaceAll(regex, this.profile.username); 
         }
 
+        if(intent['intents'].containsKey('user_id')) {
+            identifier = intent['intents']['user_id'];
+            RegExp regex = new RegExp(r'{{user_id}}', caseSensitive: false);
+            identifier = identifier.replaceAll(regex, this.profile.upstreamId); 
+        } else if(intent['intents'].containsKey('username')) {
+            identifier = intent['intents']['username'];
+            RegExp regex = new RegExp(r'{{username}}', caseSensitive: false);
+            identifier = identifier.replaceAll(regex, this.profile.username); 
+        }
+
         if(identifier != null) {
             if(identifier.startsWith('?')) {
                 parsedIntent['url'] = intent['url'] + identifier;
