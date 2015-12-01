@@ -213,3 +213,36 @@ class ProfileUsername(Base):
                 self.end_date = end_date
             else:
                 self.end_date = dateutil.parser.parse(end_date)
+
+
+class ProfileNote(Base):
+    ''' A profile can have many notes. '''
+
+    __tablename__ = 'profile_note'
+    __table_args__ = (
+        UniqueConstraint('id', 'profile_id', name='uk_note_id_profile_id'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    category = Column(String(255))
+    text = Column(String(255))
+    created_at = Column(DateTime,
+                        default=func.current_timestamp())
+
+    profile_id = Column(
+        Integer,
+        ForeignKey('profile.id', name='fk_profile_note_id'),
+        nullable=False
+    )
+
+    def __init__(self, category, text, created_at=None ):
+        ''' Constructor. '''
+
+        self.category = category
+        self.text =  text
+
+        if created_At is not None:
+            if isinstance(created_at, datetime):
+                self.created_at = created_at
+            else:
+                self.created_at = dateutil.parser.parse(created_at)
