@@ -896,8 +896,7 @@ class ProfileView(FlaskView):
             elif request_json['is_interesting'] is None:
                 profile.is_interesting = None
             else:
-                raise BadRequest("Attribute 'is_interesting' is type boolean,"
-                                 " or can be set as null")
+                raise BadRequest("'is_interesting' is a boolean (true or false.")
 
         if 'score' in request_json:
             if request_json['score'] is None:
@@ -906,8 +905,7 @@ class ProfileView(FlaskView):
                 try:
                     profile.score = float(request_json['score'])
                 except:
-                    raise BadRequest("Attribute 'score' is type float,"
-                                 " or can be set as null")
+                    raise BadRequest("'score' must be a decimal number.")
 
         # labels expects the string 'name' rather than id, to avoid the need to
         # create labels before adding them.
