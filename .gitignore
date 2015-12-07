@@ -1,4 +1,5 @@
 .agnostic_env
+.fabfile.py
 *.pyc
 __pycache__
 TODO*
