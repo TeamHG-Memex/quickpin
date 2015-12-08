@@ -255,9 +255,9 @@ def scrape_instagram_account(username, stub=False):
     db_session.commit()
 
     # Schedule followup jobs.
+    app.queue.schedule_index_profile(profile) # index all profiles, inc stubs
     if not stub:
         app.queue.schedule_avatar(profile, data['profile_picture'])
-        app.queue.schedule_index_profile(profile)
         app.queue.schedule_posts(profile, recent=True)
         app.queue.schedule_relations(profile)
 
@@ -308,9 +308,9 @@ def scrape_instagram_account_by_id(upstream_id, stub=False):
     db_session.commit()
 
     # Schedule followup jobs.
+    app.queue.schedule_index_profile(profile) # index all profiles, inc stubs
     if not stub:
         app.queue.schedule_avatar(profile, data['profile_picture'])
-        app.queue.schedule_index_profile(profile)
         app.queue.schedule_posts(profile, recent=True)
         app.queue.schedule_relations(profile)
 
@@ -631,9 +631,9 @@ def scrape_twitter_account(usernames, stub=False):
         profiles.append(profile.as_dict())
 
         # Schedule followup jobs.
+        app.queue.schedule_index_profile(profile)
         if not stub:
             app.queue.schedule_avatar(profile, profile_json['profile_image_url_https'])
-            app.queue.schedule_index_profile(profile)
             app.queue.schedule_posts(profile, recent=True)
             app.queue.schedule_relations(profile)
 
@@ -693,11 +693,11 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
         profiles.append(profile.as_dict())
 
         # Schedule followup jobs.
+        app.queue.schedule_index_profile(profile)
         if not stub:
             app.queue.schedule_avatar(
                 profile, profile_json['profile_image_url_https']
             )
-            app.queue.schedule_index_profile(profile)
             app.queue.schedule_posts(profile, recent=True)
             app.queue.schedule_relations(profile)
 

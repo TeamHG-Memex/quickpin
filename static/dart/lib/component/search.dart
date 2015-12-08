@@ -28,6 +28,7 @@ class SearchComponent {
         'username_s',
         'post_date_tdt',
         'join_date_tdt',
+        'is_stub_b',
     ];
     Map facetHumanNames = {
         'join_date_tdt': 'Joined Date',
@@ -35,6 +36,7 @@ class SearchComponent {
         'username_s': 'Profile Name',
         'site_name_txt_en': 'Site Name',
         'type_s': 'Type',
+        'is_stub_b': 'Profile Stub',
     };
     Map facetHumanValues = {
         'Profile': 'Profile',
@@ -255,6 +257,7 @@ class SearchComponent {
             'site_name_txt_en': {},
             'type_s': {},
             'username_s': {},
+            'is_stub_b': {},
         };
 
         this.selectedFacetCount = 0;

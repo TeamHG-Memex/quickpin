@@ -1,13 +1,12 @@
 from datetime import date
 import re
-
 from flask import g, jsonify, request
 from flask.ext.classy import FlaskView, route
 from scorched.strings import DismaxString
 from werkzeug.exceptions import BadRequest
 
 from app.authorization import login_required
-from app.rest import get_paging_arguments, url_for
+from app.rest import get_paging_arguments
 
 
 class SearchView(FlaskView):
@@ -176,6 +175,7 @@ class SearchView(FlaskView):
             'post': ['content_txt_en'],
             'site': ['site_name_txt_en'],
             'upstream_id': ['upstream_id_s'],
+            'stub': ['is_stub_b'],
         }
 
         # Boost fields. E.g. a match to a username ranks a result higher
@@ -217,7 +217,7 @@ class SearchView(FlaskView):
 
         for field, field_facets in response.facet_counts.facet_ranges.items():
             counts = dict(field_facets['counts'])
-            list_ = [(k,v) for k,v in counts.items()]
+            list_ = [(k, v) for k, v in counts.items()]
             facets[field] = sorted(list_, key=lambda f: f[0])
 
         return jsonify(
@@ -233,6 +233,7 @@ class SearchView(FlaskView):
         query = query.facet_by('site_name_txt_en', mincount=1) \
                      .facet_by('username_s', mincount=1) \
                      .facet_by('type_s', mincount=1) \
+                     .facet_by('is_stub_b', mincount=1) \
                      .facet_range(fields='join_date_tdt',
                                   start='NOW-120MONTHS/MONTH',
                                   end='NOW/MONTH',
