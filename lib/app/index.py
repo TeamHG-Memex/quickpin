@@ -42,6 +42,7 @@ def make_profile_doc(profile):
         'follower_count_i': profile.follower_count,
         'friend_count_i': profile.friend_count,
         'id': 'Profile:%d' % profile.id,
+        'is_stub_b': profile.is_stub,
         'lang_s': profile.lang,
         'location_txt_en': profile.location,
         'name_txt_en': profile.name,

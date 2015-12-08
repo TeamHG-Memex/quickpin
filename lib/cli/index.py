@@ -1,9 +1,6 @@
-import json
-import os
 import sys
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urljoin
 
-import requests
 import scorched
 
 import app
@@ -52,13 +49,15 @@ class IndexCli(cli.BaseCli):
         if pbar is not None:
             pbar.finish()
 
-    def add_profiles(self, db, solr):
+    def add_profiles(self, db, solr, stubs=False):
         ''' Add all Profile records from `db` into the index. '''
 
         session = app.database.get_session(db)
-        query = session.query(Profile) \
-                       .filter(Profile.is_stub == False) \
-                       .order_by(Profile.id)
+        query = session.query(Profile)
+        if stubs is False:
+            query = query.filter(Profile.is_stub == False)
+
+        query = query.order_by(Profile.id)
 
         total_count = query.count()
         progress = 0
@@ -87,7 +86,7 @@ class IndexCli(cli.BaseCli):
         if pbar is not None:
             pbar.finish()
 
-    def add_models(self, db, solr, models=None):
+    def add_models(self, db, solr, models=None, profile_stubs=False):
         ''' Add all documents from `db` into the index. '''
 
         model_fns = {
@@ -100,7 +99,11 @@ class IndexCli(cli.BaseCli):
 
         for model in models:
             try:
-                model_fns[model](db, solr)
+                if model == 'Profile' and profile_stubs == True:
+                    model_fns[model](db, solr, profile_stubs)
+                else:
+                    model_fns[model](db, solr)
+
             except KeyError:
                 self._logger.warn('Model not found: %s' % model)
 
@@ -133,6 +136,17 @@ class IndexCli(cli.BaseCli):
                  ' delimited list of models, e.g.  Profile,Post.'
         )
 
+        arg_parser.add_argument(
+            '--stubs',
+            '-s',
+            type=int,
+            default=0,
+            choices=[0,1],
+            required=False,
+            help='If adding profiles, you can supply whether or not to include '
+                 'stub profiles, e.g. --stubs=1 (include), --stubs=0 (exclude).'
+        )
+
     def _run(self, args, config):
         ''' Main entry point. '''
 
@@ -145,11 +159,15 @@ class IndexCli(cli.BaseCli):
         if args.action in ('add', 'add-all'):
             database_config = dict(config.items('database'))
             db = app.database.get_engine(database_config)
+            if args.stubs == 1:
+                profile_stubs = True
+            else:
+                profile_stubs = False
 
             if args.action == 'add':
-                self.add_models(db, solr, args.models.split(','))
+                self.add_models(db, solr, args.models.split(','), profile_stubs)
             else:
-                self.add_models(db, solr)
+                self.add_models(db, solr, profile_stubs=profile_stubs)
 
             solr.optimize()
             self._logger.info("Added requested documents and optimized index.")
@@ -161,7 +179,8 @@ class IndexCli(cli.BaseCli):
                 solr.delete_all()
 
             solr.optimize()
-            self._logger.info("Deleted requested documents and optimized index.")
+            self._logger.info("Deleted requested documents and optimized "
+                              "index.")
 
         elif args.action == 'optimize':
             solr.optimize()
