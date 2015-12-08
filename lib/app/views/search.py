@@ -208,7 +208,6 @@ class SearchView(FlaskView):
         results = list()
         facets = dict()
         highlights = response.highlighting
-        print('response: {}'.format(len(response)))
         for doc in response:
             formatter = formatters[doc['type_s']]
             results.append(formatter(doc, highlights))
