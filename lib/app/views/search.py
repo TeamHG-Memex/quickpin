@@ -181,6 +181,7 @@ class SearchView(FlaskView):
         # Boost fields. E.g. a match to a username ranks a result higher
         # than a match to the user's description.
         boosts = {
+            'upstream_id_s': 4,
             'name_txt_en': 3,
             'username_s': 3,
             'description_txt_en': 2,
@@ -207,7 +208,7 @@ class SearchView(FlaskView):
         results = list()
         facets = dict()
         highlights = response.highlighting
-
+        print('response: {}'.format(len(response)))
         for doc in response:
             formatter = formatters[doc['type_s']]
             results.append(formatter(doc, highlights))
