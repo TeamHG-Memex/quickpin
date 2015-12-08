@@ -553,6 +553,14 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
+        allowed_sort_fields = {
+            'score': Profile.score,
+            'updated': Profile.last_update,
+            'added': Profile.id
+        }
+        sort_arguments = get_sort_arguments(request.args,
+                                            '-added',
+                                            allowed_sort_fields)
         current_avatar_id = self._current_avatar_subquery()
 
         query = g.db.query(Profile, Avatar) \
@@ -590,8 +598,10 @@ class ProfileView(FlaskView):
 
         total_count = query.count()
 
-        query = query.order_by(Profile.last_update.desc()) \
-                     .limit(results_per_page) \
+        for argument in sort_arguments:
+            query = query.order_by(argument)
+
+        query = query.limit(results_per_page) \
                      .offset((page - 1) * results_per_page)
 
         profiles = list()
