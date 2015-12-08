@@ -47,6 +47,9 @@ class ProfileListComponent extends Object with CurrentPageMixin
     String siteFilter, siteFilterDescription;
     String stubFilter, stubFilterDescription;
     String interestFilter, interestFilterDescription;
+    String sortByDescription = 'Added';
+    String sortByCol = 'added';
+    String sortOrder = 'desc';
     bool submittingProfile = false;
     bool updatingProfile = false;
     List<String> labelFilters;
@@ -335,6 +338,39 @@ class ProfileListComponent extends Object with CurrentPageMixin
                         queryParameters: args);
     }
 
+    /// Sort profile list by specified attribute.
+    void sortBy(String attr, bool asc) {
+        Map args = this._makeUrlArgs();
+
+        if (attr == null) {
+            args.remove('sort');
+        } else {
+            args['sort'] = attr;
+        }
+        this.newQP = true;
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
+    }
+
+    /// Sort profile list by specified attribute.
+    void sortToggle() {
+        Map args = this._makeUrlArgs();
+        
+        if (this.sortByCol != null) {
+            if (this.sortByCol.startsWith('-')) {
+                this.sortByCol = this.sortByCol.replaceFirst('-', '');
+            } else {
+                this.sortByCol = '-${this.sortByCol}'; 
+            }
+            args['sort'] = this.sortByCol;
+            this.newQP = true;
+            this._router.go('profile_list',
+                            this._rp.route.parameters,
+                            queryParameters: args);
+        }
+    }
+
     /// Trigger add profile when the user presses enter in the profile input.
     void handleAddProfileKeypress(Event e) {
         if (e.charCode == 13) {
@@ -521,6 +557,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             urlArgs['stub'] = this.stubFilter;
         }
 
+        if (this.sortByCol != null) {
+            urlArgs['sort'] = this.sortByCol;
+        }
+
         this.api
             .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
             .then((response) {
@@ -583,6 +623,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             args['stub'] = this.stubFilter;
         }
 
+        if (this.sortByCol != null) {
+            args['sort'] = this.sortByCol;
+        }
+
         return args;
     }
 
@@ -618,7 +662,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.interestFilter = interesting;
         String stub = this._getQPString(qp['stub']);
         this.stubFilter = stub;
-
+        this. sortByCol = this._getQPString(qp['sort']);
         String labels = this._getQPString(qp['label']);
 
         if (site == null) {
@@ -649,6 +693,19 @@ class ProfileListComponent extends Object with CurrentPageMixin
             this.stubFilterDescription = 'Yes';
         } else {
             this.stubFilterDescription = 'No';
+        }
+
+        if (this.sortByCol == null) {
+            this.sortByDescription = 'Added';
+        } else {
+            this.sortByDescription = this.sortByCol.replaceFirst('-', '');
+            String initial = sortByDescription[0].toUpperCase();
+            this.sortByDescription = this.sortByDescription.replaceRange(0, 1, initial);
+            if(!this.sortByCol.startsWith('-')) {
+                this.sortOrder = 'asc';
+            } else {
+                this.sortOrder = 'desc';
+            }
         }
     }
 }
