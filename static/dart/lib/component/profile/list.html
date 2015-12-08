@@ -14,19 +14,19 @@
         <li>
           <a ng-click='sortBy("added", true)'>
             Added
-            <i class='fa fa-check pull-right' ng-show='sortByDescription == "Added"'></i>
+            <i class='fa fa-check' ng-show='sortByDescription == "Added"'></i>
           </a>
         </li>
         <li>
           <a ng-click='sortBy("score", true)'>
             Score
-            <i class='fa fa-check pull-right' ng-show='sortByDescription == "Score"'></i>
+            <i class='fa fa-check' ng-show='sortByDescription == "Score"'></i>
           </a>
         </li>
         <li>
           <a ng-click='sortBy("updated", true)'>
             Updated
-            <i class='fa fa-check pull-right' ng-show='sortByDescription == "Updated"'></i>
+            <i class='fa fa-check' ng-show='sortByDescription == "Updated"'></i>
           </a>
         </li>
       </ul>
@@ -72,8 +72,8 @@
         </a>
         <a ng-show="labelFilters.contains(label.name)" 
            ng-click='filterLabelsRemove(label.name)'>
-          <i class='fa fa-check'></i>
           {{label.name}}
+          <i class='fa fa-check'></i>
         </a>
       </li>
     </ul>
