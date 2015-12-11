@@ -244,7 +244,6 @@ class ProfileNote(Base):
 
     def __init__(self, category, body, profile_id, created_at=None ):
         ''' Constructor. '''
-
         self.category = category
         self.body = body
         self.profile_id = profile_id
@@ -262,5 +261,4 @@ class ProfileNote(Base):
             'body': self.body,
             'created_at': self.created_at.isoformat(),
         }
-
 
