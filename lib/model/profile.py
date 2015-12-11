@@ -1,7 +1,5 @@
-import base64
 from datetime import datetime
 import dateutil.parser
-import os
 import re
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, \
@@ -85,7 +83,7 @@ class Profile(Base):
         cascade='all,delete-orphan'
     )
 
-    # One profile has 0-n names.
+    # One profile has 0-n posts.
     posts = relationship(
         'Post',
         backref='author',
@@ -96,6 +94,12 @@ class Profile(Base):
     avatars = relationship(
         'Avatar',
         secondary=avatar_join_profile
+    )
+
+    # One profile has 0-n notes.
+    notes = relationship(
+        'ProfileNote',
+        cascade='all,delete-orphan'
     )
 
     # A profile can follow other profiles. We use the Twitter nomenclature and
@@ -148,7 +152,9 @@ class Profile(Base):
         ''' Return dictionary representation of this profile. '''
         # Sort labels by name
         labels = [label.as_dict() for label in self.labels]
+        notes = [note.as_dict() for note in self.notes]
         sorted_labels = sorted(labels, key=lambda x: x['name'])
+        sorted_notes = sorted(notes, key=lambda x: x['created_at'], reverse=True)
         return {
             'description': self.description,
             'follower_count': self.follower_count,
@@ -162,6 +168,7 @@ class Profile(Base):
             'last_update': self.last_update.replace(microsecond=0).isoformat(),
             'location': self.location,
             'name': self.name,
+            'notes': sorted_notes,
             'post_count': self.post_count,
             'private': self.private,
             'score': self.score,
@@ -225,7 +232,7 @@ class ProfileNote(Base):
 
     id = Column(Integer, primary_key=True)
     category = Column(String(255))
-    text = Column(String(255))
+    body = Column(Text)
     created_at = Column(DateTime,
                         default=func.current_timestamp())
 
@@ -235,14 +242,25 @@ class ProfileNote(Base):
         nullable=False
     )
 
-    def __init__(self, category, text, created_at=None ):
+    def __init__(self, category, body, profile_id, created_at=None ):
         ''' Constructor. '''
 
         self.category = category
-        self.text =  text
+        self.body = body
+        self.profile_id = profile_id
 
-        if created_At is not None:
+        if created_at is not None:
             if isinstance(created_at, datetime):
                 self.created_at = created_at
             else:
                 self.created_at = dateutil.parser.parse(created_at)
+
+    def as_dict(self):
+        return {
+            'id': self.id,
+            'category': self.category,
+            'body': self.body,
+            'created_at': self.created_at.isoformat(),
+        }
+
+

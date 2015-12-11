@@ -32,11 +32,15 @@ class ProfileComponent {
     int loading = 0;
     bool loadingFailedTasks = false;
     bool showAddLabel = false;
+    bool showAddNote = false;
     bool submittingLabel = false;
     bool failedTasks = false;
     List<Label> labels;
     String newLabelText;
+    String newNoteBody;
+    String newNoteCategory;
     String labelError;
+    String noteError;
     List<Map> workers;
     List<Map> profileWorkers;
     Map<String, Map> _runningJobs;
@@ -91,6 +95,15 @@ class ProfileComponent {
     void hideAddLabelDialog() {
         this.showAddLabel = false;
         this.newLabelText = '';
+        this.labelError = null;
+    }
+
+    /// Hide the "add note" dialog.
+    void hideAddNoteDialog() {
+        this.showAddNote = false;
+        this.newNoteBody = null;
+        this.newNoteCategory = null;
+        this.noteError = null;
     }
 
     /// Show the "add label" dialog.
@@ -138,7 +151,7 @@ class ProfileComponent {
 
         
         this.submittingLabel = true;
-        String pageUrl = '/api/profile/${this.id.toString()}';
+        String profileUrl = '/api/profile/${this.id.toString()}';
         this.loading++;
         List<Map> profileLabels = new List();
         this.profile.labels.forEach((label) {
@@ -150,7 +163,7 @@ class ProfileComponent {
         };
 
         this.api
-            .put(pageUrl, body, needsAuth: true)
+            .put(profileUrl, body, needsAuth: true)
             .then((response) {
                 //profile.labels = profileLabels;
             })
@@ -164,6 +177,47 @@ class ProfileComponent {
 
         completer.complete();
         return completer.future;
+    }
+
+    // Add a profile note. 
+    void saveProfileNote(Event event, dynamic data, Function resetButton) {
+        this.noteError = null;
+       
+        if (this.newNoteCategory == null || this.newNoteBody == null) {
+            this.noteError = 'You must enter category and text for the label.';
+        } else {
+            this.loading++;
+            String profileUrl = '/api/profile/${this.id.toString()}';
+            List<Map> profileNotes = new List();
+            Map note = {
+                'category': this.newNoteCategory,
+                'body': this.newNoteBody
+            };
+            profileNotes.add(note);
+            Map body = {
+                'notes': profileNotes, 
+            };
+            window.console.debug(body);
+            bool success = true;
+            this.api
+                .put(profileUrl, body, needsAuth: true)
+                .then((response) {
+                })
+                .catchError((response) {
+                    this.noteError = response.data['message'];
+                    success = false;
+                    window.console.debug(response);
+                })
+                .whenComplete(() {
+                    this.loading--;
+                    if (success) {
+                        this.newNoteCategory = null;
+                        this.newNoteBody = null;
+                        Modal.wire($("#edit-note-modal")).hide();
+                    }
+                });
+        }
+        resetButton();
     }
 
     /// Listen for avatar image updates.

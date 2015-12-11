@@ -1,21 +1,16 @@
-from collections import defaultdict
-from datetime import date, timedelta
+from datetime import timedelta
 
-from dateutil.relativedelta import relativedelta
-from flask import g, json, jsonify, request, send_from_directory
+from flask import g, json, jsonify, request
 from flask.ext.classy import FlaskView, route
-from sqlalchemy import extract, func
 from sqlalchemy.exc import IntegrityError, DBAPIError
-from sqlalchemy.orm import aliased
-from sqlalchemy.sql.expression import bindparam
-from werkzeug.exceptions import BadRequest, Conflict, NotFound
+from werkzeug.exceptions import BadRequest, NotFound
 
 from app.authorization import login_required
 import app.database
 import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
-                     get_sort_arguments, heatmap_column, isodate, url_for
-from model import Avatar, Post, Profile, Label
+                     get_sort_arguments, isodate, url_for
+from model import Avatar, Post, Profile, Label, ProfileNote
 from model.profile import avatar_join_profile, profile_join_self
 import worker
 
@@ -52,6 +47,12 @@ class ProfileView(FlaskView):
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
                 "name": "John Doe",
+                "notes": [
+                    {
+                        "body": "This is a profile note."
+                        "category": "Annotation"
+                    },
+                ],
                 "post_count": 1666,
                 "private": false,
                 "score": "-2.0621606863",
@@ -96,6 +97,10 @@ class ProfileView(FlaskView):
         :>json str location: geographic location provided by the user, as free
             text
         :>json str name: the full name provided by this user
+        :>json list notes: list of user-added notes for this profile
+        :>json int note[n].body: the text body of of the note
+        :>json str note[n].category: the category of the note.
+        :>json str note[n].created_at: time at which the note was created.
         :>json int post_count: the number of posts made by this profile
         :>json bool private: true if this is a private account (i.e. not world-
             readable)
@@ -155,6 +160,18 @@ class ProfileView(FlaskView):
             })
 
         response['usernames'] = usernames
+
+        # Create notes list
+        notes = list()
+
+        for note in profile.notes:
+            notes.append({
+                'body': note.body,
+                'category': note.category,
+                'created_at': note.created_at.isoformat(),
+            })
+
+        response['notes'] = notes
 
         # Create avatar attributes.
         if avatar is not None:
@@ -767,9 +784,12 @@ class ProfileView(FlaskView):
     def put(self, id_):
         '''
         Update the profile identified by `id` with submitted data.
-        The following attribute are modifiable:
+        The following attributes are modifiable:
+
            * is_interesting
            * lables
+           * score
+           * notes
 
         **Example Request**
 
@@ -782,6 +802,10 @@ class ProfileView(FlaskView):
                     {"name": "british"},
                     ...
                 ],
+                "notes": [
+                    {"Annotation": "Profile marked as interesting because they have nice hair."},
+                ],
+                "score": 2323.0,
                 ...
             }
 
@@ -812,6 +836,13 @@ class ProfileView(FlaskView):
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
                 "name": "John Doe",
+                "notes": [
+                    {
+                        "id": 1,
+                        "category": "annotation",
+                        "body": "Profile marked as interesting because I like their hair.",
+                    },
+                ],
                 "post_count": 1666,
                 "private": false,
                 "score": "-2.0621606863",
@@ -858,10 +889,14 @@ class ProfileView(FlaskView):
         :>json str location: geographic location provided by the user, as free
             text
         :>json str name: the full name provided by this user
+        :>json list notes: list of user-defined notes for this profile
+        :>json int note[n].id: the unique id for this note
+        :>json int note[n].category: the user-defined category of this note
+        :>json int note[n].body: the user-defined text-body of this note
         :>json int post_count: the number of posts made by this profile
         :>json bool private: true if this is a private account (i.e. not world-
             readable)
-        :>json str site: user-defined score for this profile. Can be null.
+        :>json str score: user-defined score for this profile. Can be null.
         :>json str site: machine-readable site name that this profile belongs to
         :>json str site_name: human-readable site name that this profile belongs
             to
@@ -917,6 +952,33 @@ class ProfileView(FlaskView):
                 except:
                     raise BadRequest("'score' must be a decimal number.")
 
+
+        if 'notes' in request_json:
+            notes = []
+            if isinstance(request_json['notes'], list):
+                for note_json in request_json['notes']:
+                    if 'category' in note_json and 'body' in note_json:
+                        try:
+                            note = ProfileNote(
+                                category=note_json['category'].lower().strip(),
+                                body=note_json['body'].strip(),
+                                profile_id = id_
+                            )
+
+                            g.db.add(note)
+                            g.db.flush()
+
+                        except IntegrityError:
+                            g.db.rollback()
+                            raise BadRequest('Note could not be saved.')
+                        notes.append(note)
+                    else:
+                        raise BadRequest("`name` and `category are required for notes.")
+
+                profile.notes += notes
+            else:
+                raise BadRequest("`notes` must be a list")
+
         # labels expects the string 'name' rather than id, to avoid the need to
         # create labels before adding them.
         if 'labels' in request_json:
@@ -962,7 +1024,7 @@ class ProfileView(FlaskView):
 
         # Add a millisecond to last_update to prevent sqlalchemy updating
         # with current time.
-        profile.last_update = profile.last_update - timedelta(milliseconds=1)
+        profile.last_update = profile.last_update + timedelta(milliseconds=1)
 
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)
