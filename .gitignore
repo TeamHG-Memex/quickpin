@@ -1,5 +1,5 @@
 .agnostic_env
-.fabfile.py
+fabfile.py
 *.pyc
 **.ropeproject/
 **/dart/.packages
