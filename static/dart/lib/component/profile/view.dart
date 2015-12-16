@@ -9,6 +9,7 @@ import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/model/label.dart';
 import 'package:quickpin/model/post.dart';
+import 'package:quickpin/model/note.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -36,9 +37,13 @@ class ProfileComponent {
     bool submittingLabel = false;
     bool failedTasks = false;
     List<Label> labels;
+    int editingNoteId;
+    int deletingNoteId;
     String newLabelText;
     String newNoteBody;
     String newNoteCategory;
+    Map<int, Note> noteIdMap;
+    List<int> noteIds;
     String labelError;
     String noteError;
     List<Map> workers;
@@ -64,12 +69,13 @@ class ProfileComponent {
             new Breadcrumb(this.id.toString()),
         ];
 
-        // Add event listeners...
+        // Add event lvaluation is not realistic these "knobs" will be set to wrong values.isteners...
         List<StreamSubscription> listeners = [
             this._sse.onAvatar.listen(this._avatarListener),
             this._sse.onProfile.listen((_) => this._fetchProfile()),
             this._sse.onProfilePosts.listen((_) => this._fetchPosts()),
             this._sse.onWorker.listen(this._workerListener),
+            this._sse.onProfileNotes.listen(this._noteListener),
             this._sse.onProfileRelations.listen((_) {
                 this._fetchFriends().then((_) => this._fetchFollowers());
             }),
@@ -87,6 +93,7 @@ class ProfileComponent {
             .then((_) => this._fetchFriends())
             .then((_) => this._fetchFollowers())
             .then((_) => this._fetchLabels())
+            .then((_) => this._fetchNotes())
             .then((_) => this._fetchProfileWorkers())
             .then((_) => this._fetchFailedProfileTasks());
     }
@@ -179,40 +186,52 @@ class ProfileComponent {
         return completer.future;
     }
 
+    void editNote(int noteId) {
+        Note note = this.noteIdMap[noteId];
+        this.newNoteCategory = note.category;
+        this.newNoteBody = note.body;
+        this.editingNoteId = noteId;
+
+    }
+
+    void deleteNote(int noteId) {
+        this.deletingNoteId = noteId;
+    }
     // Add a profile note. 
-    void saveProfileNote(Event event, dynamic data, Function resetButton) {
+    void addProfileNote(Event event, dynamic data, Function resetButton) {
         this.noteError = null;
+        Map note = null;
        
         if (this.newNoteCategory == null || this.newNoteBody == null) {
             this.noteError = 'You must enter category and text for the label.';
         } else {
             this.loading++;
-            String profileUrl = '/api/profile/${this.id.toString()}';
-            List<Map> profileNotes = new List();
-            Map note = {
+            String noteUrl = '/api/note/';
+            List<Map> notes = new List();
+            note = {
                 'category': this.newNoteCategory,
-                'body': this.newNoteBody
+                'body': this.newNoteBody,
+                'profile_id': this.id
             };
-            profileNotes.add(note);
+            notes.add(note);
             Map body = {
-                'notes': profileNotes, 
+                'notes': notes, 
             };
-            window.console.debug(body);
             bool success = true;
             this.api
-                .put(profileUrl, body, needsAuth: true)
+                .post(noteUrl, body, needsAuth: true)
                 .then((response) {
                 })
                 .catchError((response) {
                     this.noteError = response.data['message'];
                     success = false;
-                    window.console.debug(response);
                 })
                 .whenComplete(() {
                     this.loading--;
                     if (success) {
                         this.newNoteCategory = null;
                         this.newNoteBody = null;
+                        this.editingNoteId = null;
                         Modal.wire($("#edit-note-modal")).hide();
                     }
                 });
@@ -220,10 +239,107 @@ class ProfileComponent {
         resetButton();
     }
 
+    // Edit a profile note. 
+    void editProfileNote(Event event, dynamic data, Function resetButton) {
+        this.noteError = null;
+        Map note = null;
+       
+        if (this.newNoteCategory == null || this.newNoteBody == null) {
+            this.noteError = 'You must enter category and text for the label.';
+        } else {
+            this.loading++;
+            String noteUrl = '/api/note/${this.editingNoteId}';
+            note = {
+                'category': this.newNoteCategory,
+                'body': this.newNoteBody,
+                'profile_id': this.id,
+            };
+            bool success = true;
+            this.api
+                .put(noteUrl, note, needsAuth: true)
+                .then((response) {
+                })
+                .catchError((response) {
+                    this.noteError = response.data['message'];
+                    success = false;
+                })
+                .whenComplete(() {
+                    this.loading--;
+                    if (success) {
+                        this.newNoteCategory = null;
+                        this.newNoteBody = null;
+                        this.editingNoteId = null;
+                        Modal.wire($("#edit-note-modal")).hide();
+                    }
+                });
+        }
+        resetButton();
+    }
+
+    void deleteProfileNote(Event event, dynamic data, Function resetButton) {
+        this.noteError = null;
+        Map note = null;
+       
+        this.loading++;
+        String noteUrl = '/api/note/${this.deletingNoteId.toString()}';
+        bool success = true;
+        this.api
+            .delete(noteUrl, needsAuth: true)
+            .then((response) {
+            })
+            .catchError((response) {
+                this.noteError = response.data['message'];
+                success = false;
+            })
+            .whenComplete(() {
+                this.loading--;
+                if (success) {
+                    this.newNoteCategory = null;
+                    this.newNoteBody = null;
+                    this.editingNoteId = null;
+                    Modal.wire($("#delete-note-modal")).hide();
+                }
+            });
+        resetButton();
+    }
+
     /// Listen for avatar image updates.
     void _avatarListener(Event e) {
         Map json = JSON.decode(e.data);
         this.profile.avatarUrl = json['url'];
+    }
+
+    /// Listen for profile note updates.
+    void _noteListener(Event e) {
+        Map json = JSON.decode(e.data);
+        String status = '';
+        if (!json.containsKey('id')) {
+            return;
+        }
+        // Deleted notifications set 'status' as 'deleted'
+        if (json.containsKey('status')) {
+            status = json['status'];
+        }
+        // Delete..
+        if (status == 'deleted' && this.noteIds.contains(json['id'])) {
+            this.noteIds.remove(json['id']);
+            this.noteIdMap.remove(json['id']);
+        }
+        // New or updated note
+        if (json['profile_id'] == this.id) {
+            this.noteIdMap[json['id']] = new Note.fromJson(json);
+            // Sort
+            List notes = new List();
+            this.noteIdMap.forEach((noteId, note) {
+                notes.add(note);
+            });
+            notes.sort((a,b) {
+                return b.createdAt.compareTo(a.createdAt);
+            });
+            this.noteIds = new List<int>.generate(notes.length, (index) {
+                return notes[index].id;
+            });
+        }
     }
 
     /// Listen for updates from background workers.
@@ -572,6 +688,34 @@ class ProfileComponent {
         };
         this.loading--;
         completer.complete();
+        return completer.future;
+    }
+
+    /// Fetch a page of notes for this profile.
+    Future _fetchNotes() {
+        Completer completer = new Completer();
+        this.loading++;
+        String url = '/api/profile/${this.id}/notes';
+        Map urlArgs = {'page': 1, 'rpp': 10};
+        this.noteIdMap = new Map<int, Note>();
+        this.noteIds = new List<int>();
+
+        this.api
+            .get(url, urlArgs: urlArgs, needsAuth: true)
+            .then((response) {
+                List notes = response.data['notes'];
+                notes.sort((a,b) {
+                    return b['created_at'].compareTo(a['created_at']);
+                });
+                notes.forEach((note) {
+                    this.noteIdMap[note['id']] = new Note.fromJson(note);
+                });
+                this.noteIds = this.noteIdMap.keys.toList();
+            })
+            .whenComplete(() {
+                this.loading--;
+                completer.complete();
+            });
         return completer.future;
     }
 

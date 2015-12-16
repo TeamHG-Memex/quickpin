@@ -159,7 +159,6 @@ class LabelView(FlaskView):
         :<header X-Auth: the client's auth token
         :query page: the page number to display (default: 1)
         :query rpp: the number of results per page (default: 10)
-        :query site: name of site to filter by
 
 
         :>header Content-Type: application/json

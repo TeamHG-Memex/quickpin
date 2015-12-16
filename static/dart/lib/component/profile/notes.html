@@ -1,0 +1,163 @@
+<breadcrumbs crumbs=crumbs></breadcrumbs>
+
+<div class='alert alert-danger' role='alert' ng-hide='error.isEmpty'>
+  {{error}}
+</div>
+
+<h1>
+  Notes 
+  <span ng-show='username == null'>for {{id}}</span>
+  <span ng-show='username != null'>for {{username}}</span>
+  <small ng-show='siteName != null'>on {{siteName}}</small>
+  <img ng-show='loading > 0' src='/static/img/spinner-blue-on-white.gif'>
+</h1>
+
+<div class='row'>
+  <div class="col-sm-5">
+    Showing {{pager.startingAt | number}}-{{pager.endingAt | number}}
+    of {{pager.totalResults | number}} notes.
+  </div>
+</div>
+
+<pager pager='pager'
+       disabled='loading'></pager>
+
+<masonry column-width='250' column-gap='25'>
+  <div ng-repeat='id in noteIds' class='masonry-item'>
+    <div class='note'>
+      <p><strong>Category:</strong> {{noteIdMap[id].category}}</p>
+      <p><strong>Note:</strong> {{noteIdMap[id].body}}</p>
+      <p>
+        <span class='text-muted'>
+          Created: {{noteIdMap[id].createdAt | date:'yyyy-MM-dd H:mm:ss'}}
+        </span>
+      </p>
+      <div class="pull-right">
+        <i class="fa fa-pencil link action-icon"
+           href='#edit-note-modal'
+           data-toggle='modal'
+           ng-click='editNote(id)'>
+        </i>
+        <i class="fa fa-trash link padding-left-md"
+           href='#delete-note-modal'
+           data-toggle='modal'
+           ng-click='deleteNote(id)'>
+        </i>
+      </div>
+    </div>
+  </div>
+</masonry>
+
+<div class='modal fade' id='delete-note-modal' role='dialog'>
+  <div class='modal-dialog'>
+    <div class='modal-content'>
+      <form class='form-horizontal'>
+        <div class='modal-header'>
+          <h4 class='modal-title'>Delete Profile Note</h4>
+        </div>
+        <div class='modal-body'>
+          <div class="row">
+            <div class="col-sm-12">
+              <div ng-show='noteError != null' class='alert alert-danger' role='alert'>
+                <p>{{noteError}}</p>
+                <div class='clear'></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-12">
+              <p><strong>Are you sure you want to delete this note?</strong></p> 
+            </div>
+          </div>
+
+          <div class='row'>
+            <div class="col-sm-12">
+              <table class='table table-striped'>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr> 
+                    <td>{{noteIdMap[deletingNoteId].category}}</td>
+                    <td>{{noteIdMap[deletingNoteId].body}}</td>
+                    <td>{{noteIdMap[deletingNoteId].createdAt | date:'yyyy-MM-dd H:mm:ss'}}</td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+
+          <div class="row">
+            <div class="col-sm-12">
+              <p>This action cannot be reversed.</p> 
+            </div>
+          </div>
+        </div>
+        <div class='modal-footer'>
+          <busy-button class="pull-left" id='edit-sites-button' type='danger' click='deleteProfileNote'>
+           <i class="fa fa-trash"></i> Delete
+          </busy-button>
+          <button type='button' class='btn btn-link' data-dismiss='modal'>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class='modal fade' id='edit-note-modal' role='dialog'>
+  <div class='modal-dialog'>
+    <div class='modal-content'>
+      <form class='form-horizontal'>
+        <div class='modal-header'>
+          <h4 class='modal-title'>Profile Note</h4>
+        </div>
+        <div class='modal-body'>
+          <form class='form-horizontal'>
+            <div class="row">
+              <div class="col-sm-12">
+                <div ng-show='noteError != null' class='alert alert-danger' role='alert'>
+                  <p>{{noteError}}</p>
+                  <div class='clear'></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="form-group col-sm-12">
+                  <div class="input-group">
+                    <span class="input-group-addon" id="group-name-addon">Category</span>
+                    <input type="text" class="form-control" ng-model='newNoteCategory' placeholder="Enter note category..">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="form-group col-sm-12">
+                  <textarea class="form-control" ng-model='newNoteBody' placeholder="Add your note here.."></textarea>
+                </div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class='modal-footer'>
+          <button type='button' class='btn btn-link pull-left' data-dismiss='modal'>
+            Cancel
+          </button>
+          <busy-button id='edit-sites-button' type='primary' click='editProfileNote'>
+           <i class="fa fa-check"></i> Save 
+          </busy-button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

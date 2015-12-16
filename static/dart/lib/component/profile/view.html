@@ -497,19 +497,35 @@
           <table class='table table-striped'>
             <thead>
               <tr>
+                <th colspan="4">Recent Notes <a href='/profile/{{id}}/notes'>(View All)</a></th>
+              </tr>
+              <tr>
                 <th>Category</th>
                 <th>Note</th>
                 <th>Date</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr ng-if='profile.notes.length == 0' >
+              <tr ng-if='noteIds.length == 0' >
                 <td colspan='100' class='no-rows'>No notes found.</td>
               </tr>
-              <tr ng-repeat='note in profile.notes'> 
-                <td>{{note.category}}</td>
-                <td>{{note.body}}</td>
-                <td>{{note.created_at}}</td>
+              <tr ng-repeat='id in noteIds'> 
+                <td>{{noteIdMap[id].category}}</td>
+                <td>{{noteIdMap[id].body}}</td>
+                <td>{{noteIdMap[id].createdAt | date:'yyyy-MM-dd H:mm:ss'}}</td>
+                <td>
+                  <i class="fa fa-pencil link action-icon"
+                     href='#edit-note-modal'
+                     data-toggle='modal'
+                     ng-click='editNote(id)'>
+                  </i>
+                  <i class="fa fa-trash link padding-left-md"
+                     href='#delete-note-modal'
+                     data-toggle='modal'
+                     ng-click='deleteNote(id)'>
+                  </i>
+                 </td>
               </tr>
             </tbody>
           </table>
@@ -520,12 +536,75 @@
 
 </div>
 
+<div class='modal fade' id='delete-note-modal' role='dialog'>
+  <div class='modal-dialog'>
+    <div class='modal-content'>
+      <form class='form-horizontal'>
+        <div class='modal-header'>
+          <h4 class='modal-title'>Delete Profile Note</h4>
+        </div>
+        <div class='modal-body'>
+          <div class="row">
+            <div class="col-sm-12">
+              <div ng-show='noteError != null' class='alert alert-danger' role='alert'>
+                <p>{{noteError}}</p>
+                <div class='clear'></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-sm-12">
+              <p><strong>Are you sure you want to delete this note?</strong></p> 
+            </div>
+          </div>
+
+          <div class='row'>
+            <div class="col-sm-12">
+              <table class='table table-striped'>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr> 
+                    <td>{{noteIdMap[deletingNoteId].category}}</td>
+                    <td>{{noteIdMap[deletingNoteId].body}}</td>
+                    <td>{{noteIdMap[deletingNoteId].createdAt}}</td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+
+          <div class="row">
+            <div class="col-sm-12">
+              <p>This action cannot be reversed.</p> 
+            </div>
+          </div>
+        </div>
+        <div class='modal-footer'>
+          <busy-button class="pull-left" id='edit-sites-button' type='danger' click='deleteProfileNote'>
+           <i class="fa fa-trash"></i> Delete
+          </busy-button>
+          <button type='button' class='btn btn-link' data-dismiss='modal'>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class='modal fade' id='edit-note-modal' role='dialog'>
   <div class='modal-dialog'>
     <div class='modal-content'>
       <form class='form-horizontal'>
         <div class='modal-header'>
-          <h4 class='modal-title'>Edit Profile Note</h4>
+          <h4 class='modal-title'>Profile Note</h4>
         </div>
         <div class='modal-body'>
           <form class='form-horizontal'>
@@ -559,16 +638,20 @@
           </form>
         </div>
         <div class='modal-footer'>
-          <button type='button' class='btn btn-link pull-left' data-dismiss='modal' ng-click='hideAddNoteDialog()'>
+          <button type='button' class='btn btn-link pull-left' data-dismiss='modal'>
             Cancel
           </button>
-          <busy-button id='edit-sites-button' type='primary' click='saveProfileNote'>
+          <busy-button id='edit-sites-button' type='primary' ng-show='editingNoteId != null' click='editProfileNote'>
            <i class="fa fa-check"></i> Save 
+          </busy-button>
+          <busy-button id='edit-sites-button' type='primary' ng-show='editingNoteId == null' click='addProfileNote'>
+           <i class="fa fa-plus"></i> Add 
           </busy-button>
         </div>
       </form>
     </div>
   </div>
-</div
+</div>
+
 
 

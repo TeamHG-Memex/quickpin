@@ -10,7 +10,7 @@ import app.database
 import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
                      get_sort_arguments, isodate, url_for
-from model import Avatar, Post, Profile, Label, ProfileNote
+from model import Avatar, Post, Profile, Label
 from model.profile import avatar_join_profile, profile_join_self
 import worker
 
@@ -47,12 +47,6 @@ class ProfileView(FlaskView):
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
                 "name": "John Doe",
-                "notes": [
-                    {
-                        "body": "This is a profile note."
-                        "category": "Annotation"
-                    },
-                ],
                 "post_count": 1666,
                 "private": false,
                 "score": "-2.0621606863",
@@ -97,7 +91,6 @@ class ProfileView(FlaskView):
         :>json str location: geographic location provided by the user, as free
             text
         :>json str name: the full name provided by this user
-        :>json list notes: list of user-added notes for this profile
         :>json int note[n].body: the text body of of the note
         :>json str note[n].category: the category of the note.
         :>json str note[n].created_at: time at which the note was created.
@@ -160,18 +153,6 @@ class ProfileView(FlaskView):
             })
 
         response['usernames'] = usernames
-
-        # Create notes list
-        notes = list()
-
-        for note in profile.notes:
-            notes.append({
-                'body': note.body,
-                'category': note.category,
-                'created_at': note.created_at.isoformat(),
-            })
-
-        response['notes'] = notes
 
         # Create avatar attributes.
         if avatar is not None:
@@ -789,7 +770,6 @@ class ProfileView(FlaskView):
            * is_interesting
            * lables
            * score
-           * notes
 
         **Example Request**
 
@@ -801,9 +781,6 @@ class ProfileView(FlaskView):
                     {"name": "male"},
                     {"name": "british"},
                     ...
-                ],
-                "notes": [
-                    {"Annotation": "Profile marked as interesting because they have nice hair."},
                 ],
                 "score": 2323.0,
                 ...
@@ -836,13 +813,6 @@ class ProfileView(FlaskView):
                 "last_update": "2015-08-18T10:51:16",
                 "location": "Washington, DC",
                 "name": "John Doe",
-                "notes": [
-                    {
-                        "id": 1,
-                        "category": "annotation",
-                        "body": "Profile marked as interesting because I like their hair.",
-                    },
-                ],
                 "post_count": 1666,
                 "private": false,
                 "score": "-2.0621606863",
@@ -889,7 +859,6 @@ class ProfileView(FlaskView):
         :>json str location: geographic location provided by the user, as free
             text
         :>json str name: the full name provided by this user
-        :>json list notes: list of user-defined notes for this profile
         :>json int note[n].id: the unique id for this note
         :>json int note[n].category: the user-defined category of this note
         :>json int note[n].body: the user-defined text-body of this note
@@ -952,32 +921,6 @@ class ProfileView(FlaskView):
                 except:
                     raise BadRequest("'score' must be a decimal number.")
 
-
-        if 'notes' in request_json:
-            notes = []
-            if isinstance(request_json['notes'], list):
-                for note_json in request_json['notes']:
-                    if 'category' in note_json and 'body' in note_json:
-                        try:
-                            note = ProfileNote(
-                                category=note_json['category'].lower().strip(),
-                                body=note_json['body'].strip(),
-                                profile_id = id_
-                            )
-
-                            g.db.add(note)
-                            g.db.flush()
-
-                        except IntegrityError:
-                            g.db.rollback()
-                            raise BadRequest('Note could not be saved.')
-                        notes.append(note)
-                    else:
-                        raise BadRequest("`name` and `category are required for notes.")
-
-                profile.notes += notes
-            else:
-                raise BadRequest("`notes` must be a list")
 
         # labels expects the string 'name' rather than id, to avoid the need to
         # create labels before adding them.
@@ -1124,3 +1067,78 @@ class ProfileView(FlaskView):
         response.status_code = 200
 
         return response
+
+    @route('/<id_>/notes')
+    def get_notes(self, id_):
+        '''
+        Return an array of all notes for this profile.
+
+        **Example Response**
+
+        .. sourcecode: json
+
+            {
+                "notes": [
+                    {
+                        "id": 1,
+                        "category": "user annotation",
+                        "body": "This is an interesting) profile.",
+                        "created_at": "2015-12-15T10:41:55.792492",
+                        "url": "https://quickpin/api/note/1",
+                    }
+                    ...
+                ],
+                "total_count": 1
+                "username: "hyperiongray",
+                "sitename": twitter,
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+
+        :>header Content-Type: application/json
+        :>json list notes: list of profile note objects
+        :>json int list[n].id: unique identifier for the note
+        :>json str list[n].category: the user-defined category of this note
+        :>json str list[n].body: the note
+        :>json str list[n].created_at: the iso-formatted creation time of the note
+        :>json str list[n].url: API endpoint URL for this note object
+        :>json str total_count: the total number of notes for this profile
+        :>json str username: the username of this profile
+        :>json str sitename: the name of the social site the profile belongs to
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        '''
+
+        # Parse paging arguments
+        page, results_per_page = get_paging_arguments(request.args)
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile exists for id={}.'.format(id_))
+
+        # Store the total result count before paging arguments limit result set
+        total_count = len(profile.notes)
+        # Add API endpoint URL for each note object
+        notes = list()
+        for note in profile.notes:
+            data = note.as_dict()
+            data['url'] = url_for('ProfileNoteView:get', id_=note.id)
+            notes.append(data)
+
+        # Apply paging arguments
+        start = (page -1) * results_per_page
+        end = start + results_per_page
+        notes = notes[start:end]
+
+        return jsonify(
+            notes=notes,
+            total_count=total_count,
+            site_name=profile.site_name(),
+            username=profile.username,
+        )

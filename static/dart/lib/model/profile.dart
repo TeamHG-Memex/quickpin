@@ -123,9 +123,11 @@ class ProfileUsername {
 /// A profile can have 0-n notes. This class encapsulates attributes of
 /// a profile note.
 class ProfileNote {
+    int id;
     String body;
     String category;
     DateTime created_at;
+    int profile_id;
 
     ProfileNote(this.body, this.category);
 
@@ -133,5 +135,7 @@ class ProfileNote {
         this.body = json['body'];
         this.category = json['category'];
         this.created_at = DateTime.parse(json['created_at']);
+        this.id = json['id'];
+        this.profile_id = json['profile_id'];
     }
 }

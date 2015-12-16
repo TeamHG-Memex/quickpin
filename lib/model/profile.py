@@ -1,6 +1,5 @@
 from datetime import datetime
 import dateutil.parser
-import re
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, \
                        func, Integer, String, Table, Text, UniqueConstraint
@@ -39,6 +38,7 @@ label_join_profile = Table(
     Column('label_id', Integer, ForeignKey('label.id'), primary_key=True),
     Column('profile_id', Integer, ForeignKey('profile.id'), primary_key=True),
 )
+
 
 class Profile(Base):
     ''' Data model for a profile. '''
@@ -107,16 +107,16 @@ class Profile(Base):
     friends = relationship(
         'Profile',
         secondary=profile_join_self,
-        primaryjoin=(id==profile_join_self.c.follower_id),
-        secondaryjoin=(id==profile_join_self.c.friend_id)
+        primaryjoin=(id == profile_join_self.c.follower_id),
+        secondaryjoin=(id == profile_join_self.c.friend_id)
     )
 
     # A profile can be followed other profiles.
     followers = relationship(
         'Profile',
         secondary=profile_join_self,
-        primaryjoin=(id==profile_join_self.c.friend_id),
-        secondaryjoin=(id==profile_join_self.c.follower_id)
+        primaryjoin=(id == profile_join_self.c.friend_id),
+        secondaryjoin=(id == profile_join_self.c.follower_id)
     )
 
     # A user can mark a profile as interesting
@@ -163,7 +163,6 @@ class Profile(Base):
             'id': self.id,
             'is_stub': self.is_stub,
             'join_date': self.join_date and self.join_date.isoformat(),
-            #'labels': sorted([label.as_dict() for label in self.labels], key=lambda x:['name']),
             'labels': sorted_labels,
             'last_update': self.last_update.replace(microsecond=0).isoformat(),
             'location': self.location,
@@ -242,7 +241,7 @@ class ProfileNote(Base):
         nullable=False
     )
 
-    def __init__(self, category, body, profile_id, created_at=None ):
+    def __init__(self, category, body, profile_id, created_at=None):
         ''' Constructor. '''
         self.category = category
         self.body = body
@@ -259,6 +258,6 @@ class ProfileNote(Base):
             'id': self.id,
             'category': self.category,
             'body': self.body,
+            'profile_id': self.profile_id,
             'created_at': self.created_at.isoformat(),
         }
-
