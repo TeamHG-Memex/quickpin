@@ -22,7 +22,7 @@ class ProfileNoteView(FlaskView):
 
         **Example Response**
 
-        .. sourcecode: json
+        .. sourcecode:: json
 
             {
                 "id": 1,
@@ -65,31 +65,31 @@ class ProfileNoteView(FlaskView):
 
     def post(self):
         '''
-            Create profile notes.
+        Create profile notes.
 
-            **Example Request**
+        **Example Request**
 
-            ..sourcode:: json
+        .. sourcecode:: json
 
-                {
-                    "notes": [
-                        {
-                            "category": "user annotation",
-                            "body": "this profile belongs to an interesting network",
-                            "profile_id": "25 ",
-                        },
-                        {
-                            "category": "user annotation",
-                            "body": "this user does not exist anymore.",
-                            "profile_id": "10",
-                        },
-                        ...
-                    ]
-                }
+            {
+                "notes": [
+                    {
+                        "category": "user annotation",
+                        "body": "this profile belongs to an interesting network",
+                        "profile_id": "25 ",
+                    },
+                    {
+                        "category": "user annotation",
+                        "body": "this user does not exist anymore.",
+                        "profile_id": "10",
+                    },
+                    ...
+                ]
+            }
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
 
             {
                 "message": "2 profile notes created."
@@ -180,21 +180,22 @@ class ProfileNoteView(FlaskView):
         '''
         Update the note identified by `id`.
 
-            **Example Request**
+        **Example Request**
 
-            ..sourcode:: json
+        .. sourcecode:: json
 
+            {
                 {
-                    {
-                        "category": "user annotation",
-                        "body": "This profile belongs to two interesting networks",
-                        "profile_id": "25 ",
-                    },
-                }
+                    "category": "user annotation",
+                    "body": "This profile belongs to two interesting networks",
+                    "profile_id": "25 ",
+                },
+            }
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
+
             {
                 "id": "2",
                 "category": "user annotation",
@@ -265,7 +266,7 @@ class ProfileNoteView(FlaskView):
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
 
             {
                 "message": "note `12` deleted",
@@ -318,7 +319,7 @@ class ProfileNoteView(FlaskView):
 
         **Example Response**
 
-        .. sourcecode: json
+        .. sourcecode:: json
 
             {
                 "notes": [

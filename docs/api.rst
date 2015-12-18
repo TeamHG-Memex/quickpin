@@ -16,7 +16,7 @@ Representational State Transfer (REST)
 ======================================
 
 We won't go into deep detail about what "RESTful" means. If you're not familiar
-with the term, then you can read the dissertation which cointed the term. It is
+with the term, then you can read the dissertation which coined the term. It is
 titled `Architectural Styles and the Design of Network-based Software
 Architectures <http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm>`__.
 It's a bit dry, but it is *the authoritative source* on REST.
@@ -158,6 +158,113 @@ instead.
     Content-Type: text/plain
 
     Invalid e-mail or password.
+
+Quickstart
+===========
+Here are some examples to get you going.
+
+**Authentication**
+
+QuickPin authentication is easy! 
+
+1. Obtain an API token using email/password:
+
+.. code:: bash
+
+    $ curl -H "Content-Type: appication/json" -X POST -d '{"email":"john.doe@example.com","password":"xyz"}' http://localhost:5000/api/authenticate/
+
+    {
+      "message": "Authentication is successful.",
+      "token": "1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0"
+    }
+
+2. Send authenticated requests using the token as the X-AUTH header:
+
+.. code:: bash
+    
+    $ curl -H "X-AUTH: 1|2015-1219T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" http://localhost:5000/api/profile/
+
+    {
+      "profiles": [
+          {
+          ...
+          }
+    }
+
+
+**Searching for Profiles**
+
+Search for profiles by upstream id. The 'upstream_id' is a Twitter or Instagram profile ID:
+
+.. code:: bash
+
+    $ curl -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" http://localhost:5000/api/search/?query=upstream_id:0123456789
+
+    {
+      "facets": {
+      ...
+      }
+    ...
+    }
+
+Filter search results by a social site, e.g. "Twitter":
+
+.. code:: bash
+
+    $ curl -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" "http://localhost:5000/api/search/?query=upstream_id:0123456789&facets=site_ame_txt_en%00twitter
+
+    {
+      "facets": {
+      ...
+      }
+    ...
+    }
+
+**Adding Profiles**
+
+Add profiles by username:
+
+.. code:: bash
+
+    $  curl -H "Content-Type: application/json" -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" -X POST -d '{"profiles": [{"username":"hyperiongray","site":"twitter"}]}' http://localhost:5000/api/profile/
+
+    {
+      "message": "1 new profile submitted."
+    }
+
+Add profiles by upstream_id:
+
+.. code:: bash
+
+    $  curl -H "Content-Type: application/json" -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" -X POST -d '{"profiles": [{"upstream_id":"01234565789","site":"twitter"}]}' http://localhost:5000/api/profile/
+
+    {
+      "message": "1 new profile submitted."
+    }
+
+Add profiles as 'stubs'. 'Stub' profiles save API calls by limiting the information extracted, i.e. posts, friends, followers:
+
+.. code:: bash
+
+    $  curl -H "Content-Type: application/json" -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" -X POST -d '{"profiles": [{"upstream_id":"01234565789","site":"twitter", "stub" true}]}' http://localhost:5000/api/profile/
+
+    {
+      "message": "1 new profile submitted."
+    }
+
+**Editing Profiles**
+
+.. code:: bash
+
+    $  curl -H "Content-Type: application/json" -H "X-AUTH: 1|2015-12-19T13:23:03.614885.gMSIOYyeDCPLHCHTWx2F4PUASV0" -X POST -d '{"profiles": [{"upstream_id":"01234565789","site":"twitter", "stub" true}]}' http://localhost:5000/api/profile/
+
+    {
+      "message": "1 new profile submitted."
+    }
+
+**Adding Profile Notes**
+
+
 
 Sphinx
 ======

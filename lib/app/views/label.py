@@ -23,7 +23,7 @@ class LabelView(FlaskView):
 
         **Example Response**
 
-        .. sourcecode: json
+        .. sourcecode:: json
 
             {
                 "id": 1,
@@ -60,23 +60,23 @@ class LabelView(FlaskView):
 
     def post(self):
         '''
-            Create a label.
+        Create a label.
 
-            **Example Request**
+        **Example Request**
 
-            ..sourcode:: json
+        .. sourcecode:: json
 
-                {
-                    "labels": [
-                        {"name": "gender"},
-                        {"name": "age"},
-                        ...
-                    ]
-                }
+            {
+                "labels": [
+                    {"name": "gender"},
+                    {"name": "age"},
+                    ...
+                ]
+            }
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
 
             {
                 "message": "2 new labels created."
@@ -141,7 +141,7 @@ class LabelView(FlaskView):
 
         **Example Response**
 
-        .. sourcecode: json
+        .. sourcecode:: json
 
             {
                 "labels": [
@@ -196,17 +196,17 @@ class LabelView(FlaskView):
         '''
         Update the label identified by `id`.
 
-            **Example Request**
+        **Example Request**
 
-            ..sourcode:: json
+        .. sourcecode:: json
 
-                {
-                    {"name": "gender"},
-                }
+            {
+                {"name": "gender"},
+            }
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
 
             {
                 "id": "2",
@@ -265,7 +265,7 @@ class LabelView(FlaskView):
 
         **Example Response**
 
-        ..sourcecode:: json
+        .. sourcecode:: json
 
             {
                 "message": "Label `gender` deleted",
