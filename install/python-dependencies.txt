@@ -20,3 +20,6 @@ scorched
 SQLAlchemy
 sqlparse
 watchdog
+sphinx
+sphinxcontrib-httpdomain
+alabaster
