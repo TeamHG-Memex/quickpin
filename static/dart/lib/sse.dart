@@ -11,6 +11,7 @@ class SseController {
     Stream<Event> onProfile;
     Stream<Event> onProfilePosts;
     Stream<Event> onProfileRelations;
+    Stream<Event> onProfileNotes;
     Stream<Event> onWorker;
 
     RestApiController _api;
@@ -31,6 +32,7 @@ class SseController {
         this.onProfile = this._eventSource.on['profile'];
         this.onProfilePosts = this._eventSource.on['profile_posts'];
         this.onProfileRelations = this._eventSource.on['profile_relations'];
+        this.onProfileNotes = this._eventSource.on['profile_notes'];
         this.onWorker = this._eventSource.on['worker'];
     }
 }

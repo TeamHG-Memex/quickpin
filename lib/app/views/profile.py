@@ -1,20 +1,15 @@
-from collections import defaultdict
-from datetime import date, timedelta
+from datetime import timedelta
 
-from dateutil.relativedelta import relativedelta
-from flask import g, json, jsonify, request, send_from_directory
+from flask import g, json, jsonify, request
 from flask.ext.classy import FlaskView, route
-from sqlalchemy import extract, func
 from sqlalchemy.exc import IntegrityError, DBAPIError
-from sqlalchemy.orm import aliased
-from sqlalchemy.sql.expression import bindparam
-from werkzeug.exceptions import BadRequest, Conflict, NotFound
+from werkzeug.exceptions import BadRequest, NotFound
 
 from app.authorization import login_required
 import app.database
 import app.queue
 from app.rest import get_int_arg, get_paging_arguments, \
-                     get_sort_arguments, heatmap_column, isodate, url_for
+                     get_sort_arguments, isodate, url_for
 from model import Avatar, Post, Profile, Label
 from model.profile import avatar_join_profile, profile_join_self
 import worker
@@ -27,97 +22,102 @@ class ProfileView(FlaskView):
 
     def get(self, id_):
         '''
-        Get the profile identified by `id`.
+        .. http:get:: /api/profile/(int:id_)
 
-        **Example Response**
+            Get the profile identified by `id`.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-                "avatar_url": "https://quickpin/api/file/1",
-                "avatar_thumb_url": "https://quickpin/api/file/2",
-                "description": "A human being.",
-                "follower_count": 71,
-                "friend_count": 28,
-                "id": 1,
-                "is_stub": false,
-                "is_interesting": false,
-                "join_date": "2012-01-30T15:11:35",
-                "labels": [
-                    {
-                        "id": 1,
-                        "name": "male"
-                    },
-                ],
-                "last_update": "2015-08-18T10:51:16",
-                "location": "Washington, DC",
-                "name": "John Doe",
-                "post_count": 1666,
-                "private": false,
-                "score": "-2.0621606863",
-                "site": "twitter",
-                "site_name": "Twitter",
-                "time_zone": "Central Time (US & Canada)",
-                "upstream_id": "11009418",
-                "url": "https://quickpin/api/profile/1",
-                "username": "mehaase",
-                "usernames": [
-                    {
-                        "end_date": "2012-06-30T15:00:00",
-                        "start_date": "2012-01-01T12:00:00",
-                        "username": "mehaase"
-                    },
-                    ...
-                ]
-            }
+            .. sourcecode:: json
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
+                {
+                    "avatar_url": "https://quickpin/api/file/1",
+                    "avatar_thumb_url": "https://quickpin/api/file/2",
+                    "description": "A human being.",
+                    "follower_count": 71,
+                    "friend_count": 28,
+                    "id": 1,
+                    "is_stub": false,
+                    "is_interesting": false,
+                    "join_date": "2012-01-30T15:11:35",
+                    "labels": [
+                        {
+                            "id": 1,
+                            "name": "male"
+                        },
+                    ],
+                    "last_update": "2015-08-18T10:51:16",
+                    "location": "Washington, DC",
+                    "name": "John Doe",
+                    "post_count": 1666,
+                    "private": false,
+                    "score": "-2.0621606863",
+                    "site": "twitter",
+                    "site_name": "Twitter",
+                    "time_zone": "Central Time (US & Canada)",
+                    "upstream_id": "11009418",
+                    "url": "https://quickpin/api/profile/1",
+                    "username": "mehaase",
+                    "usernames": [
+                        {
+                            "end_date": "2012-06-30T15:00:00",
+                            "start_date": "2012-01-01T12:00:00",
+                            "username": "mehaase"
+                        },
+                        ...
+                    ]
+                }
 
-        :>header Content-Type: application/json
-        :>json str avatar_url: URL to the user's current avatar
-        :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
-            current avatar
-        :>json str description: profile description
-        :>json int follower_count: number of followers
-        :>json int friend_count: number of friends (a.k.a. followees)
-        :>json int id: unique identifier for profile
-        :>json bool is_stub: indicates that this is a stub profile, e.g.
-            related to another profile but has not been fully imported
-        :>json bool is_interesting: indicates whether this profile has been
-            marked as interesting. The value can be null.
-        :>json str join_date: the date this profile joined its social network
-            (ISO-8601)
-        :>json list labels: list of labels for this profile
-        :>json int label[n].id: the unique id for this label
-        :>json str label[n].name: the label
-        :>json str last_update: the last time that information about this
-            profile was retrieved from the social media site (ISO-8601)
-        :>json str location: geographic location provided by the user, as free
-            text
-        :>json str name: the full name provided by this user
-        :>json int post_count: the number of posts made by this profile
-        :>json bool private: true if this is a private account (i.e. not world-
-            readable)
-        :>json str score: user defined score for this profile
-        :>json str site: machine-readable site name that this profile belongs to
-        :>json str site_name: human-readable site name that this profile belongs
-            to
-        :>json str time_zone: the user's provided time zone as free text
-        :>json str upstream_id: the user ID assigned by the social site
-        :>json str url: URL endpoint for retriving more data about this profile
-        :>json str username: the current username for this profile
-        :>json list usernames: list of known usernames for this profile
-        :>json str usernames[n].end_date: the last known date this username was
-            used for this profile
-        :>json str usernames[n].start_date: the first known date this username
-            was used for this profile
-        :>json str usernames[n].username: a username used for this profile
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
 
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: user does not exist
+            :>header Content-Type: application/json
+            :>json str avatar_url: URL to the user's current avatar
+            :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
+                current avatar
+            :>json str description: profile description
+            :>json int follower_count: number of followers
+            :>json int friend_count: number of friends (a.k.a. followees)
+            :>json int id: unique identifier for profile
+            :>json bool is_stub: indicates that this is a stub profile, e.g.
+                related to another profile but has not been fully imported
+            :>json bool is_interesting: indicates whether this profile has been
+                marked as interesting. The value can be null.
+            :>json str join_date: the date this profile joined its social network
+                (ISO-8601)
+            :>json list labels: list of labels for this profile
+            :>json int label[n].id: the unique id for this label
+            :>json str label[n].name: the label
+            :>json str last_update: the last time that information about this
+                profile was retrieved from the social media site (ISO-8601)
+            :>json str location: geographic location provided by the user, as free
+                text
+            :>json str name: the full name provided by this user
+            :>json int note[n].body: the text body of of the note
+            :>json str note[n].category: the category of the note.
+            :>json str note[n].created_at: time at which the note was created.
+            :>json int post_count: the number of posts made by this profile
+            :>json bool private: true if this is a private account (i.e. not world-
+                readable)
+            :>json str score: user defined score for this profile
+            :>json str site: machine-readable site name that this profile belongs to
+            :>json str site_name: human-readable site name that this profile belongs
+                to
+            :>json str time_zone: the user's provided time zone as free text
+            :>json str upstream_id: the user ID assigned by the social site
+            :>json str url: URL endpoint for retriving more data about this profile
+            :>json str username: the current username for this profile
+            :>json list usernames: list of known usernames for this profile
+            :>json str usernames[n].end_date: the last known date this username was
+                used for this profile
+            :>json str usernames[n].start_date: the first known date this username
+                was used for this profile
+            :>json str usernames[n].username: a username used for this profile
+
+            :status 200: ok
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: user does not exist
         '''
 
         # Get profile.
@@ -767,9 +767,11 @@ class ProfileView(FlaskView):
     def put(self, id_):
         '''
         Update the profile identified by `id` with submitted data.
-        The following attribute are modifiable:
+        The following attributes are modifiable:
+
            * is_interesting
-           * lables
+           * labels
+           * score
 
         **Example Request**
 
@@ -782,6 +784,7 @@ class ProfileView(FlaskView):
                     {"name": "british"},
                     ...
                 ],
+                "score": 2323.0,
                 ...
             }
 
@@ -858,10 +861,13 @@ class ProfileView(FlaskView):
         :>json str location: geographic location provided by the user, as free
             text
         :>json str name: the full name provided by this user
+        :>json int note[n].id: the unique id for this note
+        :>json int note[n].category: the user-defined category of this note
+        :>json int note[n].body: the user-defined text-body of this note
         :>json int post_count: the number of posts made by this profile
         :>json bool private: true if this is a private account (i.e. not world-
             readable)
-        :>json str site: user-defined score for this profile. Can be null.
+        :>json str score: user-defined score for this profile. Can be null.
         :>json str site: machine-readable site name that this profile belongs to
         :>json str site_name: human-readable site name that this profile belongs
             to
@@ -917,6 +923,7 @@ class ProfileView(FlaskView):
                 except:
                     raise BadRequest("'score' must be a decimal number.")
 
+
         # labels expects the string 'name' rather than id, to avoid the need to
         # create labels before adding them.
         if 'labels' in request_json:
@@ -962,7 +969,7 @@ class ProfileView(FlaskView):
 
         # Add a millisecond to last_update to prevent sqlalchemy updating
         # with current time.
-        profile.last_update = profile.last_update - timedelta(milliseconds=1)
+        profile.last_update = profile.last_update + timedelta(milliseconds=1)
 
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)
@@ -1062,3 +1069,78 @@ class ProfileView(FlaskView):
         response.status_code = 200
 
         return response
+
+    @route('/<id_>/notes')
+    def get_notes(self, id_):
+        '''
+        Return an array of all notes for this profile.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+                "notes": [
+                    {
+                        "id": 1,
+                        "category": "user annotation",
+                        "body": "This is an interesting) profile.",
+                        "created_at": "2015-12-15T10:41:55.792492",
+                        "url": "https://quickpin/api/note/1",
+                    }
+                    ...
+                ],
+                "total_count": 1
+                "username: "hyperiongray",
+                "sitename": twitter,
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
+
+
+        :>header Content-Type: application/json
+        :>json list notes: list of profile note objects
+        :>json int list[n].id: unique identifier for the note
+        :>json str list[n].category: the user-defined category of this note
+        :>json str list[n].body: the note
+        :>json str list[n].created_at: the iso-formatted creation time of the note
+        :>json str list[n].url: API endpoint URL for this note object
+        :>json str total_count: the total number of notes for this profile
+        :>json str username: the username of this profile
+        :>json str sitename: the name of the social site the profile belongs to
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        '''
+
+        # Parse paging arguments
+        page, results_per_page = get_paging_arguments(request.args)
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound('No profile exists for id={}.'.format(id_))
+
+        # Store the total result count before paging arguments limit result set
+        total_count = len(profile.notes)
+        # Add API endpoint URL for each note object
+        notes = list()
+        for note in profile.notes:
+            data = note.as_dict()
+            data['url'] = url_for('ProfileNoteView:get', id_=note.id)
+            notes.append(data)
+
+        # Apply paging arguments
+        start = (page -1) * results_per_page
+        end = start + results_per_page
+        notes = notes[start:end]
+
+        return jsonify(
+            notes=notes,
+            total_count=total_count,
+            site_name=profile.site_name(),
+            username=profile.username,
+        )

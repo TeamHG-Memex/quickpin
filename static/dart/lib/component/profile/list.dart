@@ -697,6 +697,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
 
         if (this.sortByCol == null) {
             this.sortByDescription = 'Added';
+            this.sortByCol = 'added';
         } else {
             this.sortByDescription = this.sortByCol.replaceFirst('-', '');
             String initial = sortByDescription[0].toUpperCase();

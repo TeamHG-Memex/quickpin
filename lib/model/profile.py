@@ -1,8 +1,5 @@
-import base64
 from datetime import datetime
 import dateutil.parser
-import os
-import re
 
 from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, \
                        func, Integer, String, Table, Text, UniqueConstraint
@@ -41,6 +38,7 @@ label_join_profile = Table(
     Column('label_id', Integer, ForeignKey('label.id'), primary_key=True),
     Column('profile_id', Integer, ForeignKey('profile.id'), primary_key=True),
 )
+
 
 class Profile(Base):
     ''' Data model for a profile. '''
@@ -85,7 +83,7 @@ class Profile(Base):
         cascade='all,delete-orphan'
     )
 
-    # One profile has 0-n names.
+    # One profile has 0-n posts.
     posts = relationship(
         'Post',
         backref='author',
@@ -98,21 +96,27 @@ class Profile(Base):
         secondary=avatar_join_profile
     )
 
+    # One profile has 0-n notes.
+    notes = relationship(
+        'ProfileNote',
+        cascade='all,delete-orphan'
+    )
+
     # A profile can follow other profiles. We use the Twitter nomenclature and
     # call this relationship "friend".
     friends = relationship(
         'Profile',
         secondary=profile_join_self,
-        primaryjoin=(id==profile_join_self.c.follower_id),
-        secondaryjoin=(id==profile_join_self.c.friend_id)
+        primaryjoin=(id == profile_join_self.c.follower_id),
+        secondaryjoin=(id == profile_join_self.c.friend_id)
     )
 
     # A profile can be followed other profiles.
     followers = relationship(
         'Profile',
         secondary=profile_join_self,
-        primaryjoin=(id==profile_join_self.c.friend_id),
-        secondaryjoin=(id==profile_join_self.c.follower_id)
+        primaryjoin=(id == profile_join_self.c.friend_id),
+        secondaryjoin=(id == profile_join_self.c.follower_id)
     )
 
     # A user can mark a profile as interesting
@@ -148,7 +152,9 @@ class Profile(Base):
         ''' Return dictionary representation of this profile. '''
         # Sort labels by name
         labels = [label.as_dict() for label in self.labels]
+        notes = [note.as_dict() for note in self.notes]
         sorted_labels = sorted(labels, key=lambda x: x['name'])
+        sorted_notes = sorted(notes, key=lambda x: x['created_at'], reverse=True)
         return {
             'description': self.description,
             'follower_count': self.follower_count,
@@ -157,11 +163,11 @@ class Profile(Base):
             'id': self.id,
             'is_stub': self.is_stub,
             'join_date': self.join_date and self.join_date.isoformat(),
-            #'labels': sorted([label.as_dict() for label in self.labels], key=lambda x:['name']),
             'labels': sorted_labels,
             'last_update': self.last_update.replace(microsecond=0).isoformat(),
             'location': self.location,
             'name': self.name,
+            'notes': sorted_notes,
             'post_count': self.post_count,
             'private': self.private,
             'score': self.score,
@@ -213,3 +219,45 @@ class ProfileUsername(Base):
                 self.end_date = end_date
             else:
                 self.end_date = dateutil.parser.parse(end_date)
+
+
+class ProfileNote(Base):
+    ''' A profile can have many notes. '''
+
+    __tablename__ = 'profile_note'
+    __table_args__ = (
+        UniqueConstraint('id', 'profile_id', name='uk_note_id_profile_id'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    category = Column(String(255))
+    body = Column(Text)
+    created_at = Column(DateTime,
+                        default=func.current_timestamp())
+
+    profile_id = Column(
+        Integer,
+        ForeignKey('profile.id', name='fk_profile_note_id'),
+        nullable=False
+    )
+
+    def __init__(self, category, body, profile_id, created_at=None):
+        ''' Constructor. '''
+        self.category = category
+        self.body = body
+        self.profile_id = profile_id
+
+        if created_at is not None:
+            if isinstance(created_at, datetime):
+                self.created_at = created_at
+            else:
+                self.created_at = dateutil.parser.parse(created_at)
+
+    def as_dict(self):
+        return {
+            'id': self.id,
+            'category': self.category,
+            'body': self.body,
+            'profile_id': self.profile_id,
+            'created_at': self.created_at.isoformat(),
+        }

@@ -148,6 +148,21 @@ textarea {
   text-align: center;
 }
 
+.link:hover {
+  text-decoration: underline;
+  color: #22527b;
+}
+
+.link {
+  cursor: pointer;
+  text-decoration: none;
+  color: #337ab7;
+}
+
+.disabled > link, .disabled > link:hover, .disabled > link:focus {
+  color: #ccc !important;
+}
+
 // Background Tasks ===========================================================
 
 background-tasks {
@@ -577,6 +592,14 @@ profile {
     font-size: x-large;
   }
 
+  .tmargin-md {
+    margin-top: 10px;
+  }
+
+  .padding-left-md {
+    padding-left: 10px;
+  }
+
 }
 
 profile-list {
@@ -638,6 +661,13 @@ profile-list {
 
 profile-posts {
   .post-attachment {
+    margin-bottom: 1em;
+    width: 100%;
+  }
+}
+
+profile-notes {
+  .note {
     margin-bottom: 1em;
     width: 100%;
   }

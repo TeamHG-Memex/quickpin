@@ -26,6 +26,7 @@ class Profile {
     String timeZone;
     String upstreamId;
     String username;
+    List<ProfileNote> notes;
     List<ProfileUsername> usernames;
     List<Label> labels;
 
@@ -73,6 +74,13 @@ class Profile {
             );
         }
 
+        if (json['notes'] != null) {
+            this.notes = new List.generate(
+                json['notes'].length,
+                (index) => new ProfileNote.fromJson(json['notes'][index])
+            );
+        }
+
         if (json['labels'] != null) {
             this.labels = new List.generate(
                 json['labels'].length,
@@ -109,5 +117,25 @@ class ProfileUsername {
         if (json['end_date'] != null) {
             this.endDate = DateTime.parse(json['end_date']);
         }
+    }
+}
+
+/// A profile can have 0-n notes. This class encapsulates attributes of
+/// a profile note.
+class ProfileNote {
+    int id;
+    String body;
+    String category;
+    DateTime created_at;
+    int profile_id;
+
+    ProfileNote(this.body, this.category);
+
+    ProfileNote.fromJson(Map json) {
+        this.body = json['body'];
+        this.category = json['category'];
+        this.created_at = DateTime.parse(json['created_at']);
+        this.id = json['id'];
+        this.profile_id = json['profile_id'];
     }
 }

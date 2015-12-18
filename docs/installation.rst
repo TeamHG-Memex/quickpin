@@ -22,7 +22,7 @@ on an Ubuntu 14.04 host. **We assume that you already have the QuickPin project
 checked out at /opt/quickpin.**
 
 Create QuickPin User
-------------------
+--------------------
 
 For security reasons, we recommend that you run QuickPin under its own
 segregated user account. Create a quickpin user as follows:

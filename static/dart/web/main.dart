@@ -31,6 +31,7 @@ import 'package:quickpin/component/modal.dart';
 import 'package:quickpin/component/nav.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/profile/list.dart';
+import 'package:quickpin/component/profile/notes.dart';
 import 'package:quickpin/component/profile/posts.dart';
 import 'package:quickpin/component/profile/relations.dart';
 import 'package:quickpin/component/profile/view.dart';
@@ -89,6 +90,7 @@ class QuickPinApplication extends Module {
         bind(PagerComponent);
         bind(ProfileComponent);
         bind(ProfileListComponent);
+        bind(ProfileNotesComponent);
         bind(ProfilePostsComponent);
         bind(ProfileRelationsComponent);
         bind(ProgressBarComponent);

@@ -264,6 +264,9 @@ def init_views(flask_app, config):
     from app.views.intents import IntentsView
     IntentsView.register(flask_app, route_base='/api/intents/')
 
+    from app.views.note import ProfileNoteView
+    ProfileNoteView.register(flask_app, route_base='/api/note/')
+
     # Make sure to import the Angular view last so that it will match
     # all remaining routes.
     import app.views.angular
