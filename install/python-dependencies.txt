@@ -11,6 +11,7 @@ jsmin
 Markdown
 Pillow
 phonenumbers
+psycopg2
 progressbar2
 python-dateutil
 python-slugify
