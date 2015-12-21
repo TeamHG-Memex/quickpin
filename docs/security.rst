@@ -35,11 +35,6 @@ REST API and has appropriate access controls.
 API Authentication
 ==================
 
-.. warning::
-
-    Authentication has not been fully implemented yet. We currently have a
-    hardcoded username/password in ``lib/app/views/authenticate.py``.
-
 Authentication is performed by email address and password. The implementation is
 in ``lib/app/views/authenticate.py``. Authentication is performed by making a
 REST API call with the email address and password. If authentication succeeds,
