@@ -298,7 +298,7 @@ table using `sphinxcontrib.httpdomain.flask <http://pythonhosted.org
 Endpoints
 =========
 
-.. autoflask:: app:bootstrap()
+.. autoflask:: app:bootstrap_views()
     :undoc-static:
     :undoc-endpoints: angular, dart_package, main_dart_js
     :include-empty-docstring:
