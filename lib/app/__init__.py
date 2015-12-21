@@ -94,6 +94,38 @@ def bootstrap(debug=False, debug_db=False, latency=None, log_level=None):
     return flask_app
 
 
+@failsafe
+def bootstrap_views(debug=False, debug_db=False, latency=None, log_level=None):
+    """ Bootstrap the Flask application and return a reference to it. """
+
+    global flask_app
+
+    if flask_app is not None:
+        raise RuntimeError("The application should not be" \
+                           " bootstrapped more than once.")
+
+    # Initialize Flask.
+    flask_app = MyFlask(
+        __name__,
+        static_folder=app.config.get_path("static"),
+        template_folder=app.config.get_path("lib/app/templates")
+    )
+
+    flask_app.debug = debug
+    flask_app.debug_db = debug_db
+    flask_app.latency = latency
+
+    config = app.config.get_config()
+
+    if log_level is not None:
+        config.set('logging', 'log_level', log_level)
+
+    # Run the bootstrap.
+    init_views(flask_app, config)
+
+    return flask_app
+
+
 def init_errors(flask_app, config):
     ''' Initialize error handlers. '''
 
