@@ -162,7 +162,11 @@ instead.
 Quickstart
 ===========
 
-Here are some examples to get you going.
+Below are some common usage examples using curl. Read :ref:`endpoints` for more information.
+
+Further Python code examples can be found in the `QuickPin API Python Client <https://github.com/TeamHG-Memex/quickpin-api.git/>`__,
+which also has a simple command line utility.
+
 
 **Authentication**
 
@@ -272,7 +276,15 @@ Setting the score for a profile (with ID of 1) using a PUT request:
 
 **Adding Profile Notes**
 
+Add a note for a profile (with ID of 1):
 
+.. code:: bash
+
+    $ curl -H "Content-Type: application/json" -H "X-AUTH: 1|2015-12-22T10:50:33.954731.CBJcKobY7UienL6GCoAt02SIiLU" -X POST -d '{"notes": [{"category": "annotation", "body": "this profile is really interesting", "profile_id": 1}]}'  http://localhost:5000/api/note/
+
+    {
+      "message": "1 new notes created"
+    }
 
 Sphinx
 ======
@@ -281,6 +293,8 @@ The API documentation below is generated automatically from the Flask routing
 table using `sphinxcontrib.httpdomain.flask <http://pythonhosted.org
 /sphinxcontrib-httpdomain/>`__.
 
+.. _endpoints:
+
 Endpoints
 =========
 
@@ -288,3 +302,4 @@ Endpoints
     :undoc-static:
     :undoc-endpoints: angular, dart_package, main_dart_js
     :include-empty-docstring:
+
