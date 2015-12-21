@@ -1,4 +1,5 @@
 agnostic
+bcrypt
 beautifulsoup4
 bleach
 cssselect
