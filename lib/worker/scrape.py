@@ -245,6 +245,7 @@ def scrape_instagram_account(username, stub=False):
                             .filter(Profile.upstream_id == user_id) \
                             .one()
 
+    profile.last_update = datetime.now()
     profile.description = data['bio']
     profile.follower_count = int(data['counts']['followed_by'])
     profile.friend_count = int(data['counts']['follows'])
@@ -298,6 +299,7 @@ def scrape_instagram_account_by_id(upstream_id, stub=False):
                             .one()
 
     # Update profile
+    profile.last_update = datetime.now()
     profile.description = data['bio']
     profile.follower_count = int(data['counts']['followed_by'])
     profile.friend_count = int(data['counts']['follows'])
@@ -440,7 +442,6 @@ def scrape_instagram_relations(id_):
     proxies = _get_proxies(db)
     friends_results = 0
     followers_results = 0
-    #max_results = _get_max_relations(db)['instagram']
     max_results = get_config(db, 'max_relations_instagram', required=True).value
 
     try:
@@ -627,6 +628,7 @@ def scrape_twitter_account(usernames, stub=False):
                                 .one()
 
         _twitter_populate_profile(profile_json, profile)
+        profile.last_update = datetime.now()
         db_session.commit()
         profiles.append(profile.as_dict())
 
@@ -664,7 +666,6 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
 
     # Update the profile.
     for profile_json in response.json():
-        #data = response.json()[0]
         profile = Profile(
             'twitter',
             profile_json['id_str'],
@@ -688,7 +689,9 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
             # being updated to full profiles
             profile.is_stub = False
 
+
         _twitter_populate_profile(profile_json, profile)
+        profile.last_update = datetime.now()
         db_session.commit()
         profiles.append(profile.as_dict())
 
@@ -714,7 +717,6 @@ def scrape_twitter_posts(id_, recent):
     The number of tweets to fetch is configured in the Admin.
     '''
     db = worker.get_session()
-    #max_results = _get_max_posts(db)['twitter']
     max_results = get_config(db, 'max_posts_twitter', required=True).value
 
     try:
@@ -839,7 +841,6 @@ def scrape_twitter_relations(id_):
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
     proxies = _get_proxies(db)
-    #max_results = _get_max_relations(db)['twitter']
     max_results = get_config(db, 'max_relations_twitter', required=True).value
 
     try:
