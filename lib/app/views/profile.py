@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from flask import g, json, jsonify, request
 from flask.ext.classy import FlaskView, route
 from sqlalchemy.exc import IntegrityError, DBAPIError
@@ -966,10 +964,6 @@ class ProfileView(FlaskView):
                 profile.labels = labels
             else:
                 raise BadRequest("'labels' must be a list")
-
-        # Add a millisecond to last_update to prevent sqlalchemy updating
-        # with current time.
-        profile.last_update = profile.last_update + timedelta(milliseconds=1)
 
         response = profile.as_dict()
         response['url'] = url_for('ProfileView:get', id_=profile.id)

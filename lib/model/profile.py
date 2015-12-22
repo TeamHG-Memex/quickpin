@@ -65,7 +65,6 @@ class Profile(Base):
     last_update = Column(
         DateTime,
         default=func.current_timestamp(),
-        onupdate=func.current_timestamp()
     )
 
     follower_count = Column(Integer)
