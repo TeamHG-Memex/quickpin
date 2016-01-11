@@ -16,6 +16,7 @@ from werkzeug.exceptions import HTTPException
 
 import app.config
 import app.database
+from app.queue import init_queues, remove_unused_queues
 
 
 flask_app = None
@@ -149,6 +150,8 @@ def init_flask(flask_app, config):
 
     db_engine = app.database.get_engine(dict(config.items('database')))
     redis = app.database.get_redis(dict(config.items('redis')))
+    remove_unused_queues(redis)
+    init_queues(redis)
     solr = app.database.get_solr(dict(config.items('solr')))
 
     signer = Signer(config.get('flask', 'SECRET_KEY'))
