@@ -4,10 +4,10 @@ import 'dart:convert';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/post.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -18,7 +18,7 @@ import 'package:quickpin/sse.dart';
     templateUrl: 'packages/quickpin/component/profile/posts.html',
     useShadowDom: false
 )
-class ProfilePostsComponent extends Object with CurrentPageMixin
+class ProfilePostsComponent extends Object
                             implements ScopeAware {
     AuthenticationController auth;
     List<Breadcrumb> crumbs;
@@ -35,23 +35,27 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
     bool failedTasks = false;
     List<Map> workers;
     List<Map> profilePostsWorkers;
+    QueryWatcher _queryWatcher;
 
     final RestApiController api;
 
     final RouteProvider _rp;
-    final int _resultsPerPage = 20;
     final TitleService _ts;
     final SseController _sse;
 
     /// Constructor.
     ProfilePostsComponent(this.api, this.auth, this._rp, this._sse, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._ts.title = 'Posts by ${id}';
         this._updateCrumbs();
-        this._fetchCurrentPage()
-            .then((_) => this._fetchProfilePostsWorkers())
-            .then((_) => this._fetchFailedProfilePostsTasks());
+
+        RouteHandle rh = this._rp.route.newHandle();
+
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'rpp'],
+            this._fetchCurrentPage
+        );
 
         // Add event listeners...
         List<StreamSubscription> listeners = [
@@ -60,10 +64,14 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
         ];
 
         // ...and remove event listeners when we leave this route.
-        RouteHandle rh = this._rp.route.newHandle();
-        rh.onLeave.take(1).listen((e) {
-            listeners.forEach((listener) => listener.cancel());
-        });
+        UnsubOnRouteLeave(rh, [
+            this._sse.onProfilePosts.listen(this._fetchCurrentPage),
+            this._sse.onWorker.listen(this._workerListener),
+        ]);
+
+        this._fetchCurrentPage()
+            .then((_) => this._fetchProfilePostsWorkers())
+            .then((_) => this._fetchFailedProfilePostsTasks());
     }
 
     /// Listen for updates from background workers.
@@ -97,8 +105,8 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
         this.loading++;
         String pageUrl = '/api/profile/${this.id}/posts';
         Map urlArgs = {
-            'page': this.currentPage,
-            'rpp': this._resultsPerPage,
+            'page': this._queryWatcher['page'] ?? '1',
+            'rpp': this._queryWatcher['rpp'] ?? '10',
         };
 
         this.api
@@ -113,8 +121,8 @@ class ProfilePostsComponent extends Object with CurrentPageMixin
                 });
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
+                                       resultsPerPage: int.parse(this._queryWatcher['rpp'] ?? '10'));
 
                 this._ts.title = 'Posts by ${this.username}';
                 this._updateCrumbs();

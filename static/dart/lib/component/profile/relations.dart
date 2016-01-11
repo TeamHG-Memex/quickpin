@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -17,7 +17,7 @@ import 'package:quickpin/sse.dart';
     templateUrl: 'packages/quickpin/component/profile/relations.html',
     useShadowDom: false
 )
-class ProfileRelationsComponent extends Object with CurrentPageMixin
+class ProfileRelationsComponent extends Object
                                 implements ScopeAware {
 
     AuthenticationController auth;
@@ -34,26 +34,29 @@ class ProfileRelationsComponent extends Object with CurrentPageMixin
     Map<String, Map> _runningJobs;
     List<Map> workers;
     List<Map> profileRelationsWorkers;
+    QueryWatcher _queryWatcher;
 
     String _relType;
 
     final RestApiController api;
     final RouteProvider _rp;
-    final int _resultsPerPage = 30;
     final TitleService _ts;
     final SseController _sse;
 
     /// Constructor.
     ProfileRelationsComponent(this.api, this.auth, this._rp, this._sse, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._relType = this._rp.parameters['reltype'];
         this._ts.title = 'Posts by ${id}';
         this._updateCrumbs();
-        this._fetchCurrentPage()
-            .then((_) => this._fetchProfileRelationsWorkers())
-            .then((_) => this._fetchFailedProfileRelationsTasks());
 
+        RouteHandle rh = this._rp.route.newHandle();
+
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'rpp'],
+            this._fetchCurrentPage
+        );
 
         // Add event listeners...
         List<StreamSubscription> listeners = [
@@ -62,10 +65,15 @@ class ProfileRelationsComponent extends Object with CurrentPageMixin
         ];
 
         // ...and remove event listeners when we leave this route.
-        RouteHandle rh = this._rp.route.newHandle();
-        rh.onLeave.take(1).listen((e) {
-            listeners.forEach((listener) => listener.cancel());
-        });
+        UnsubOnRouteLeave(rh, [
+            this._sse.onProfileRelations.listen(this._fetchCurrentPage),
+            this._sse.onWorker.listen(this._workerListener),
+        ]);
+
+        this._fetchCurrentPage()
+            .then((_) => this._fetchProfileRelationsWorkers())
+            .then((_) => this._fetchFailedProfileRelationsTasks());
+
     }
 
     /// Return relation type as a human-readable string.
@@ -116,8 +124,8 @@ class ProfileRelationsComponent extends Object with CurrentPageMixin
         this.loading++;
         String pageUrl = '/api/profile/${this.id}/relations/${this._relType}';
         Map urlArgs = {
-            'page': this.currentPage,
-            'rpp': this._resultsPerPage,
+            'page': this._queryWatcher['page'] ?? '1',
+            'rpp': this._queryWatcher['rpp'] ?? '10',
         };
 
         this.api
@@ -132,8 +140,8 @@ class ProfileRelationsComponent extends Object with CurrentPageMixin
                 });
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
+                                       resultsPerPage:int.parse(this._queryWatcher['rpp'] ?? '10'));
 
                 this._ts.title = '${this.relType()} by ${this.username}';
                 this._updateCrumbs();

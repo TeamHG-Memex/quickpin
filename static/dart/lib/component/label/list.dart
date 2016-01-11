@@ -4,10 +4,10 @@ import 'dart:html';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/label.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -18,7 +18,7 @@ import 'package:quickpin/sse.dart';
     templateUrl: 'packages/quickpin/component/label/list.html',
     useShadowDom: false
 )
-class LabelListComponent extends Object with CurrentPageMixin
+class LabelListComponent extends Object
                            implements ScopeAware, ShadowRootAware {
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
@@ -36,6 +36,7 @@ class LabelListComponent extends Object with CurrentPageMixin
     bool showAdd = false;
     bool submittingLabel = false;
     bool labelCreated = false;
+    QueryWatcher _queryWatcher;
 
     InputElement _inputEl;
 
@@ -44,31 +45,31 @@ class LabelListComponent extends Object with CurrentPageMixin
     final Element _element;
     final Router _router;
     final RouteProvider _rp;
-    final int _resultsPerPage = 50;
     final SseController _sse;
     final TitleService _ts;
 
     /// Constructor.
     LabelListComponent(this.api, this.auth, this._element, this._router,
                          this._rp, this._sse, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this._ts.title = 'Labels';
         this.id = this._rp.parameters['id'];
 
         // Add event listeners...
         RouteHandle rh = this._rp.route.newHandle();
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'rpp'],
+            this._fetchCurrentPage
+        );
 
         List<StreamSubscription> listeners = [
             this._sse.onLabel.listen(this.labelListener),
-            rh.onEnter.listen((e) {
-                this._fetchCurrentPage();
-            }),
         ];
 
         // ...and remove event listeners when we leave this route.
-        rh.onLeave.take(1).listen((e) {
-            listeners.forEach((listener) => listener.cancel());
-        });
+        UnsubOnRouteLeave(rh, [
+            this._sse.onLabel.listen(this._fetchCurrentPage),
+        ]);
 
         this._fetchCurrentPage();
     }
@@ -171,8 +172,8 @@ class LabelListComponent extends Object with CurrentPageMixin
         this.loading++;
         String pageUrl = '/api/label/';
         Map urlArgs = {
-            'page': this.currentPage,
-            'rpp': this._resultsPerPage,
+            'page': this._queryWatcher['page'] ?? '1',
+            'rpp': this._queryWatcher['rpp'] ?? '10',
         };
 
         this.api
@@ -189,8 +190,8 @@ class LabelListComponent extends Object with CurrentPageMixin
                 });
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
+                                       resultsPerPage:int.parse(this._queryWatcher['rpp'] ?? '10'));
 
                 new Future(() {
                     this.labelIds = new List<String>.from(this.labels.keys);

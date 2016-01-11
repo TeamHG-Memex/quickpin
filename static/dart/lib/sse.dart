@@ -2,6 +2,7 @@ import 'dart:html';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/rest_api.dart';
+import 'package:route_hierarchical/client.dart';
 
 /// Handles server-sent events.
 @Injectable()
@@ -35,4 +36,13 @@ class SseController {
         this.onProfileNotes = this._eventSource.on['profile_notes'];
         this.onWorker = this._eventSource.on['worker'];
     }
+}
+
+/// A helper that unsubscribes a list of subscriptions when leaving a route.
+///
+/// This saves a lot of boilerplate code in each controller.
+void UnsubOnRouteLeave(RouteHandle rh, List<StreamSubscription> listeners) {
+    rh.onLeave.take(1).listen((e) {
+        listeners.forEach((listener) => listener.cancel());
+    });
 }
