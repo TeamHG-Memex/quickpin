@@ -3,10 +3,10 @@ import 'dart:math';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/user.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:bootjack/bootjack.dart';
@@ -18,7 +18,7 @@ import 'package:dquery/dquery.dart';
     templateUrl: 'packages/quickpin/component/user/list.html',
     useShadowDom: false
 )
-class UserListComponent extends Object with CurrentPageMixin {
+class UserListComponent extends Object{
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
         new Breadcrumb('User Directory'),
@@ -27,18 +27,23 @@ class UserListComponent extends Object with CurrentPageMixin {
     String error;
     bool loading = false;
     Pager pager;
+    QueryWatcher _queryWatcher;
     List<User> users;
 
     final AuthenticationController auth;
     final RestApiController _api;
-    final int _resultsPerPage = 10;
     final Router _router;
     final RouteProvider _rp;
     final TitleService _ts;
 
     /// Constructor.
     UserListComponent(this.auth, this._api, this._router, this._rp, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
+        RouteHandle rh = this._rp.route.newHandle();
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'rpp'],
+            this._fetchCurrentPage
+        );
         this._fetchCurrentPage();
         this._ts.title = 'User Directory';
     }
@@ -77,8 +82,8 @@ class UserListComponent extends Object with CurrentPageMixin {
         this.loading = true;
         String pageUrl = '/api/user/';
         Map urlArgs = {
-            'page': this.currentPage,
-            'rpp': this._resultsPerPage,
+            'page': this._queryWatcher['page'] ?? '1',
+            'rpp': this._queryWatcher['rpp'] ?? '10'
         };
 
         this._api
@@ -90,8 +95,8 @@ class UserListComponent extends Object with CurrentPageMixin {
                 );
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
+                                       resultsPerPage:int.parse(this._queryWatcher['rpp'] ?? '10'));
             })
             .catchError((response) {
                 this.error = response.data['message'];

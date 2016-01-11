@@ -37,7 +37,6 @@ import 'package:quickpin/component/profile/relations.dart';
 import 'package:quickpin/component/profile/view.dart';
 import 'package:quickpin/component/progress_bar.dart';
 import 'package:quickpin/component/search.dart';
-import 'package:quickpin/component/sort.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/component/user/list.dart';
 import 'package:quickpin/component/user/view.dart';
@@ -98,7 +97,6 @@ class QuickPinApplication extends Module {
         bind(RestApiController);
         bind(RouteInitializerFn, toImplementation: QuickPinRouteInitializer);
         bind(SearchComponent);
-        bind(SortComponent);
         bind(SparklineComponent);
         bind(SseController);
         bind(TitleComponent);

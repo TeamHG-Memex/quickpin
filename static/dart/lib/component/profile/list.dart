@@ -9,11 +9,11 @@ import 'package:dialog/dialogs/alert.dart';
 
 import 'package:dquery/dquery.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/model/label.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/profile.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -24,7 +24,7 @@ import 'package:quickpin/sse.dart';
     templateUrl: 'packages/quickpin/component/profile/list.html',
     useShadowDom: false
 )
-class ProfileListComponent extends Object with CurrentPageMixin
+class ProfileListComponent extends Object
                            implements ScopeAware, ShadowRootAware {
     List<Breadcrumb> crumbs = [
         new Breadcrumb('QuickPin', '/'),
@@ -32,30 +32,32 @@ class ProfileListComponent extends Object with CurrentPageMixin
     ];
 
     String error;
+    InputElement _inputEl;
+    String interestFilter, interestFilterDescription;
+    Map<String> filterDescriptions;
+    List<Label> labels;
+    List<String> labelFilters;
+    String labelFilterDescription;
     bool loading = false;
     String newProfile, newProfileSite;
     String newProfileSiteDescription = 'Select A Site';
-    bool newQP = false;
+    Pager pager;
     List<Profile> profiles;
     Map<String, Map<String, Profile>> newProfilesMap;
     Map<num, Profile> idProfilesMap;
-    Pager pager;
     List<String> profileAlerts;
-    List<Label> labels;
+    QueryWatcher _queryWatcher;
+
     Scope scope;
     bool showAdd = false;
     String siteFilter, siteFilterDescription;
     String stubFilter, stubFilterDescription;
-    String interestFilter, interestFilterDescription;
     String sortByDescription = 'Added';
     String sortByCol = 'added';
     String sortOrder = 'desc';
     bool submittingProfile = false;
     bool updatingProfile = false;
-    List<String> labelFilters;
-    String labelFilterDescription;
 
-    InputElement _inputEl;
 
     final RestApiController api;
     final AuthenticationController auth;
@@ -69,9 +71,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     /// Constructor.
     ProfileListComponent(this.api, this.auth, this._element, this._router,
                          this._rp, this._sse, this._ts) {
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this._ts.title = 'Profiles';
-        this._parseQueryParameters(this._rp.route.queryParameters);
         this.idProfilesMap = new Map<num, Profile>();
         this.newProfilesMap = new Map<String, Map<String, Profile>>();
 
@@ -79,32 +79,81 @@ class ProfileListComponent extends Object with CurrentPageMixin
         RouteHandle rh = this._rp.route.newHandle();
 
         List<StreamSubscription> listeners = [
-            this._sse.onAvatar.listen(this.avatarListener),
-            this._sse.onProfile.listen(this.profileListener),
-            this._sse.onLabel.listen(this.labelListener),
-            rh.onEnter.listen((e) {
-                this._parseQueryParameters(e.queryParameters);
-                if (this.newQP) {
-                    new Timer(new Duration(seconds:1), () {
-                        this._fetchCurrentPage();
-                        this._fetchLabels();
-                        this.newQP = false;
-                    }); 
-                }
-            }),
+            this._sse.onAvatar.listen(this._avatarListener),
+            this._sse.onProfile.listen(this._profileListener),
+            this._sse.onLabel.listen(this._labelListener),
         ];
 
         // ...and remove event listeners when we leave this route.
-        rh.onLeave.take(1).listen((e) {
-            listeners.forEach((listener) => listener.cancel());
-        });
+        UnsubOnRouteLeave(rh, [
+            this._sse.onAvatar.listen(this._avatarListener),
+            this._sse.onProfile.listen(this._profileListener),
+            this._sse.onLabel.listen(this._labelListener)
+        ]);
+
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'sort', 'site', 'interesting', 'label', 'stub'],
+            this._fetchCurrentPage
+        );
 
         this._fetchCurrentPage();
         this._fetchLabels();
     }
 
+    /// Convert a string to title case.
+    String toTitleCase(String s) {
+        if (s == null) {
+            return null;
+        }
+        List words = s.split(' ');
+        String titleCaseString = '';
+        words.forEach((word) {
+           String titleCaseWord = '${word[0].toUpperCase()}${word.substring(1)}';
+           titleCaseString = '${titleCaseString} ${titleCaseWord}';
+        });
+        return titleCaseString.trim();
+    }
+
+    // Set human-friendly filter descriptions.
+    void _setFilterDescriptions() {
+        this.filterDescriptions = {
+            'site': this.toTitleCase(this._queryWatcher['site']) ?? 'All Sites', 
+            'interesting': this.toTitleCase(this._queryWatcher['interesting']) ?? 'All profiles'
+        };
+
+        if (this._queryWatcher['stub'] == '1') {
+            this.filterDescriptions['stub'] = 'Yes';
+        } else if(this._queryWatcher['stub'] == '0') {
+            this.filterDescriptions['stub'] = 'No';
+        } else {
+            this.filterDescriptions['stub'] = 'All Profiles';
+        }
+
+        if (this._queryWatcher['label'] != null)  {
+            this.labelFilters = this._queryWatcher['label'].split(',');
+            this.filterDescriptions['label'] = '${this.labelFilters.length} active';
+        } else {
+            this.filterDescriptions['label'] = 'All Labels';
+            this.labelFilters = null;
+        }
+
+        if (this._queryWatcher['sort'] != null) {
+            this.filterDescriptions['sort'] = this.toTitleCase(this._queryWatcher['sort'].replaceFirst('-', ''));
+            if (this._queryWatcher['sort'][0] == '-') {
+                this.sortOrder = 'desc';
+            } else {
+                this.sortOrder = 'asc';
+            }
+        } else {
+            this.filterDescriptions['sort'] = 'Added';
+            this.sortOrder = 'desc';
+        }
+
+    }
+
     /// Listen for avatar image updates.
-    void avatarListener(Event e) {
+    void _avatarListener(Event e) {
         Map json = JSON.decode(e.data);
         Profile profile = this.idProfilesMap[json['id']];
 
@@ -259,7 +308,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['site'] = site;
         }
-        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -274,7 +322,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['interesting'] = interesting;
         }
-        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -289,13 +336,19 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             if (this.labelFilters != null) {
                 if (!this.labelFilters.contains(label)) {
-                    args['label'] += ',${label}';
+                    this.labelFilters.add(label);
                 }
             } else {
-                args['label'] = label;
+                this.labelFilters = [label];
+            }
+
+            if (this.labelFilters.length == 0) {
+                args.remove('label');
+                this.labelFilters = null;
+            } else {
+                args['label'] = this.labelFilters.join(',');
             }
         }
-        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -316,7 +369,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
             } else {
                 args['label'] = labels.join(',');
             }
-            this.newQP = true;
             this._router.go('profile_list',
                             this._rp.route.parameters,
                             queryParameters: args);
@@ -332,7 +384,6 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['stub'] = stub;
         }
-        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
@@ -347,28 +398,28 @@ class ProfileListComponent extends Object with CurrentPageMixin
         } else {
             args['sort'] = attr;
         }
-        this.newQP = true;
         this._router.go('profile_list',
                         this._rp.route.parameters,
                         queryParameters: args);
     }
 
-    /// Sort profile list by specified attribute.
+    /// Set order of sort column.
     void sortToggle() {
         Map args = this._makeUrlArgs();
         
-        if (this.sortByCol != null) {
-            if (this.sortByCol.startsWith('-')) {
-                this.sortByCol = this.sortByCol.replaceFirst('-', '');
+        if (this._queryWatcher['sort'] != null) {
+            if (this._queryWatcher['sort'].startsWith('-')) {
+                args['sort'] = this._queryWatcher['sort'].replaceFirst('-', '');
             } else {
-                this.sortByCol = '-${this.sortByCol}'; 
+                args['sort'] = '-${this._queryWatcher["sort"]}'; 
             }
-            args['sort'] = this.sortByCol;
-            this.newQP = true;
-            this._router.go('profile_list',
-                            this._rp.route.parameters,
-                            queryParameters: args);
+        } else {
+            args['sort'] = '-added';
         }
+
+        this._router.go('profile_list',
+                        this._rp.route.parameters,
+                        queryParameters: args);
     }
 
     /// Trigger add profile when the user presses enter in the profile input.
@@ -429,7 +480,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     }
 
     /// Listen for profile updates.
-    void profileListener(Event e) {
+    void _profileListener(Event e) {
         Map json = JSON.decode(e.data);
         Profile profile;
         bool showError;
@@ -504,7 +555,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
     }
 
     /// Listen for label updates.
-    void labelListener(Event e) {
+    void _labelListener(Event e) {
         Map json = JSON.decode(e.data);
 
         if (json['error'] == null) {
@@ -537,28 +588,28 @@ class ProfileListComponent extends Object with CurrentPageMixin
         this.loading = true;
         String pageUrl = '/api/profile/';
         Map urlArgs = {
-            'page': this.currentPage,
+            'page': this._queryWatcher['page'] ?? '1',
             'rpp': this._resultsPerPage,
         };
 
-        if (this.siteFilter != null) {
-            urlArgs['site'] = this.siteFilter;
+        if (this._queryWatcher['site'] != null) {
+            urlArgs['site'] = this._queryWatcher['site'];
         }
 
-        if (this.interestFilter != null) {
-            urlArgs['interesting'] = this.interestFilter;
+        if (this._queryWatcher['interesting'] != null) {
+            urlArgs['interesting'] = this._queryWatcher['interesting'];
         }
 
-        if (this.labelFilters != null) {
-            urlArgs['label'] = this.labelFilters.join(',');
+        if (this._queryWatcher['label'] != null) {
+            urlArgs['label'] = this._queryWatcher['label'];
         }
 
-        if (this.stubFilter != null) {
-            urlArgs['stub'] = this.stubFilter;
+        if (this._queryWatcher['stub'] != null) {
+            urlArgs['stub'] = this._queryWatcher['stub'];
         }
 
-        if (this.sortByCol != null) {
-            urlArgs['sort'] = this.sortByCol;
+        if (this._queryWatcher['sort'] != null) {
+            urlArgs['sort'] = this._queryWatcher['sort'];
         }
 
         this.api
@@ -570,7 +621,7 @@ class ProfileListComponent extends Object with CurrentPageMixin
                 );
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
                                        resultsPerPage:this._resultsPerPage);
 
                 new Timer(new Duration(milliseconds: 100), () {
@@ -582,7 +633,10 @@ class ProfileListComponent extends Object with CurrentPageMixin
             .catchError((response) {
                 this.error = response.data['message'];
             })
-            .whenComplete(() {this.loading = false;});
+            .whenComplete(() {
+                this._setFilterDescriptions();
+                this.loading = false;
+            });
     }
 
     /// Get a query parameter as an int.
@@ -653,60 +707,4 @@ class ProfileListComponent extends Object with CurrentPageMixin
         return profile;
     }
 
-    /// Take a map of query parameters and parse/load into member variables.
-    void _parseQueryParameters(qp) {
-        this.error = null;
-        String site = this._getQPString(qp['site']);
-        this.siteFilter = site;
-        String interesting = this._getQPString(qp['interesting']);
-        this.interestFilter = interesting;
-        String stub = this._getQPString(qp['stub']);
-        this.stubFilter = stub;
-        this. sortByCol = this._getQPString(qp['sort']);
-        String labels = this._getQPString(qp['label']);
-
-        if (site == null) {
-            this.siteFilterDescription = 'All Sites';
-        } else {
-            String initial = site[0].toUpperCase();
-            this.siteFilterDescription = site.replaceRange(0, 1, initial);
-        }
-
-        if (interesting == null) {
-            this.interestFilterDescription = 'All Profiles';
-        } else {
-            String initial = interesting[0].toUpperCase();
-            this.interestFilterDescription = interesting.replaceRange(0, 1, initial);
-        }
-
-        if (labels == null) {
-            this.labelFilterDescription = 'All Labels';
-            this.labelFilters = null; 
-        } else {
-            this.labelFilters = labels.split(','); 
-            this.labelFilters.sort();
-            this.labelFilterDescription = '${this.labelFilters.length.toString()} active';
-        }
-        if (stub == null) {
-            this.stubFilterDescription = 'All Profiles';
-        } else if (stub == '1'){
-            this.stubFilterDescription = 'Yes';
-        } else {
-            this.stubFilterDescription = 'No';
-        }
-
-        if (this.sortByCol == null) {
-            this.sortByDescription = 'Added';
-            this.sortByCol = 'added';
-        } else {
-            this.sortByDescription = this.sortByCol.replaceFirst('-', '');
-            String initial = sortByDescription[0].toUpperCase();
-            this.sortByDescription = this.sortByDescription.replaceRange(0, 1, initial);
-            if(!this.sortByCol.startsWith('-')) {
-                this.sortOrder = 'asc';
-            } else {
-                this.sortOrder = 'desc';
-            }
-        }
-    }
 }

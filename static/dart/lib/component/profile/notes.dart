@@ -4,10 +4,10 @@ import 'dart:convert';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/current_page.dart';
 import 'package:quickpin/model/note.dart';
 import 'package:quickpin/rest_api.dart';
 import 'package:quickpin/sse.dart';
@@ -18,7 +18,7 @@ import 'package:quickpin/sse.dart';
     templateUrl: 'packages/quickpin/component/profile/notes.html',
     useShadowDom: false
 )
-class ProfileNotesComponent extends Object with CurrentPageMixin
+class ProfileNotesComponent extends Object
                             implements ScopeAware {
     AuthenticationController auth;
     List<Breadcrumb> crumbs;
@@ -39,33 +39,38 @@ class ProfileNotesComponent extends Object with CurrentPageMixin
     String newNoteCategory;
     Map<int, Note> noteIdMap;
     List<int> noteIds;
+    QueryWatcher _queryWatcher;
 
     final RestApiController api;
 
     final RouteProvider _rp;
-    final int _resultsPerPage = 20;
     final TitleService _ts;
     final SseController _sse;
 
     /// Constructor.
     ProfileNotesComponent(this.api, this.auth, this._rp, this._sse, this._ts) {
-        window.console.debug('hello');
-        this.initCurrentPage(this._rp.route, this._fetchCurrentPage);
         this.id = this._rp.parameters['id'];
         this._ts.title = 'Notes by ${id}';
         this._updateCrumbs();
-        this._fetchCurrentPage();
+        RouteHandle rh = this._rp.route.newHandle();
+
+        this._queryWatcher = new QueryWatcher(
+            rh,
+            ['page', 'rpp'],
+            this._fetchCurrentPage
+        );
 
         // Add event listeners...
         List<StreamSubscription> listeners = [
             this._sse.onProfileNotes.listen((_) => this._fetchCurrentPage()),
         ];
 
-        RouteHandle rh = this._rp.route.newHandle();
         // ...and remove event listeners when we leave this route.
-        rh.onLeave.take(1).listen((e) {
-            listeners.forEach((listener) => listener.cancel());
-        });
+        UnsubOnRouteLeave(rh, [
+            this._sse.onProfileNotes.listen(this._fetchCurrentPage),
+        ]);
+
+        this._fetchCurrentPage();
     }
 
     /// Update breadcrumbs.
@@ -89,8 +94,8 @@ class ProfileNotesComponent extends Object with CurrentPageMixin
         this.loading++;
         String profileUrl = '/api/profile/${this.id}/notes';
         Map urlArgs = {
-            'page': this.currentPage,
-            'rpp': this._resultsPerPage,
+            'page': this._queryWatcher['page'] ?? '1',
+            'rpp': this._queryWatcher['rpp'] ?? '10',
         };
 
         this.api
@@ -104,12 +109,10 @@ class ProfileNotesComponent extends Object with CurrentPageMixin
                     this.noteIdMap[note['id']] = new Note.fromJson(note);
                 });
                 this.noteIds = this.noteIdMap.keys.toList();
-                window.console.debug(this.noteIds);
-                window.console.debug(this.noteIdMap);
 
                 this.pager = new Pager(response.data['total_count'],
-                                       this.currentPage,
-                                       resultsPerPage:this._resultsPerPage);
+                                       int.parse(this._queryWatcher['page'] ?? '1'),
+                                       resultsPerPage:int.parse(this._queryWatcher['rpp'] ?? '10'));
 
                 this._ts.title = 'Notes for ${this.username}';
                 this._updateCrumbs();

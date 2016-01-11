@@ -4,7 +4,7 @@ import 'dart:html';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/component/title.dart';
-import 'package:quickpin/mixin/sort.dart';
+//import 'package:quickpin/mixin/sort.dart';
 import 'package:quickpin/rest_api.dart';
 
 /// The home view.
