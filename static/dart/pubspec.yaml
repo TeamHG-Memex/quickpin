@@ -8,9 +8,10 @@ dependencies:
     dialog: any
     dnd: any
     intl: any
+    route_hierarchical: any
     web_components: any
-dependency_overrides:
-    route_hierarchical:
-        path: /opt/route.dart
+#dependency_overrides:
+#    route_hierarchical:
+#        path: /opt/route.dart
 transformers:
 - angular
