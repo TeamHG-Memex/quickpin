@@ -12,7 +12,7 @@ from flask.ext.assets import Environment, Bundle
 from flask_failsafe import failsafe
 from itsdangerous import Signer
 from scorched import SolrInterface
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, default_exceptions
 
 import app.config
 import app.database
@@ -123,7 +123,7 @@ def init_errors(flask_app, config):
 
         return response
 
-    http_status_codes = list(range(400,418)) + list(range(500,506))
+    http_status_codes = [code for code, obj in default_exceptions.items()]
 
     for http_status_code in http_status_codes:
         flask_app.errorhandler(http_status_code)(http_error_handler)
