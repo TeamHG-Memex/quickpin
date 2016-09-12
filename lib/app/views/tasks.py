@@ -1,5 +1,5 @@
 from flask import g, jsonify
-from flask.ext.classy import FlaskView, route
+from flask_classy import FlaskView, route
 import rq
 from rq.exceptions import NoSuchJobError, UnpickleError
 from werkzeug.exceptions import NotFound

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from flask import g, json, jsonify, render_template, request
-from flask.ext.classy import FlaskView, route
+from flask_classy import FlaskView, route
 from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import BadRequest, Unauthorized
 

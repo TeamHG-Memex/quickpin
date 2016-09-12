@@ -1,5 +1,5 @@
 from flask import jsonify
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 
 from app.rest import url_for
 

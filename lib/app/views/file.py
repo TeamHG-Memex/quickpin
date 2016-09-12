@@ -1,5 +1,5 @@
 from flask import g, send_from_directory
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from werkzeug.exceptions import NotFound
 
 import app.config

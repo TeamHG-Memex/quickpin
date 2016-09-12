@@ -1,7 +1,7 @@
 import time
 
 from flask import g, request, Response, send_from_directory
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from werkzeug.exceptions import NotAcceptable, NotFound
 
 from app.authorization import login_required

@@ -2,7 +2,7 @@ import base64
 from io import BytesIO
 
 from flask import g, json, jsonify, request, send_from_directory
-from flask.ext.classy import FlaskView, route
+from flask_classy import FlaskView, route
 from PIL import Image
 import phonenumbers
 from sqlalchemy import func

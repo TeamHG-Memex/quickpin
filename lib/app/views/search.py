@@ -1,7 +1,7 @@
 from datetime import date
 import re
 from flask import g, jsonify, request
-from flask.ext.classy import FlaskView, route
+from flask_classy import FlaskView, route
 from scorched.strings import DismaxString
 from werkzeug.exceptions import BadRequest
 

@@ -1,5 +1,5 @@
 from flask import g, jsonify, request
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from werkzeug.exceptions import BadRequest, NotFound
 
 import app.config

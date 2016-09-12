@@ -2,7 +2,7 @@ import os
 import requests
 from requests.auth import HTTPBasicAuth
 from flask import g, jsonify
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from werkzeug.exceptions import NotFound
 
 import app.config

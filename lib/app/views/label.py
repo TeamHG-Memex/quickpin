@@ -1,4 +1,4 @@
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from flask import g, jsonify, request
 import json
 from sqlalchemy.exc import IntegrityError, DBAPIError

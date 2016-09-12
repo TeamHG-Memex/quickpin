@@ -1,5 +1,5 @@
 import json
-from flask.ext.classy import FlaskView
+from flask_classy import FlaskView
 from flask import g, jsonify, request
 from sqlalchemy.exc import DBAPIError
 from werkzeug.exceptions import BadRequest, NotFound

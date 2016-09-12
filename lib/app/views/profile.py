@@ -1,5 +1,5 @@
 from flask import g, json, jsonify, request
-from flask.ext.classy import FlaskView, route
+from flask_classy import FlaskView, route
 from sqlalchemy.exc import IntegrityError, DBAPIError
 from werkzeug.exceptions import BadRequest, NotFound
 
