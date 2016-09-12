@@ -29,7 +29,7 @@ class DatabaseCli(cli.BaseCli):
             'AGNOSTIC_HOST': config.get('database', 'host'),
             'AGNOSTIC_USER': config.get('database', 'super_username'),
             'AGNOSTIC_PASSWORD': config.get('database', 'super_password'),
-            'AGNOSTIC_SCHEMA': config.get('database', 'database'),
+            'AGNOSTIC_DATABASE': config.get('database', 'database'),
             'AGNOSTIC_MIGRATIONS_DIR': get_path('migrations'),
             'LANG': os.environ['LANG'], # http://click.pocoo.org/4/python3/
             'PATH': os.environ['PATH'],
