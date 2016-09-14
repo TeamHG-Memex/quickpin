@@ -315,7 +315,11 @@ class TasksView(FlaskView):
         with rq.Connection(g.redis):
 
             for worker in rq.Worker.all():
-                state = worker.get_state()
+                try:
+                    state = worker.get_state().decode()
+                except AttributeError:
+                    state = worker.get_state()
+
                 job_json = None
 
                 if state == 'busy':
@@ -356,11 +360,16 @@ class TasksView(FlaskView):
                             'profile_id': profile_id,
                             'type': job.meta['type'] if 'type' in job.meta else None
                         }
+                
+                try:
+                    state = worker.get_state().decode()
+                except AttributeError:
+                    state = worker.get_state()
 
                 workers.append({
                     'current_job': job_json,
                     'name': worker.name,
-                    'state': worker.get_state(),
+                    'state': state,
                     'queues': worker.queue_names(),
                 })
 
