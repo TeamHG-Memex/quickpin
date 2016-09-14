@@ -315,7 +315,7 @@ class TasksView(FlaskView):
         with rq.Connection(g.redis):
 
             for worker in rq.Worker.all():
-                state = worker.get_state().decode()
+                state = worker.get_state()
                 job_json = None
 
                 if state == 'busy':
@@ -360,7 +360,7 @@ class TasksView(FlaskView):
                 workers.append({
                     'current_job': job_json,
                     'name': worker.name,
-                    'state': worker.get_state().decode(),
+                    'state': worker.get_state(),
                     'queues': worker.queue_names(),
                 })
 
