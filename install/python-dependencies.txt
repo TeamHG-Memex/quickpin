@@ -11,6 +11,7 @@ jsmin
 Markdown
 Pillow
 phonenumbers
+pg8000
 progressbar2
 python-dateutil
 python-slugify
