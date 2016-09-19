@@ -78,13 +78,6 @@ class ProfileListComponent extends Object
         // Add event listeners...
         RouteHandle rh = this._rp.route.newHandle();
 
-        List<StreamSubscription> listeners = [
-            this._sse.onAvatar.listen(this._avatarListener),
-            this._sse.onProfile.listen(this._profileListener),
-            this._sse.onLabel.listen(this._labelListener),
-        ];
-
-        // ...and remove event listeners when we leave this route.
         UnsubOnRouteLeave(rh, [
             this._sse.onAvatar.listen(this._avatarListener),
             this._sse.onProfile.listen(this._profileListener),
