@@ -480,7 +480,6 @@ class ProfileListComponent extends Object
         Map siteProfiles = this.newProfilesMap[json['site']];
         bool thisClient = false;
         String username;
-        window.console.debug(e);
 
         // When a profile is returned, the json has
         // a 'username'.
