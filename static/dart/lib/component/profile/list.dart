@@ -78,13 +78,6 @@ class ProfileListComponent extends Object
         // Add event listeners...
         RouteHandle rh = this._rp.route.newHandle();
 
-        List<StreamSubscription> listeners = [
-            this._sse.onAvatar.listen(this._avatarListener),
-            this._sse.onProfile.listen(this._profileListener),
-            this._sse.onLabel.listen(this._labelListener),
-        ];
-
-        // ...and remove event listeners when we leave this route.
         UnsubOnRouteLeave(rh, [
             this._sse.onAvatar.listen(this._avatarListener),
             this._sse.onProfile.listen(this._profileListener),
@@ -118,7 +111,7 @@ class ProfileListComponent extends Object
     // Set human-friendly filter descriptions.
     void _setFilterDescriptions() {
         this.filterDescriptions = {
-            'site': this.toTitleCase(this._queryWatcher['site']) ?? 'All Sites', 
+            'site': this.toTitleCase(this._queryWatcher['site']) ?? 'All Sites',
             'interesting': this.toTitleCase(this._queryWatcher['interesting']) ?? 'All profiles'
         };
 
@@ -211,7 +204,7 @@ class ProfileListComponent extends Object
         bool finished = false;
         this.labels = new List<Label>();
         int totalCount = 0;
-        
+
         while (!finished) {
             Map urlArgs = {
                 'rpp': 100,
@@ -241,7 +234,7 @@ class ProfileListComponent extends Object
 
             if (totalCount == this.labels.length) {
                 finished = true;
-            } 
+            }
             else {
                 page++;
             }
@@ -268,10 +261,10 @@ class ProfileListComponent extends Object
         this.loading = true;
 
         Map body = {
-            'is_interesting': isInteresting, 
+            'is_interesting': isInteresting,
         };
 
-        // Map 
+        // Map
         Map interestFilterMap = {
             'yes': true,
             'no': false,
@@ -406,12 +399,12 @@ class ProfileListComponent extends Object
     /// Set order of sort column.
     void sortToggle() {
         Map args = this._makeUrlArgs();
-        
+
         if (this._queryWatcher['sort'] != null) {
             if (this._queryWatcher['sort'].startsWith('-')) {
                 args['sort'] = this._queryWatcher['sort'].replaceFirst('-', '');
             } else {
-                args['sort'] = '-${this._queryWatcher["sort"]}'; 
+                args['sort'] = '-${this._queryWatcher["sort"]}';
             }
         } else {
             args['sort'] = '-added';
@@ -448,7 +441,7 @@ class ProfileListComponent extends Object
         List<String> labels = new List<String>();
         bool siteFiltered = true;
         bool stubFiltered = true;
-        
+
         // Determine if the profile is filtered by 'site'.
         if (profile_json['site'] == this.siteFilter || this.siteFilter == null) {
             siteFiltered = false;
@@ -458,8 +451,8 @@ class ProfileListComponent extends Object
             interestFiltered = false;
         }
         // Determine if the profile is filtered by 'is_stub'.
-        if ((profile_json['is_stub'] && this.stubFilter == '1') 
-                || (!profile_json['is_stub'] && this.stubFilter == '0') 
+        if ((profile_json['is_stub'] && this.stubFilter == '1')
+                || (!profile_json['is_stub'] && this.stubFilter == '0')
                 || this.stubFilter == null) {
             stubFiltered = false;
         }
@@ -486,12 +479,30 @@ class ProfileListComponent extends Object
         bool showError;
         Map siteProfiles = this.newProfilesMap[json['site']];
         bool thisClient = false;
-        String username = json['username'].toLowerCase();
+        String username;
+        window.console.debug(e);
+
+        // When a profile is returned, the json has
+        // a 'username'.
+        // When there is an error, the json contains
+        // 'usernames',
+        // This is a result of the Twitter API returning 200
+        // status codes when the 'accept' a batch request, rather than
+        // if the username doesn't exist.
+        if (json['error'] == null) {
+          username = json['username'].toLowerCase();
+        } else {
+          // Currently the client can only submit 1 username at a time
+          // so the username will always be the first index.
+          // If/when batch usernames can be submitted this
+          // will need to be updated accordingly
+          username = json['usernames'][0].toLowerCase();
+        }
 
         // May be an update to existing profile.
-        // As you cannot edit profiles in list view, this is event is from another client
+        // As you cannot edit profiles in list view, this event is from another client
         this.profiles.forEach((existingProfile) {
-            if(existingProfile.id == json['id']) {
+            if(json['id'] != null && existingProfile.id == json['id']) {
                 profile = existingProfile;
             }
         });
@@ -504,7 +515,7 @@ class ProfileListComponent extends Object
             }
         }
 
-        // Only process if there is not an error on the profile event
+        // Only process the profile if there is not an error
         if (json['error'] == null) {
             // If profile still null it is a profile added by another client
             if (profile == null) {
@@ -515,7 +526,7 @@ class ProfileListComponent extends Object
             profile.friendCount = json['friend_count'];
             profile.followerCount = json['follower_count'];
             profile.postCount = json['post_count'];
-            profile.username = json['username'];
+            profile.username = username;
             profile.isInteresting = json['is_interesting'];
             profile.score = json['score'];
             if (this.newProfilesMap[json['site']] != null) {
@@ -523,10 +534,10 @@ class ProfileListComponent extends Object
             }
             if (!this._isFiltered(json)){
                 this.idProfilesMap[json['id']] = profile;
-            } 
+            }
             else if (thisClient) {
                 String message = """
-                    You added a profile that is filtered from your current view. 
+                    You added a profile that is filtered from your current view.
                     Reset your filters to view all profiles.
                     """;
                 this.profileAlerts.add(message);
@@ -539,11 +550,11 @@ class ProfileListComponent extends Object
                         scope.apply();
                         this.scope.broadcast('masonry.layout');
                     }
-                }); 
+                });
             }
 
         }
-        else if(thisClient) {
+        else if (thisClient) {
             // Only show errors on events triggered by this client
             profile.error = json['error'];
         }
@@ -560,9 +571,9 @@ class ProfileListComponent extends Object
 
         if (json['error'] == null) {
             this._fetchLabels();
-        } 
-    } 
-    
+        }
+    }
+
     /// Show the "add profile" dialog.
     void showAddDialog() {
         this.showAdd = true;
