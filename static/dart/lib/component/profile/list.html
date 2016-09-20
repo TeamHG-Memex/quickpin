@@ -31,7 +31,7 @@
         </li>
       </ul>
     </div>
-    <button type='button' 
+    <button type='button'
             ng-click='sortToggle()'
             class='btn btn-primary btn-secondary btn-sm'>
       <i class='fa fa-sort-amount-asc' ng-show='sortOrder == "asc"'></i>
@@ -70,7 +70,7 @@
            ng-click='filterLabels(label.name)'>
           {{label.name}}
         </a>
-        <a ng-show="labelFilters != null && labelFilters.contains(label.name)" 
+        <a ng-show="labelFilters != null && labelFilters.contains(label.name)"
            ng-click='filterLabelsRemove(label.name)'>
           {{label.name}}
           <i class='fa fa-check'></i>
@@ -127,7 +127,7 @@
 </h1>
 
 <div class='alert alert-danger' role='alert' ng-show='error != null'>
-  {{error}} 
+  {{error}}
 </div>
 
 <div class="row" ng-repeat="alert in profileAlerts">
@@ -195,7 +195,7 @@
 
 <div class='modal fade' id='filtered-profile-modal' role='dialog'>
   <div class='modal-dialog'> <!-- Start modal dialog -->
-    
+
     <div class='modal-content'> <!-- Start modal content -->
 
       <div class='modal-header'> <!-- Start modal header -->
@@ -206,7 +206,7 @@
 
       <div class='modal-footer'><!-- Start modal footer -->
         <button type='button' class='btn btn-default pull-left' data-dismiss='modal'>
-          OK 
+          OK
         </button>
       </div><!-- End modal footer -->
 
@@ -260,7 +260,7 @@
     </div>
     <div class='info' ng-show='profile.score != null'>
       <strong class='text-muted'>Score:</strong>
-      {{profile.score}} 
+      {{profile.score}}
     </div>
     <p ng-show='profile.postCount != null'>
       <em>
@@ -270,35 +270,37 @@
       </em>
     </p>
     <div class="btn-group btn-group-sm" ng-show="profile.id != null" role="group" aria-label="...">
-      <button 
-          type="button" 
+      <button
+          type="button"
           ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
           disabled>
           {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
       </button>
-      <button 
-          type="button" 
+      <button
+          type="button"
           ng-click='setProfileInterestAtIndex($index,true)'
           ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
           <span class="fa fa-check"></span>
       </button>
-      <button 
-          type="button" 
-          ng-click='setProfileInterestAtIndex($index,false)' 
+      <button
+          type="button"
+          ng-click='setProfileInterestAtIndex($index,false)'
           ng-class="profile.isInteresting==false ? 'btn btn-danger rounded-right' : 'btn btn-default rounded-right'">
           <span class="fa fa-remove"></span>
       </button>
-      <button 
-          ng-click="setProfileInterestAtIndex($index)" 
+      <button
+          ng-click="setProfileInterestAtIndex($index)"
           ng-show="profile.isInteresting != null"
           class="btn btn-link">
           clear
       </button>
     </div>
+    <span class="profile-private" ng-show="profile.id != null && profile.private">
+      <i class="fa fa-lock" title="Private"></i>
+    </span>
 </masonry>
 
 <p ng-show='profiles.length == 0 && siteFilter == null'>
   There are currently no profiles. Try clicking "Add Profiles" to get started.
 </p>
 <p ng-show='profiles.length == 0 && siteFilter != null'> No profiles match the current filter. Try changing the filter or click "Add Profiles" to add new profiles.  </p>
-
