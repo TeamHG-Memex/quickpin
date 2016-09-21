@@ -615,6 +615,7 @@ def scrape_twitter_account(usernames, stub=False):
         user_id = profile_json['id_str']
         profile = Profile('twitter', user_id, profile_json['screen_name'])
         profile.is_stub = stub
+        profile.private = profile_json['protected']
         db_session.add(profile)
 
         try:
@@ -634,10 +635,14 @@ def scrape_twitter_account(usernames, stub=False):
 
         # Schedule followup jobs.
         app.queue.schedule_index_profile(profile)
+
         if not stub:
             app.queue.schedule_avatar(profile, profile_json['profile_image_url_https'])
-            app.queue.schedule_posts(profile, recent=True)
-            app.queue.schedule_relations(profile)
+
+            # Only get tweets and relations for unprotected profiles
+            if not profile.private:
+                app.queue.schedule_posts(profile, recent=True)
+                app.queue.schedule_relations(profile)
 
     return profiles
 
@@ -672,6 +677,7 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
             profile_json['screen_name']
         )
         profile.is_stub = stub
+        profile.private = profile_json['protected']
         db_session.add(profile)
 
         try:
@@ -701,8 +707,10 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
             app.queue.schedule_avatar(
                 profile, profile_json['profile_image_url_https']
             )
-            app.queue.schedule_posts(profile, recent=True)
-            app.queue.schedule_relations(profile)
+            # Only get tweets and relations for unprotected profiles
+            if not profile.private:
+                app.queue.schedule_posts(profile, recent=True)
+                app.queue.schedule_relations(profile)
 
     return profiles
 

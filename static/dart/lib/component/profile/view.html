@@ -8,15 +8,16 @@
   <span ng-show='profile == null'>Loading profile</span>
   <span ng-show='profile != null'>{{profile.username}}</span>
   <small ng-show='profile != null'>on {{profile.siteName}}</small>
+  <small ng-show='profile != null && profile.private'><i class="fa fa-lock" title="Private"></i></small>
   <!-- QCR Apps -->
   <div class="btn-group pull-right" ng-show='profile != null'>
-    <button type="button" 
-            class="btn btn-default dropdown-toggle" 
-            data-toggle="dropdown" 
+    <button type="button"
+            class="btn btn-default dropdown-toggle"
+            data-toggle="dropdown"
             ng-click="fetchQCRIntents()"
-            aria-haspopup="true" 
+            aria-haspopup="true"
             aria-expanded="false">
-            <i class="fa fa-external-link-square"></i> 
+            <i class="fa fa-external-link-square"></i>
              Apps <span class="caret"></span>
     </button>
     <ul class="dropdown-menu">
@@ -64,7 +65,7 @@
                 type='default'
                 click='updateProfile'
                 data='""'>
-                Fetch Full Profile 
+                Fetch Full Profile
               </busy-button>
             </p>
           </div>
@@ -136,23 +137,23 @@
             <div class="row">
               <div class="col-sm-8">
                 <em>
-                   Errors were reported by while updating this profile. 
+                   Errors were reported by while updating this profile.
                 </em>
               </div>
               <div class="col-sm-4">
                 <span class="pull-right">
-                  <a 
-                    class="btn btn-default" 
-                    href="/admin/background-tasks" 
+                  <a
+                    class="btn btn-default"
+                    href="/admin/background-tasks"
                     ng-show="auth.isAdmin()">
                     View
                   </a>
-                  <a 
-                    class="btn btn-default" 
+                  <a
+                    class="btn btn-default"
                     ng-show="auth.isAdmin() == false"
-                    href="/admin/background-tasks" 
+                    href="/admin/background-tasks"
                     disabled>
-                    Contact your administrator 
+                    Contact your administrator
                   </a>
                 </span>
               </div>
@@ -229,26 +230,26 @@
     <div class="col-md-4"><!--start col-->
       <div class="text-align-center">
         <div class="btn-group btn-group-lg" role="group" aria-label="...">
-          <button 
-              type="button" 
+          <button
+              type="button"
               ng-class="profile.isInteresting==true ? 'btn btn-success' : profile.isInteresting==false ? 'btn btn-danger' : 'btn btn-default'"
               disabled>
               {{profile.isInteresting==false ? "Not interesting" : profile.isInteresting==true ? "Interesting" : "Interesting?"}}
           </button>
-          <button 
-              type="button" 
+          <button
+              type="button"
               ng-click='setProfileInterest(true)'
               ng-class="profile.isInteresting==true ? 'btn btn-success' : 'btn btn-default'">
               <span class="fa fa-check"></span>
           </button>
-          <button 
-              type="button" 
-              ng-click='setProfileInterest(false)' 
+          <button
+              type="button"
+              ng-click='setProfileInterest(false)'
               ng-class="profile.isInteresting==false ? 'btn btn-danger rounded-right' : 'btn btn-default rounded-right'">
               <span class="fa fa-remove"></span>
           </button>
-          <button 
-              ng-click="setProfileInterest()" 
+          <button
+              ng-click="setProfileInterest()"
               ng-show="profile.isInteresting != null"
               class="btn btn-link btn-lg">
               clear
@@ -258,7 +259,7 @@
     </div> <!-- end col -->
 
     <div class="col-md-8"><!--start col-->
-      
+
       <div class=''>
         <div class="score col-sm-2">
           Score:
@@ -397,7 +398,7 @@
                   ng-disabled='showAddLabel'
                   ng-click='showAddLabelDialog()'>
                   <i class='fa fa-user-plus'></i>
-                  Add Labels 
+                  Add Labels
                 </a>
               </div>
             </div>
@@ -417,7 +418,7 @@
             <div class='form-group'>
               <div class='input-group'>
                 <div class='input-group-addon'><strong>Add Label</strong></div>
-                
+
                 <autocomplete-text text='""'
                                   size='20'
                                   cssid='newLabelText'
@@ -462,7 +463,7 @@
                   <button class="btn btn-xs"
                           ng-click="removeProfileLabelAtIndex($index)">
                   <i class='fa fa-times'></i>
-                  {{label.name}} 
+                  {{label.name}}
                   </button>
                 </td>
               </tr>
@@ -485,7 +486,7 @@
                         href='#edit-note-modal'
                         data-toggle='modal'>
                   <i class='fa fa-user-plus'></i>
-                  Add Notes 
+                  Add Notes
                 </a>
               </div>
             </div>
@@ -510,7 +511,7 @@
               <tr ng-if='noteIds.length == 0' >
                 <td colspan='100' class='no-rows'>No notes found.</td>
               </tr>
-              <tr ng-repeat='id in noteIds'> 
+              <tr ng-repeat='id in noteIds'>
                 <td>{{noteIdMap[id].category}}</td>
                 <td>{{noteIdMap[id].body}}</td>
                 <td>{{noteIdMap[id].createdAt | date:'yyyy-MM-dd H:mm:ss'}}</td>
@@ -555,7 +556,7 @@
 
           <div class="row">
             <div class="col-sm-12">
-              <p><strong>Are you sure you want to delete this note?</strong></p> 
+              <p><strong>Are you sure you want to delete this note?</strong></p>
             </div>
           </div>
 
@@ -570,7 +571,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr> 
+                  <tr>
                     <td>{{noteIdMap[deletingNoteId].category}}</td>
                     <td>{{noteIdMap[deletingNoteId].body}}</td>
                     <td>{{noteIdMap[deletingNoteId].createdAt}}</td>
@@ -582,7 +583,7 @@
 
           <div class="row">
             <div class="col-sm-12">
-              <p>This action cannot be reversed.</p> 
+              <p>This action cannot be reversed.</p>
             </div>
           </div>
         </div>
@@ -642,16 +643,13 @@
             Cancel
           </button>
           <busy-button id='edit-sites-button' type='primary' ng-show='editingNoteId != null' click='editProfileNote'>
-           <i class="fa fa-check"></i> Save 
+           <i class="fa fa-check"></i> Save
           </busy-button>
           <busy-button id='edit-sites-button' type='primary' ng-show='editingNoteId == null' click='addProfileNote'>
-           <i class="fa fa-plus"></i> Add 
+           <i class="fa fa-plus"></i> Add
           </busy-button>
         </div>
       </form>
     </div>
   </div>
 </div>
-
-
-
