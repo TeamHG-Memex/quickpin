@@ -1,24 +1,27 @@
-from flask_classy import FlaskView
+""" This module provides API views for Labels. """
+
+from flask_classy import FlaskView, route
 from flask import g, jsonify, request
 import json
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, DBAPIError
 from werkzeug.exceptions import BadRequest, NotFound
 
 import worker
 from model.label import Label
 from app.authorization import login_required
-from app.rest import get_int_arg
+from app.rest import get_int_arg, get_arg
 from app.rest import get_paging_arguments
 from app.rest import url_for
 
 
 class LabelView(FlaskView):
-    ''' Labels for profiles. '''
+    """ Labels for profiles. """
 
     decorators = [login_required]
 
     def get(self, id_):
-        '''
+        """
         Get the label identified by `id`.
 
         **Example Response**
@@ -43,7 +46,7 @@ class LabelView(FlaskView):
         :status 400: invalid argument[s]
         :status 401: authentication required
         :status 404: label does not exist
-        '''
+        """
 
         # Get label.
         id_ = get_int_arg('id_', id_)
@@ -59,7 +62,7 @@ class LabelView(FlaskView):
         return jsonify(**response)
 
     def post(self):
-        '''
+        """
         Create a label.
 
         **Example Request**
@@ -93,7 +96,7 @@ class LabelView(FlaskView):
         :status 202: created
         :status 400: invalid request body
         :status 401: authentication required
-        '''
+        """
 
         request_json = request.get_json()
         redis = worker.get_redis()
@@ -136,7 +139,7 @@ class LabelView(FlaskView):
         return response
 
     def index(self):
-        '''
+        """
         Return an array of all labels.
 
         **Example Response**
@@ -171,7 +174,7 @@ class LabelView(FlaskView):
         :status 200: ok
         :status 400: invalid argument[s]
         :status 401: authentication required
-        '''
+        """
 
         page, results_per_page = get_paging_arguments(request.args)
         query = g.db.query(Label)
@@ -192,8 +195,61 @@ class LabelView(FlaskView):
             total_count=total_count
         )
 
+    @route('/autocompletion')
+    def autocomplete(self):
+        """
+        Provide autocompletions for labels.
+
+        **Example Response**
+
+        .. sourcecode:: json
+
+            {
+                "results": [
+                    {
+                        "id": 1,
+                        "label": "gender",
+                    },
+                    ...
+                ],
+            }
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query query: prefix to search for (case-insensitive)
+
+        :>header Content-Type: application/json
+        :>json list results: a list of results
+        :>json int results[n].id: unique label identifier
+        :>json str results[n].label: the label name
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        """
+        request_query = get_arg(str, 'query', request.args)
+        request_query = request_query.strip().replace('%', r'\%').replace('_', r'\_') + '%'
+
+        query = (
+            g.db
+            .query(Label.id, Label.name)
+            .filter(func.lower(Label.name).like(request_query))
+            .order_by(Label.name)
+            .limit(10)
+        )
+
+        results = list()
+
+        for id_, name in query:
+            results.append({
+                'id': str(id_),
+                'label': name,
+            })
+
+        return jsonify(results=results)
+
     def put(self, id_):
-        '''
+        """
         Update the label identified by `id`.
 
         **Example Request**
@@ -226,7 +282,7 @@ class LabelView(FlaskView):
         :status 202: created
         :status 400: invalid request body
         :status 401: authentication required
-        '''
+        """
 
         # Get label.
         id_ = get_int_arg('id_', id_)
@@ -260,7 +316,7 @@ class LabelView(FlaskView):
         return jsonify(**response)
 
     def delete(self, id_):
-        '''
+        """
         Delete the label identified by `id`.
 
         **Example Response**
@@ -281,7 +337,7 @@ class LabelView(FlaskView):
         :status 400: invalid request body
         :status 401: authentication required
         :status 404: label does not exist
-        '''
+        """
 
         # Get label.
         id_ = get_int_arg('id_', id_)

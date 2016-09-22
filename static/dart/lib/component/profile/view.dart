@@ -5,6 +5,7 @@ import 'dart:js';
 
 import 'package:angular/angular.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/component/autocomplete.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/title.dart';
 import 'package:quickpin/model/label.dart';
@@ -20,7 +21,7 @@ import 'package:dquery/dquery.dart';
 @Component(
     selector: 'profile',
     templateUrl: 'packages/quickpin/component/profile/view.html',
-    useShadowDom: false 
+    useShadowDom: false
 )
 class ProfileComponent {
     AuthenticationController auth;
@@ -116,7 +117,8 @@ class ProfileComponent {
     /// Show the "add label" dialog.
     void showAddLabelDialog() {
         this.showAddLabel = true;
-        this.inputLabelEl = querySelector('#newLabelText');
+        this.inputLabelEl = querySelector('#label-id input');
+        window.console.debug(inputLabelEl);
 
         if (this.inputLabelEl != null) {
             // Allow Angular to digest showAddLabel before trying to focus. (Can't
@@ -127,7 +129,7 @@ class ProfileComponent {
 
     // Add a profile label
     void addProfileLabel() {
-       
+
         if (this.inputLabelEl.value == null || this.inputLabelEl.value == '') {
             this.labelError = 'You must enter text for the label.';
             return;
@@ -152,11 +154,11 @@ class ProfileComponent {
         this._updateProfileLabels();
     }
 
-    // Update profile labels. 
+    // Update profile labels.
     Future _updateProfileLabels() {
         Completer completer = new Completer();
 
-        
+
         this.submittingLabel = true;
         String profileUrl = '/api/profile/${this.id.toString()}';
         this.loading++;
@@ -166,7 +168,7 @@ class ProfileComponent {
         });
 
         Map body = {
-            'labels': profileLabels, 
+            'labels': profileLabels,
         };
 
         this.api
@@ -197,11 +199,12 @@ class ProfileComponent {
     void deleteNote(int noteId) {
         this.deletingNoteId = noteId;
     }
-    // Add a profile note. 
+
+    // Add a profile note.
     void addProfileNote(Event event, dynamic data, Function resetButton) {
         this.noteError = null;
         Map note = null;
-       
+
         if (this.newNoteCategory == null || this.newNoteBody == null) {
             this.noteError = 'You must enter category and text for the label.';
         } else {
@@ -215,7 +218,7 @@ class ProfileComponent {
             };
             notes.add(note);
             Map body = {
-                'notes': notes, 
+                'notes': notes,
             };
             bool success = true;
             this.api
@@ -239,11 +242,11 @@ class ProfileComponent {
         resetButton();
     }
 
-    // Edit a profile note. 
+    // Edit a profile note.
     void editProfileNote(Event event, dynamic data, Function resetButton) {
         this.noteError = null;
         Map note = null;
-       
+
         if (this.newNoteCategory == null || this.newNoteBody == null) {
             this.noteError = 'You must enter category and text for the label.';
         } else {
@@ -279,7 +282,7 @@ class ProfileComponent {
     void deleteProfileNote(Event event, dynamic data, Function resetButton) {
         this.noteError = null;
         Map note = null;
-       
+
         this.loading++;
         String noteUrl = '/api/note/${this.deletingNoteId.toString()}';
         bool success = true;
@@ -372,7 +375,7 @@ class ProfileComponent {
         this.loading++;
 
         Map body = {
-            'is_interesting': isInteresting, 
+            'is_interesting': isInteresting,
         };
 
         this.api
@@ -394,7 +397,7 @@ class ProfileComponent {
         this.loading++;
 
         Map body = {
-            'score': score, 
+            'score': score,
         };
 
         this.api
@@ -437,17 +440,17 @@ class ProfileComponent {
         if(intent['intents'].containsKey('user')) {
             identifier = intent['intents']['user'];
             RegExp regex = new RegExp(r'{{user}}', caseSensitive: false);
-            identifier = identifier.replaceAll(regex, this.profile.username); 
+            identifier = identifier.replaceAll(regex, this.profile.username);
         }
 
         if(intent['intents'].containsKey('user_id')) {
             identifier = intent['intents']['user_id'];
             RegExp regex = new RegExp(r'{{user_id}}', caseSensitive: false);
-            identifier = identifier.replaceAll(regex, this.profile.upstreamId); 
+            identifier = identifier.replaceAll(regex, this.profile.upstreamId);
         } else if(intent['intents'].containsKey('username')) {
             identifier = intent['intents']['username'];
             RegExp regex = new RegExp(r'{{username}}', caseSensitive: false);
-            identifier = identifier.replaceAll(regex, this.profile.username); 
+            identifier = identifier.replaceAll(regex, this.profile.username);
         }
 
         if(identifier != null) {
@@ -459,11 +462,11 @@ class ProfileComponent {
                 }
                 parsedIntent['url'] = intent['url'] +  identifier;
             }
-        } 
+        }
 
-        return parsedIntent;    
+        return parsedIntent;
     }
-    
+
     /// Fetch external links to QCR apps
     Future fetchQCRIntents() {
         Completer completer = new Completer();
@@ -482,7 +485,7 @@ class ProfileComponent {
                     if(!intent['name'].contains(new RegExp(r'quickpin', caseSensitive: false))) {
                         if(intent.containsKey('url') && !this.intents.contains(intent)) {
                             this.intents.add(intent);
-                        }    
+                        }
                     }
                 });
 
@@ -634,7 +637,7 @@ class ProfileComponent {
                         this.failedTasks = true;
                     }
                 });
-                
+
             })
             .whenComplete(() {
                 this.loadingFailedTasks = false;
@@ -653,7 +656,7 @@ class ProfileComponent {
         bool finished = false;
         this.labels = new List<Label>();
         int totalCount = 0;
-        
+
         while (!finished) {
             Map urlArgs = {
                 'rpp': 100,
@@ -681,7 +684,7 @@ class ProfileComponent {
 
             if (totalCount == this.labels.length) {
                 finished = true;
-            } 
+            }
             else {
                 page++;
             }
@@ -689,6 +692,21 @@ class ProfileComponent {
         this.loading--;
         completer.complete();
         return completer.future;
+    }
+
+    /// Run an autocomplete query for labels.
+    ///
+    /// Returns an autocomplete future.
+    Future<AutocompleteData> autocompleteLabel(String query) {
+        String url = '/api/label/autocompletion';
+        Map urlArgs = {'query': query};
+
+        return this.api
+                   .get(url, urlArgs: urlArgs, needsAuth: true)
+                   .then((response) {
+                       Map json = response.data['results'];
+                       return new AutocompleteData.fromJson(json);
+                   });
     }
 
     /// Fetch a page of notes for this profile.
