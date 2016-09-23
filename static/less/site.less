@@ -551,6 +551,83 @@ nav {
     }
 }
 
+
+// Autocomplete ===============================================================
+
+autocomplete {
+  display: inline-block;
+  position: relative;
+
+  input {
+    padding: 0.2em 0.6em;
+  }
+
+  img {
+    position: absolute;
+    right: 0.5em;
+    top: 0.5em;
+  }
+
+  .completions {
+    position: absolute;
+    left: 2%;
+    right: 2%;
+    top: 2.15em;
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 1;
+
+    .completion {
+      border: 1px solid @gray-lighter;
+      border-top: none;
+      padding: 0.2em 0.5em;
+
+      &.highlight {
+        background-color: lighten(@brand-primary, 30%);
+      }
+    }
+
+    .nothing-found {
+      color: @gray-light;
+      font-style: italic;
+    }
+  }
+
+  /* Make it look similar to other bootstrap input elements when used in a form.
+   * (This is just copy/paste from the webkit inspector -- obviously this is
+   * prone to breakage when modifying the underlying bootstrap theme.)
+   */
+  &.bootstrap-form-control {
+    width: 100%;
+
+    input {
+      display: block;
+      width: 100%;
+      height: 34px;
+      padding: 6px 12px;
+      font-size: 14px;
+      line-height: 1.428571429;
+      color: #555555;
+      background-color: #ffffff;
+      background-image: none;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      -webkit-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+      -o-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+      transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+
+      &:focus {
+        border-color: #66afe9;
+        outline: 0;
+      }
+    }
+
+    .completions {
+      top: 2.4em;
+    }
+  }
+}
+
+
 // Profiles ===================================================================
 
 profile {
@@ -583,6 +660,11 @@ profile {
     border-bottom-right-radius: 6px;
 
   }
+
+  #label-id > input {
+    border-bottom-left-radius: 0;
+    border-top-left-radius: 0;
+}
 
   .text-align-center {
     text-align: center;

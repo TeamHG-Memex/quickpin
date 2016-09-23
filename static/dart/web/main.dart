@@ -13,6 +13,7 @@ import 'package:quickpin/component/admin/background_tasks.dart';
 import 'package:quickpin/component/admin/configuration.dart';
 import 'package:quickpin/component/admin/index.dart';
 import 'package:quickpin/component/autocomplete_text.dart';
+import 'package:quickpin/component/autocomplete.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/busy_button.dart';
 import 'package:quickpin/component/d3/grip.dart';
@@ -65,6 +66,7 @@ class QuickPinApplication extends Module {
         bind(AdminIndexComponent);
         bind(AuthenticationController);
         bind(AutoCompleteTextComponent);
+        bind(AutocompleteComponent);
         bind(BackgroundTasksComponent);
         bind(BreadcrumbsComponent);
         bind(BusyButtonComponent);

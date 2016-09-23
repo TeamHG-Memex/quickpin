@@ -7,6 +7,45 @@ from sqlalchemy import case, extract, func
 from werkzeug.exceptions import BadRequest
 
 
+def get_arg(constructor, name, container, optional=False, nullable=False,
+            type_name=None):
+    '''
+    Try to convert a raw argument to an instance of the requested type.
+    Conversion failures and missing required values are raised as HTTP
+    exceptions.
+    Returns None if an argument exists but is null; returns Missing if the
+    argument does not exist in the container at all. Otherwise, returns the
+    result of calling constructor with the argument.
+    '''
+
+    try:
+        arg = container[name]
+    except KeyError as ke:
+        if optional:
+            return Missing
+        else:
+            raise BadRequest('"{}" is required.'.format(name)) from ke
+
+    if hasattr(arg, 'strip') and callable(arg.strip):
+        arg = arg.strip()
+        if arg == '':
+            arg = None
+
+    if arg is None:
+        if nullable:
+            return None
+        else:
+            raise BadRequest('"{}" must not be null.'.format(name))
+
+    try:
+        return constructor(arg)
+    except:
+        raise BadRequest(
+            'Invalid value for "{}" argument: must be {}.'
+            .format(name, type_name or constructor.__name__)
+        )
+
+
 def get_int_arg(name, arg, optional=False):
     ''' Convert argument to int or return 400 BAD REQUEST. '''
 

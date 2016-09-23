@@ -265,6 +265,7 @@
           Score:
         </div>
         <div class="col-sm-6">
+
           <div class="score">
             <edit-text text="profile.score != null ? profile.score : 'None'"
                        onsave="setProfileScore"
@@ -272,7 +273,8 @@
          </div>
           <div ng-show='profile.score != null'>
             <a ng-click="setProfileScore(null)">clear</a>
-         </div>
+          </div>
+
         </div>
        </div>
 
@@ -412,6 +414,8 @@
         </div>
       </div>
 
+
+
       <div class="row">
         <div class="col-sm-12">
           <form ng-show='showAddLabel' class='form-inline pull-right'>
@@ -419,12 +423,19 @@
               <div class='input-group'>
                 <div class='input-group-addon'><strong>Add Label</strong></div>
 
-                <autocomplete-text text='""'
+              <!--  <autocomplete-text text='""'
                                   size='20'
                                   cssid='newLabelText'
                                   onsave='addProfileLabel'
                                   cssclass='form-control add-label-form input-sm'>
-                </autocomplete-text>
+                </autocomplete-text>-->
+                <autocomplete id='label-id'
+                              name='id'
+                              class='bootstrap-form-control'
+                              placeholder='Add a label.'
+                              size='20'
+                              data-source='autocompleteLabel'>
+                </autocomplete>
               </div>
             </div>
 
