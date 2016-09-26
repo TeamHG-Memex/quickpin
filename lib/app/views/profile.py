@@ -729,7 +729,7 @@ class ProfileView(FlaskView):
                 raise BadRequest('Site cannot be an empty string.')
 
             if 'labels' in profile:
-                if not isinstance(request_json['labels'], list):
+                if not isinstance(profile['labels'], list):
                     raise BadRequest('`labels` must be a list')
 
         app.queue.schedule_profiles(request_json['profiles'], stub)
