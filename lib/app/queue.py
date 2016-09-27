@@ -319,6 +319,11 @@ def _create_labels_dict(profiles, type_):
 
     for profile in profiles:
         if 'labels' in profile:
-            labels[profile[type_]] = list(set(profile['labels']))
+            if type_ == 'username':
+                key = profile[type_].lower()
+            else:
+                key = profile[type_]
+
+            labels[key] = list(set(profile['labels']))
 
     return labels
