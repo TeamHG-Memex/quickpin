@@ -319,6 +319,6 @@ def _create_labels_dict(profiles, type_):
 
     for profile in profiles:
         if 'labels' in profile:
-            labels[profile[type_]] = set(profile['labels'])
+            labels[profile.type_] = set(profile['labels'])
 
     return labels
