@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 import app.database
 import app.index
 import app.queue
-from model import Avatar, File, Post, Profile
+from model import Avatar, File, Post, Profile, Label
 from model.profile import profile_join_self
 from model.configuration import get_config
 import worker
@@ -634,8 +634,10 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
 
         _twitter_populate_profile(profile_json, profile)
 
-        if profile.username in labels:
-            _label_profile(profile, labels[profile.username])
+        print(profile.username.lower(), flush=True)
+        if profile.username.lower() in labels:
+            print('Labels for username:{}'.format(','.join(labels[profile.username.lower()])), flush=True)
+            _label_profile(profile, labels[profile.username.lower()])
 
         profile.last_update = datetime.now()
         db_session.commit()
@@ -655,7 +657,7 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
     return profiles
 
 
-def scrape_twitter_account_by_id(upstream_ids, stub=False):
+def scrape_twitter_account_by_id(upstream_ids, stub=False, labels={}):
     """
     Scrape twitter bio data for upstream IDs and/or updates a profile.
     Accepts twitter ID rather than username.
@@ -1052,12 +1054,16 @@ def _label_profile(profile, labels):
     """
     Add list of string labels to a profile.
     """
-
+    print('Labelling profile', flush=True)
     for name in labels:
+        print('Label name: {}'.format(name), flush=True)
         label = _get_or_create_label(name)
+        profile_label_names = [label.name for label in profile.labels]
+        print('Profile "{}" lables: {}'.format(profile.username, ','.join(profile_label_names)), flush=True)
 
-        if label not in profile.labels:
-            profile.labels.add(label)
+        if label.name not in profile_label_names:
+            print('Adding label: {}'.format(label.name), flush=True)
+            profile.labels.append(label)
 
 
 def _get_or_create_label(name):
@@ -1065,6 +1071,7 @@ def _get_or_create_label(name):
     Get or create a database label object.
     """
     db_session = worker.get_session()
+    redis = worker.get_redis()
     label = db_session.query(Label).filter_by(name=name.lower().strip()).first()
 
     if label:
@@ -1085,4 +1092,5 @@ def _get_or_create_label(name):
                 .format(name)
             )
 
+        redis.publish('label', json.dumps(label.as_dict()))
         return label
