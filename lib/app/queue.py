@@ -193,16 +193,18 @@ def schedule_profiles(profiles, stub=False):
                 chunk = t_profiles[i:i+chunk_size]
                 if type_ == 'upstream_id':
                     ids = [i['upstream_id'] for i in chunk]
+                    labels = _create_labels_dict(profiles=chunk, type_='upstream_id')
                     job = _scrape_queue.enqueue_call(
                         func=worker.scrape.scrape_profile_by_id,
-                        args=(site, ids, stub),
+                        args=(site, ids, stub, labels),
                         timeout=_redis_worker['profile_timeout']
                     )
                 else:
                     usernames = [i['username'] for i in chunk]
+                    labels = _create_labels_dict(profiles=chunk, type_='username')
                     job = _scrape_queue.enqueue_call(
                         func=worker.scrape.scrape_profile,
-                        args=(site, usernames, stub),
+                        args=(site, usernames, stub, labels),
                         timeout=_redis_worker['profile_timeout']
                     )
 
@@ -304,3 +306,19 @@ def schedule_sleep_indeterminate(period):
     )
 
     worker.init_job(job, description)
+
+def _create_labels_dict(profiles, type_):
+    """
+    Create dictionary of labels from list of profiles.
+    """
+
+    labels = {}
+
+    if type_ not in ['upstream_id', 'username']:
+        raise ValueError('`type_` must be "upstream_id" or "username"')
+
+    for profile in profiles:
+        if 'labels' in profile:
+            labels[profile[type_]] = set(profile['labels'])
+
+    return labels
