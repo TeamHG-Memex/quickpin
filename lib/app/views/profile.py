@@ -653,8 +653,7 @@ class ProfileView(FlaskView):
                     {
                         "username": "johndoe",
                         "site": "instagram",
-                        "stub": true,
-                        "labels":  ["female", "american"]
+                        "stub": true
                     },
                     {
                         "upstream_id": "2232324",
@@ -692,7 +691,7 @@ class ProfileView(FlaskView):
         :status 400: invalid request body
         :status 401: authentication required
         '''
-        labels = {}
+
         request_json = request.get_json()
         # Validate post data
         if request_json is None:
@@ -728,11 +727,17 @@ class ProfileView(FlaskView):
             if profile['site'].strip() == '':
                 raise BadRequest('Site cannot be an empty string.')
 
-            if 'labels' in profile:
-                if not isinstance(request_json['labels'], list):
-                    raise BadRequest('`labels` must be a list')
-
         app.queue.schedule_profiles(request_json['profiles'], stub)
+        #for profile in request_json['profiles']:
+        #    if 'upstream_id' in profile:
+        #        site = profile['site']
+        #        upstream_id = profile['upstream_id']
+        #        app.queue.schedule_profile_id(site, upstream_id, stub=stub)
+        #    else:
+        #        site = profile['site']
+        #        username = profile['username']
+        #        app.queue.schedule_profile(site, username, stub=stub)
+
         count = len(request_json['profiles'])
         message = "{} new profile{} submitted." \
                   .format(count, 's' if count != 1 else '')

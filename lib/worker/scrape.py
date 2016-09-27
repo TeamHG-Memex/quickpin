@@ -1,4 +1,4 @@
-""" Worker functions for performing scraping tasks asynchronously. """
+''' Worker functions for performing scraping tasks asynchronously. '''
 
 import bs4
 from datetime import datetime
@@ -22,17 +22,17 @@ import worker.index
 
 
 class ScrapeException(Exception):
-    """ Represents a user-facing exception. """
+    ''' Represents a user-facing exception. '''
 
     def __init__(self, message):
         self.message = message
 
 
 def scrape_avatar(id_, site, url):
-    """
+    '''
     Get an twitter avatar from ``url`` and save it to the Profile identified by
     ``id_``.
-    """
+    '''
 
     worker.start_job()
     redis = worker.get_redis()
@@ -81,15 +81,15 @@ def scrape_avatar(id_, site, url):
     }))
 
 
-def scrape_profile(site, usernames, stub=False, labels={}):
-    """ Scrape a twitter or instagram account. """
+def scrape_profile(site, usernames, stub=False):
+    ''' Scrape a twitter or instagram account. '''
 
     redis = worker.get_redis()
     worker.start_job()
 
     try:
         if site == 'twitter':
-            profiles = scrape_twitter_account(usernames, stub, labels)
+            profiles = scrape_twitter_account(usernames, stub)
         elif site == 'instagram':
             profiles = []
             for username in usernames:
@@ -137,15 +137,15 @@ def scrape_profile(site, usernames, stub=False, labels={}):
         raise
 
 
-def scrape_profile_by_id(site, upstream_ids, stub=False, labels={}):
-    """ Scrape a twitter or instagram account using the user ID. """
+def scrape_profile_by_id(site, upstream_ids, stub=False):
+    ''' Scrape a twitter or instagram account using the user ID. '''
 
     redis = worker.get_redis()
     worker.start_job()
 
     try:
         if site == 'twitter':
-            profiles = scrape_twitter_account_by_id(upstream_ids, stub, labels)
+            profiles = scrape_twitter_account_by_id(upstream_ids, stub)
         elif site == 'instagram':
             profiles = []
             for upstream_id in upstream_ids:
@@ -190,7 +190,7 @@ def scrape_profile_by_id(site, upstream_ids, stub=False, labels={}):
 
 
 def scrape_instagram_account(username, stub=False):
-    """ Scrape instagram bio data and create (or update) a profile. """
+    ''' Scrape instagram bio data and create (or update) a profile. '''
     # Getting a user ID is more difficult than it ought to be: you need to
     # search for the username and iterate through the search results results to
     # find an exact match.
@@ -266,7 +266,7 @@ def scrape_instagram_account(username, stub=False):
 
 
 def scrape_instagram_account_by_id(upstream_id, stub=False):
-    """ Scrape instagram bio data for upstream ID and update a profile. """
+    ''' Scrape instagram bio data for upstream ID and update a profile. '''
 
     db_session = worker.get_session()
     proxies = _get_proxies(db_session)
@@ -320,13 +320,13 @@ def scrape_instagram_account_by_id(upstream_id, stub=False):
 
 
 def scrape_instagram_posts(id_, recent):
-    """
+    '''
     Fetch instagram posts for the user identified by id_.
     Checks posts already stored in db, and will only fetch older or newer
     posts depending on value of the boolean argument 'recent',
     e.g. recent=True will return recent posts not already stored in the db.
     The number of posts to fetch is configured in the Admin.
-    """
+    '''
     redis = worker.get_redis()
     db = worker.get_session()
     author = db.query(Profile).filter(Profile.id == id_).first()
@@ -432,10 +432,10 @@ def scrape_instagram_posts(id_, recent):
 
 
 def scrape_instagram_relations(id_):
-    """
+    '''
     Fetch friends and followers for the Instagram user identified by `id_`.
     The number of friends and followers to fetch is configured in Admin.
-    """
+    '''
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
@@ -587,15 +587,11 @@ def scrape_instagram_relations(id_):
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
 
-def scrape_twitter_account(usernames, stub=False, labels=None):
-    """
+def scrape_twitter_account(usernames, stub=False):
+    '''
     Scrape twitter bio data and create (or update) a list of profile
     usernames.
-
-    Keyword arguments:
-    stub -- add the profile in stub mode (default False)
-    labels -- dictionary of username labels (default None)
-    """
+    '''
 
     if len(usernames) > 100:
         raise ScrapeException('Twitter API max is 100 user IDs per request.')
@@ -633,10 +629,6 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
                                 .one()
 
         _twitter_populate_profile(profile_json, profile)
-
-        if profile.username in labels:
-            _label_profile(profile, labels[profile.username])
-
         profile.last_update = datetime.now()
         db_session.commit()
         profiles.append(profile.as_dict())
@@ -656,10 +648,10 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
 
 
 def scrape_twitter_account_by_id(upstream_ids, stub=False):
-    """
+    '''
     Scrape twitter bio data for upstream IDs and/or updates a profile.
     Accepts twitter ID rather than username.
-    """
+    '''
     if len(upstream_ids) > 100:
         raise ScrapeException('Twitter API max is 100 user IDs per request.')
 
@@ -705,10 +697,6 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
 
 
         _twitter_populate_profile(profile_json, profile)
-
-        if profile.upstream_id in labels:
-            _label_profile(profile, labels[profile.upstream_id])
-
         profile.last_update = datetime.now()
         db_session.commit()
         profiles.append(profile.as_dict())
@@ -729,13 +717,13 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False):
 
 
 def scrape_twitter_posts(id_, recent):
-    """
+    '''
     Fetch tweets for the user identified by id_.
     Checks tweets already stored in db, and will only fetch older or newer
     tweets depending on value of the boolean argument 'recent',
     e.g. recent=True will return recent tweets not already stored in the db.
     The number of tweets to fetch is configured in the Admin.
-    """
+    '''
     db = worker.get_session()
     max_results = get_config(db, 'max_posts_twitter', required=True).value
 
@@ -853,10 +841,10 @@ def scrape_twitter_posts(id_, recent):
 
 
 def scrape_twitter_relations(id_):
-    """
+    '''
     Fetch friends and followers for the Twitter user identified by `id_`.
     The number of friends and followers to fetch is configured in Admin.
-    """
+    '''
     redis = worker.get_redis()
     db = worker.get_session()
     profile = db.query(Profile).filter(Profile.id==id_).first()
@@ -1018,7 +1006,7 @@ def scrape_twitter_relations(id_):
     redis.publish('profile_relations', json.dumps({'id': id_}))
 
 def _get_proxies(db):
-    """ Get a dictionary of proxy information from the app configuration. """
+    ''' Get a dictionary of proxy information from the app configuration. '''
 
     piscina_url = get_config(db, 'piscina_proxy_url', required=True)
 
@@ -1031,10 +1019,10 @@ def _get_proxies(db):
     }
 
 def _twitter_populate_profile(dict_, profile):
-    """
+    '''
     Copy attributes from `dict_`, a `/users/lookup` API response, into a
     `Profile` instance.
-    """
+    '''
 
     profile.description = dict_['description']
     profile.follower_count = dict_['followers_count']
@@ -1046,43 +1034,3 @@ def _twitter_populate_profile(dict_, profile):
     profile.post_count = dict_['statuses_count']
     profile.private = dict_['protected']
     profile.time_zone = dict_['time_zone']
-
-
-def _label_profile(profile, labels):
-    """
-    Add list of string labels to a profile.
-    """
-
-    for name in labels:
-        label = _get_or_create_label(name)
-
-        if label not in profile.labels:
-            profile.labels.add(label)
-
-
-def _get_or_create_label(name):
-    """
-    Get or create a database label object.
-    """
-    db_session = worker.get_session()
-    label = db_session.query(Label).filter_by(name=name.lower().strip()).first()
-
-    if label:
-        return label
-    else:
-        label = Label(name=name.lower().strip())
-        db_session.add(label)
-
-        try:
-            db_session.commit()
-        except IntegrityError:
-            db_session.rollback()
-            raise
-        except AssertionError:
-            db_session.rollback()
-            raise ValueError(
-                'Label "{}" contains non-alphanumeric character'
-                .format(name)
-            )
-
-        return label
