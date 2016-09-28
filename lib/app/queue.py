@@ -1,4 +1,4 @@
-''' Message queues. '''
+""" Message queues. """
 
 import json
 
@@ -17,22 +17,24 @@ _redis_worker = dict(_config.items('redis_worker'))
 _index_queue = Queue('index', connection=_redis)
 _scrape_queue = Queue('scrape', connection=_redis)
 
+
 def dummy_job():
-    '''
+    """
     This dummy job is used by init_queues().
 
     It must be defined at the module level so that Python RQ can import it;
     it cannot be an anonymous or nested function.
-    '''
+    """
     pass
 
+
 def init_queues(redis):
-    '''
+    """
     Python RQ creates queues lazily, but we want them created eagerly.
 
     This function submits a dummy job to each queue to force Python RQ to
     create that queue.
-    '''
+    """
 
     queues = {q for q in globals().values() if type(q) is Queue}
 
@@ -42,12 +44,12 @@ def init_queues(redis):
 
 
 def remove_unused_queues(redis):
-    '''
+    """
     Remove queues in RQ that are not defined in this file.
 
     This is useful for removing queues that used to be defined but were later
     removed.
-    '''
+    """
 
     queue_names = {q.name for q in globals().values() if type(q) is Queue}
 
@@ -59,7 +61,7 @@ def remove_unused_queues(redis):
 
 
 def schedule_avatar(profile, avatar_url):
-    ''' Queue a job to fetch an avatar image for the specified profile. '''
+    """ Queue a job to fetch an avatar image for the specified profile. """
 
     job = _scrape_queue.enqueue_call(
         func=worker.scrape.scrape_avatar,
@@ -74,7 +76,7 @@ def schedule_avatar(profile, avatar_url):
 
 
 def schedule_index_profile(profile):
-    ''' Queue a job to index the specified profile. '''
+    """ Queue a job to index the specified profile. """
 
     job = _index_queue.enqueue_call(
         func=worker.index.index_profile,
@@ -89,7 +91,7 @@ def schedule_index_profile(profile):
 
 
 def schedule_index_posts(post_ids):
-    ''' Queue a job to index the specified posts. '''
+    """ Queue a job to index the specified posts. """
 
     job = _index_queue.enqueue_call(
         func=worker.index.index_posts,
@@ -103,8 +105,57 @@ def schedule_index_posts(post_ids):
     worker.init_job(job=job, description=description)
 
 
+def schedule_delete_profile_from_index(profile):
+    """ 
+    Queue a job to delete the specified profile from the index.
+    """
+
+    job = _index_queue.enqueue_call(
+        func=worker.index.delete_profile,
+        args=[profile.id],
+        timeout=_redis_worker['solr_timeout']
+    )
+
+    description = 'Deleting profile "{}" on {} from index' \
+                  .format(profile.username, profile.site_name())
+
+    worker.init_job(job=job, description=description)
+
+
+def schedule_delete_profile_posts_from_index(profile_id):
+    """ 
+    Queue a job to delete the specified profile posts from the index.
+    """
+
+    job = _index_queue.enqueue_call(
+        func=worker.index.delete_profile_posts,
+        args=[profile_id],
+        timeout=_redis_worker['solr_timeout']
+    )
+
+    description = 'Deleting profile "{}" posts from index' \
+                  .format(profile_id)
+
+    worker.init_job(job=job, description=description)
+
+
+def schedule_delete_profile_from_index(profile_id):
+    """ Queue a job to index the specified profile. """
+
+    job = _index_queue.enqueue_call(
+        func=worker.index.delete_profile,
+        args=[profile_id],
+        timeout=_redis_worker['solr_timeout']
+    )
+
+    description = 'Deleting profile "{}" from index' \
+                  .format(profile_id)
+
+    worker.init_job(job=job, description=description)
+
+
 def schedule_profile(site, username, stub=False):
-    ''' Queue a job to fetch the specified profile from a social media site. '''
+    """ Queue a job to fetch the specified profile from a social media site. """
 
     job = _scrape_queue.enqueue_call(
         func=worker.scrape.scrape_profile,
@@ -117,7 +168,7 @@ def schedule_profile(site, username, stub=False):
 
 
 def schedule_profile_id(site, upstream_id, profile_id=None, stub=False):
-    ''' Queue a job to fetch the specified profile from a social media site. '''
+    """ Queue a job to fetch the specified profile from a social media site. """
 
     job = _scrape_queue.enqueue_call(
         func=worker.scrape.scrape_profile_by_id,
@@ -130,7 +181,7 @@ def schedule_profile_id(site, upstream_id, profile_id=None, stub=False):
 
 
 def schedule_profiles(profiles, stub=False):
-    '''
+    """
     Queue jobs to fetch a list of profiles from a social media site.
 
     Profile scraping jobs are chunked according to maximum API request size
@@ -165,7 +216,7 @@ def schedule_profiles(profiles, stub=False):
                 ]
 
         'stub' (bool) - whether or not to import the profile as a stub
-    '''
+    """
 
     # Aggregate profiles by site and API request type (username or ID)
     site_profiles = {}
@@ -217,7 +268,7 @@ def schedule_profiles(profiles, stub=False):
 
 
 def schedule_posts(profile, recent=True):
-    ''' Queue a job to get posts for the specified profile. '''
+    """ Queue a job to get posts for the specified profile. """
 
     scrapers = {
         'instagram': worker.scrape.scrape_instagram_posts,
@@ -242,7 +293,7 @@ def schedule_posts(profile, recent=True):
 
 
 def schedule_relations(profile):
-    ''' Queue a job to get relations for the specified profile. '''
+    """ Queue a job to get relations for the specified profile. """
 
     scrapers = {
         'instagram': worker.scrape.scrape_instagram_relations,
@@ -267,7 +318,7 @@ def schedule_relations(profile):
 
 
 def schedule_sleep_determinate(period):
-    ''' Schedule a determinate sleep task (useful for testing). '''
+    """ Schedule a determinate sleep task (useful for testing). """
 
     description = 'Determinate sleep for {} seconds'.format(period)
 
@@ -281,7 +332,7 @@ def schedule_sleep_determinate(period):
 
 
 def schedule_sleep_exception(period):
-    ''' Schedule a sleep task that raises an exception (useful for testing). '''
+    """ Schedule a sleep task that raises an exception (useful for testing). """
 
     description = 'Exception sleep for {} seconds'.format(period)
 
@@ -295,7 +346,7 @@ def schedule_sleep_exception(period):
 
 
 def schedule_sleep_indeterminate(period):
-    ''' Schedule an indeterminate sleep task (useful for testing). '''
+    """ Schedule an indeterminate sleep task (useful for testing). """
 
     description = 'Indeterminate sleep for {} seconds'.format(period)
 

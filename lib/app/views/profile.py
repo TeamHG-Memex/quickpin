@@ -1,6 +1,7 @@
 from flask import g, json, jsonify, request
 from flask_classy import FlaskView, route
 from sqlalchemy.exc import IntegrityError, DBAPIError
+from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import BadRequest, NotFound
 
 from app.authorization import login_required
@@ -122,11 +123,11 @@ class ProfileView(FlaskView):
         id_ = get_int_arg('id_', id_)
         current_avatar_id = self._current_avatar_subquery()
 
-        profile, avatar = g.db.query(Profile, Avatar) \
-                              .outerjoin(Avatar, Avatar.id == current_avatar_id) \
-                              .filter(Profile.id == id_).first()
-
-        if profile is None:
+        try:
+            profile, avatar = g.db.query(Profile, Avatar) \
+                                  .outerjoin(Avatar, Avatar.id == current_avatar_id) \
+                                  .filter(Profile.id == id_).one()
+        except NoResultFound:
             raise NotFound("Profile '%s' does not exist." % id_)
 
         response = profile.as_dict()
@@ -180,56 +181,58 @@ class ProfileView(FlaskView):
     @route('/<id_>/posts')
     def get_posts(self, id_):
         '''
-        Return an array of posts by this profile.
+        .. http:get: /api/profile/(int:id_)/posts
 
-        **Example Response**
+            Return an array of posts by this profile.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-              "posts": [
+            .. sourcecode:: json
+
                 {
-                  "content": "If your #Tor relay is stolen or you lose control of it, please report it so we can blacklist it: https://t.co/imVnrh1FbD @TorProject",
-                  "id": 4,
-                  "language": "en",
-                  "last_update": "2015-08-19T18:17:07",
-                  "location": [
-                    null,
-                    null
+                  "posts": [
+                    {
+                      "content": "If your #Tor relay is stolen or you lose control of it, please report it so we can blacklist it: https://t.co/imVnrh1FbD @TorProject",
+                      "id": 4,
+                      "language": "en",
+                      "last_update": "2015-08-19T18:17:07",
+                      "location": [
+                        null,
+                        null
+                      ],
+                      "upstream_created": "2014-11-07T16:24:05",
+                      "upstream_id": "530878388605423616"
+                    },
+                    ...
                   ],
-                  "upstream_created": "2014-11-07T16:24:05",
-                  "upstream_id": "530878388605423616"
-                },
-                ...
-              ],
-              "username": "johndoe"
-            }
+                  "username": "johndoe"
+                }
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :query page: the page number to display (default: 1)
+            :query rpp: the number of results per page (default: 10)
 
-        :>header Content-Type: application/json
-        :>json list posts Array of post objects.
-        :>json str posts[n].content Text content of the post.
-        :>json int posts[n].id Unique identifier for post.
-        :>json str posts[n].language Language of post, e.g. 'en'.
-        :>json str posts[n].last_update The date and time that this record was
-            updated from the social media site.
-        :>json str posts[n].location 2-element array of longitude and latitude.
-        :>json str posts[n].upstream_created The date this was posted.
-        :>json str posts[n].upstream_id The unique identifier assigned by the
-        social media site.
-        :>json str username Username of the requested profile
-        :>json str site_name Site name associated with the requested profile
-        :>json int total_count Total count of all posts by this profile, not
-            just those displayed on this page
+            :>header Content-Type: application/json
+            :>json list posts Array of post objects.
+            :>json str posts[n].content Text content of the post.
+            :>json int posts[n].id Unique identifier for post.
+            :>json str posts[n].language Language of post, e.g. 'en'.
+            :>json str posts[n].last_update The date and time that this record was
+                updated from the social media site.
+            :>json str posts[n].location 2-element array of longitude and latitude.
+            :>json str posts[n].upstream_created The date this was posted.
+            :>json str posts[n].upstream_id The unique identifier assigned by the
+            social media site.
+            :>json str username Username of the requested profile
+            :>json str site_name Site name associated with the requested profile
+            :>json int total_count Total count of all posts by this profile, not
+                just those displayed on this page
 
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: user does not exist
+            :status 200: ok
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: user does not exist
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -280,24 +283,26 @@ class ProfileView(FlaskView):
     @route('/<id_>/posts/fetch')
     def get_older_posts(self, id_):
         '''
-        Request fetching of older posts by this profile.
+        .. http:get: /api/profile/(int:id_)/posts/fetch
 
-        **Example Response**
+            Request fetching of older posts by this profile.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-            "message": "Fetching older posts for profile ID 22."
-            }
+            .. sourcecode:: json
+
+                {
+                "message": "Fetching older posts for profile ID 22."
+                }
 
 
-        :>header Content-Type: application/json
-        :>json str message: API request confirmation message
+            :>header Content-Type: application/json
+            :>json str message: API request confirmation message
 
-        :status 202: accepted for background processing
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: profile does not exist
+            :status 202: accepted for background processing
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: profile does not exist
         '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
@@ -317,49 +322,51 @@ class ProfileView(FlaskView):
     @route('/<id_>/relations/<reltype>')
     def get_relations(self, id_, reltype):
         '''
-        Return an array of profiles that are related to the specified profile
-        by `reltype`, either "friends" or "followers".
+        .. http:get: /api/profile/(int:id_)/relations/<reltype>
 
-        **Example Response**
+            Return an array of profiles that are related to the specified profile
+            by `reltype`, either "friends" or "followers".
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-              "relations": [
+            .. sourcecode:: json
+
                 {
-                  "avatar_thumb_url": "https://quickpin/api/file/1",
-                  "id": 3,
-                  "url": "https://quickpin/api/profile/3",
-                  "username": "rustlang"
-                },
-                {
-                  "avatar_thumb_url": "https://quickpin/api/file/2",
-                  "id": 4,
-                  "url": "https://quickpin/api/profile/4",
-                  "username": "ORGANICBUTCHER"
-                },
-                ...
-            }
+                  "relations": [
+                    {
+                      "avatar_thumb_url": "https://quickpin/api/file/1",
+                      "id": 3,
+                      "url": "https://quickpin/api/profile/3",
+                      "username": "rustlang"
+                    },
+                    {
+                      "avatar_thumb_url": "https://quickpin/api/file/2",
+                      "id": 4,
+                      "url": "https://quickpin/api/profile/4",
+                      "username": "ORGANICBUTCHER"
+                    },
+                    ...
+                }
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :query page: the page number to display (default: 1)
+            :query rpp: the number of results per page (default: 10)
 
-        :>header Content-Type: application/json
-        :>json object relations Array of related profiles.
-        :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
-            user's current avatar
-        :>json int relations[n].id Unique identifier for relation's profile.
-        :>json str relations[n].url The URL to fetch this relation's profile.
-        :>json str relations[n].username This relation's username.
-        :>json int total_count Total count of all related profiles, not just
-            those on the current page.
+            :>header Content-Type: application/json
+            :>json object relations Array of related profiles.
+            :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
+                user's current avatar
+            :>json int relations[n].id Unique identifier for relation's profile.
+            :>json str relations[n].url The URL to fetch this relation's profile.
+            :>json str relations[n].username This relation's username.
+            :>json int total_count Total count of all related profiles, not just
+                those on the current page.
 
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: user does not exist
+            :status 200: ok
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: user does not exist
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -422,24 +429,26 @@ class ProfileView(FlaskView):
     @route('/<id_>/relations/fetch')
     def get_more_relations(self, id_):
         '''
-        Request fetching of more relations of this profile.
+        .. http:get: /api/profile/(int:id_)/relations/fetch
 
-        **Example Response**
+            Request fetching of more relations of this profile.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-            "message": "Fetching more friends & followers for profile ID 22."
-            }
+            .. sourcecode:: json
+
+                {
+                "message": "Fetching more friends & followers for profile ID 22."
+                }
 
 
-        :>header Content-Type: application/json
-        :>json str message: API request confirmation message
+            :>header Content-Type: application/json
+            :>json str message: API request confirmation message
 
-        :status 202: accepted for background processing
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: profile does not exist
+            :status 202: accepted for background processing
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: profile does not exist
         '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
@@ -458,96 +467,98 @@ class ProfileView(FlaskView):
 
     def index(self):
         '''
-        Return an array of data about profiles.
+        .. http:get: /api/profile/
 
-        Note that this only returns full profiles, not "stub" profiles. If user
-        A in QuickPin has a friend/follower user B but user B is not in
-        QuickPin, then a "stub" profile is created for user B.
+            Return an array of data about profiles.
 
-        **Example Response**
+            Note that this only returns full profiles, not "stub" profiles. If user
+            A in QuickPin has a friend/follower user B but user B is not in
+            QuickPin, then a "stub" profile is created for user B.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-                "profiles": [
-                    {
-                        "avatar_url": "https://quickpin/api/file/5",
-                        "avatar_thumb_url": "https://quickpin/api/file/6",
-                        "description": "A human being.",
-                        "follower_count": 12490,
-                        "friend_count": 294,
-                        "id": 5,
-                        "is_stub": False,
-                        "is_interesting": False,
-                        "join_date": "2010-01-30T18:21:35",
-                        "last_update": "2015-08-18T10:51:16",
-                        "location": "Washington, DC",
-                        "name": "John Q. Doe",
-                        "post_count": 230,
-                        "private": false,
-                        "score": "-2.0621606863",
-                        "site": "twitter",
-                        "time_zone": "Central Time (US & Canada)",
-                        "upstream_id": "123456",
-                        "url": "https://quickpin/api/profile/5",
-                        "username": "johndoe"
-                    },
-                    ...
-                ],
-                "total_count": 5
-            }
+            .. sourcecode:: json
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
-        :query site: name of site to filter by
+                {
+                    "profiles": [
+                        {
+                            "avatar_url": "https://quickpin/api/file/5",
+                            "avatar_thumb_url": "https://quickpin/api/file/6",
+                            "description": "A human being.",
+                            "follower_count": 12490,
+                            "friend_count": 294,
+                            "id": 5,
+                            "is_stub": False,
+                            "is_interesting": False,
+                            "join_date": "2010-01-30T18:21:35",
+                            "last_update": "2015-08-18T10:51:16",
+                            "location": "Washington, DC",
+                            "name": "John Q. Doe",
+                            "post_count": 230,
+                            "private": false,
+                            "score": "-2.0621606863",
+                            "site": "twitter",
+                            "time_zone": "Central Time (US & Canada)",
+                            "upstream_id": "123456",
+                            "url": "https://quickpin/api/profile/5",
+                            "username": "johndoe"
+                        },
+                        ...
+                    ],
+                    "total_count": 5
+                }
 
-        :>header Content-Type: application/json
-        :>json list profiles: a list of profile objects
-        :>json str profiles[n].avatar_url: a URL to the user's current avatar
-            image
-        :>json str profiles[n].avatar_thumb_url: a URL to a 32x32px thumbnail of
-            the user's current avatar image
-        :>json str profiles[n].description: profile description
-        :>json int profiles[n].follower_count: number of followers
-        :>json int profiles[n].friend_count: number of friends (a.k.a.
-            followees)
-        :>json int profiles[n].id: unique identifier for profile
-        :>json bool profiles[n].is_stub: indicates that this is a stub profile,
-            e.g. related to another profile but has not been fully imported (for
-            this particular endpoint, is_stub will always be false)
-        :>json bool is_interesting: indicates whether this profile has been
-            tagged as interesting. The value can be null.
-        :>json str profiles[n].join_date: the date this profile joined its
-            social network (ISO-8601)
-        :>json str profiles[n].last_update: the last time that information about
-            this profile was retrieved from the social media site (ISO-8601)
-        :>json str profiles[n].location: geographic location provided by the
-            user, as free text
-        :>json str profiles[n].name: the full name provided by this user
-        :>json int profiles[n].post_count: the number of posts made by this
-            profile
-        :>json bool profiles[n].private: true if this is a private account (i.e.
-            not world-readable)
-        :>json str profiles[n].score: user-defined score for this profile
-        :>json str profiles[n].site: machine-readable site name that this
-            profile belongs to
-        :>json str profiles[n].site_name: human-readable site name that this
-            profile belongs to
-        :>json str profiles[n].time_zone: the user's provided time zone as free
-            text
-        :>json str profiles[n].upstream_id: the user ID assigned by the social
-            site
-        :>json str profiles[n].url: URL endpoint for retriving more data about
-            this profile
-        :>json str profiles[n].username: the current username for this profile
-        :>json int total_count: count of all profile objects, not just those on
-            the current page
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :query page: the page number to display (default: 1)
+            :query rpp: the number of results per page (default: 10)
+            :query site: name of site to filter by
 
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
+            :>header Content-Type: application/json
+            :>json list profiles: a list of profile objects
+            :>json str profiles[n].avatar_url: a URL to the user's current avatar
+                image
+            :>json str profiles[n].avatar_thumb_url: a URL to a 32x32px thumbnail of
+                the user's current avatar image
+            :>json str profiles[n].description: profile description
+            :>json int profiles[n].follower_count: number of followers
+            :>json int profiles[n].friend_count: number of friends (a.k.a.
+                followees)
+            :>json int profiles[n].id: unique identifier for profile
+            :>json bool profiles[n].is_stub: indicates that this is a stub profile,
+                e.g. related to another profile but has not been fully imported (for
+                this particular endpoint, is_stub will always be false)
+            :>json bool is_interesting: indicates whether this profile has been
+                tagged as interesting. The value can be null.
+            :>json str profiles[n].join_date: the date this profile joined its
+                social network (ISO-8601)
+            :>json str profiles[n].last_update: the last time that information about
+                this profile was retrieved from the social media site (ISO-8601)
+            :>json str profiles[n].location: geographic location provided by the
+                user, as free text
+            :>json str profiles[n].name: the full name provided by this user
+            :>json int profiles[n].post_count: the number of posts made by this
+                profile
+            :>json bool profiles[n].private: true if this is a private account (i.e.
+                not world-readable)
+            :>json str profiles[n].score: user-defined score for this profile
+            :>json str profiles[n].site: machine-readable site name that this
+                profile belongs to
+            :>json str profiles[n].site_name: human-readable site name that this
+                profile belongs to
+            :>json str profiles[n].time_zone: the user's provided time zone as free
+                text
+            :>json str profiles[n].upstream_id: the user ID assigned by the social
+                site
+            :>json str profiles[n].url: URL endpoint for retriving more data about
+                this profile
+            :>json str profiles[n].username: the current username for this profile
+            :>json int total_count: count of all profile objects, not just those on
+                the current page
+
+            :status 200: ok
+            :status 400: invalid argument[s]
+            :status 401: authentication required
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -636,61 +647,63 @@ class ProfileView(FlaskView):
 
     def post(self):
         '''
-        Request creation of new profiles.
+        .. http:post: /api/profile/
 
-        We don't know if a profile exists until we contact its social media
-        site, and we don't want to do that on the main request thread. Instead,
-        profiles are processed in the background and notifications are sent as
-        profiles are discovered and scraped. Therefore, this endpoint does not
-        return any new entities.
+            Request creation of new profiles.
 
-        **Example Request**
+            We don't know if a profile exists until we contact its social media
+            site, and we don't want to do that on the main request thread. Instead,
+            profiles are processed in the background and notifications are sent as
+            profiles are discovered and scraped. Therefore, this endpoint does not
+            return any new entities.
 
-        .. sourcecode:: json
+            **Example Request**
 
-            {
-                "profiles": [
-                    {
-                        "username": "johndoe",
-                        "site": "instagram",
-                        "stub": true,
-                        "labels":  ["female", "american"]
-                    },
-                    {
-                        "upstream_id": "2232324",
-                        "site": "twitter"
-                    },
-                    ...
-                ],
-                "stub": true
-            }
+            .. sourcecode:: json
 
-        **Example Response**
+                {
+                    "profiles": [
+                        {
+                            "username": "johndoe",
+                            "site": "instagram",
+                            "stub": true,
+                            "labels":  ["female", "american"]
+                        },
+                        {
+                            "upstream_id": "2232324",
+                            "site": "twitter"
+                        },
+                        ...
+                    ],
+                    "stub": true
+                }
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-                "message": "21 new profiles submitted."
-            }
+            .. sourcecode:: json
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :>json list profiles: a list of profiles to create
-        :>json str profiles[n].username: username of profile to create
-        :>json str profiles[n].upstream_id: upstream id of profile to create
-        :>json str profiles[n].site: machine-readable name of social media site
-        :>json bool stub: whether to fetch profiles as stubs
+                {
+                    "message": "21 new profiles submitted."
+                }
 
-        :>header Content-Type: application/json
-        :>json int id: unique identifier for new profile
-        :>json str username: username of new profile
-        :>json str site: machine-readable name of profile's social media site
-        :>json str site_name: human-readable name of profile's social media site
-        :>json str url: URL endpoint for more information about this profile
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :>json list profiles: a list of profiles to create
+            :>json str profiles[n].username: username of profile to create
+            :>json str profiles[n].upstream_id: upstream id of profile to create
+            :>json str profiles[n].site: machine-readable name of social media site
+            :>json bool stub: whether to fetch profiles as stubs
 
-        :status 202: accepted for background processing
-        :status 400: invalid request body
-        :status 401: authentication required
+            :>header Content-Type: application/json
+            :>json int id: unique identifier for new profile
+            :>json str username: username of new profile
+            :>json str site: machine-readable name of profile's social media site
+            :>json str site_name: human-readable name of profile's social media site
+            :>json str url: URL endpoint for more information about this profile
+
+            :status 202: accepted for background processing
+            :status 400: invalid request body
+            :status 401: authentication required
         '''
         labels = {}
         request_json = request.get_json()
@@ -731,6 +744,9 @@ class ProfileView(FlaskView):
             if 'labels' in profile:
                 if not isinstance(profile['labels'], list):
                     raise BadRequest('`labels` must be a list')
+                else:
+                    # Transform string labels into IDs.
+                    profile['labels'] = [self._get_label_id(name) for name in profile['labels']]
 
         app.queue.schedule_profiles(request_json['profiles'], stub)
         count = len(request_json['profiles'])
@@ -759,125 +775,128 @@ class ProfileView(FlaskView):
 
     def put(self, id_):
         '''
-        Update the profile identified by `id` with submitted data.
-        The following attributes are modifiable:
+        .. http:put: /api/profile/(int:id_)
 
-           * is_interesting
-           * labels
-           * score
+            Update the profile identified by `id` with submitted data.
 
-        **Example Request**
+            The following attributes are modifiable:
 
-        .. sourcecode:: json
+               * is_interesting
+               * labels
+               * score
 
-            {
-                "is_interesting": true,
-                "labels": [
-                    {"name": "male"},
-                    {"name": "british"},
+            **Example Request**
+
+            .. sourcecode:: json
+
+                {
+                    "is_interesting": true,
+                    "labels": [
+                        {"name": "male"},
+                        {"name": "british"},
+                        ...
+                    ],
+                    "score": 2323.0,
                     ...
-                ],
-                "score": 2323.0,
-                ...
-            }
+                }
 
-        **Example Response**
+            **Example Response**
 
-        .. sourcecode:: json
+            .. sourcecode:: json
 
-            {
-                "avatar_url": "https://quickpin/api/file/1",
-                "avatar_thumb_url": "https://quickpin/api/file/2",
-                "description": "A human being.",
-                "follower_count": 71,
-                "friend_count": 28,
-                "id": 1,
-                "is_stub": false,
-                "is_interesting": true,
-                "join_date": "2012-01-30T15:11:35",
-                "labels": [
-                    {
-                        "id": 1,
-                        "name": "male"
-                    },
-                    {
-                        "id": 2,
-                        "name": "british"
-                    },
-                ],
-                "last_update": "2015-08-18T10:51:16",
-                "location": "Washington, DC",
-                "name": "John Doe",
-                "post_count": 1666,
-                "private": false,
-                "score": "-2.0621606863",
-                "site": "twitter",
-                "site_name": "Twitter",
-                "time_zone": "Central Time (US & Canada)",
-                "upstream_id": "11009418",
-                "url": "https://quickpin/api/profile/1",
-                "username": "mehaase",
-                "usernames": [
-                    {
-                        "end_date": "2012-06-30T15:00:00",
-                        "start_date": "2012-01-01T12:00:00",
-                        "username": "mehaase"
-                    },
-                    ...
-                ]
-            }
+                {
+                    "avatar_url": "https://quickpin/api/file/1",
+                    "avatar_thumb_url": "https://quickpin/api/file/2",
+                    "description": "A human being.",
+                    "follower_count": 71,
+                    "friend_count": 28,
+                    "id": 1,
+                    "is_stub": false,
+                    "is_interesting": true,
+                    "join_date": "2012-01-30T15:11:35",
+                    "labels": [
+                        {
+                            "id": 1,
+                            "name": "male"
+                        },
+                        {
+                            "id": 2,
+                            "name": "british"
+                        },
+                    ],
+                    "last_update": "2015-08-18T10:51:16",
+                    "location": "Washington, DC",
+                    "name": "John Doe",
+                    "post_count": 1666,
+                    "private": false,
+                    "score": "-2.0621606863",
+                    "site": "twitter",
+                    "site_name": "Twitter",
+                    "time_zone": "Central Time (US & Canada)",
+                    "upstream_id": "11009418",
+                    "url": "https://quickpin/api/profile/1",
+                    "username": "mehaase",
+                    "usernames": [
+                        {
+                            "end_date": "2012-06-30T15:00:00",
+                            "start_date": "2012-01-01T12:00:00",
+                            "username": "mehaase"
+                        },
+                        ...
+                    ]
+                }
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :>json bool is_interesting: whether profile is marked as interesting
-        :>json list labels: whether profile is marked as interesting
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :>json bool is_interesting: whether profile is marked as interesting
+            :>json list labels: whether profile is marked as interesting
 
-        :>header Content-Type: application/json
-        :>json str avatar_url: URL to the user's current avatar
-        :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
-            current avatar
-        :>json str description: profile description
-        :>json int follower_count: number of followers
-        :>json int friend_count: number of friends (a.k.a. followees)
-        :>json int id: unique identifier for profile
-        :>json bool is_stub: indicates that this is a stub profile, e.g.
-            related to another profile but has not been fully imported
-        :>json bool is_interesting: indicates whether this profile has been
-            marked as interesting. The value can be null.
-        :>json str join_date: the date this profile joined its social network
-            (ISO-8601)
-        :>json list labels: list of labels for this profile
-        :>json int label[n].id: the unique id for this label
-        :>json str label[n].name: the label
-        :>json str last_update: the last time that information about this
-            profile was retrieved from the social media site (ISO-8601)
-        :>json str location: geographic location provided by the user, as free
-            text
-        :>json str name: the full name provided by this user
-        :>json int note[n].id: the unique id for this note
-        :>json int note[n].category: the user-defined category of this note
-        :>json int note[n].body: the user-defined text-body of this note
-        :>json int post_count: the number of posts made by this profile
-        :>json bool private: true if this is a private account (i.e. not world-
-            readable)
-        :>json str score: user-defined score for this profile. Can be null.
-        :>json str site: machine-readable site name that this profile belongs to
-        :>json str site_name: human-readable site name that this profile belongs
-            to
-        :>json str time_zone: the user's provided time zone as free text
-        :>json str upstream_id: the user ID assigned by the social site
-        :>json str url: URL endpoint for retriving more data about this profile
-        :>json str username: the current username for this profile
-        :>json list usernames: list of known usernames for this profile
-        :>json str usernames[n].end_date: the last known date this username was
-            used for this profile
-        :>json str usernames[n].start_date: the first known date this username
-            was used for this profile
-        :>json str usernames[n].username: a username used for this profile
+            :>header Content-Type: application/json
+            :>json str avatar_url: URL to the user's current avatar
+            :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
+                current avatar
+            :>json str description: profile description
+            :>json int follower_count: number of followers
+            :>json int friend_count: number of friends (a.k.a. followees)
+            :>json int id: unique identifier for profile
+            :>json bool is_stub: indicates that this is a stub profile, e.g.
+                related to another profile but has not been fully imported
+            :>json bool is_interesting: indicates whether this profile has been
+                marked as interesting. The value can be null.
+            :>json str join_date: the date this profile joined its social network
+                (ISO-8601)
+            :>json list labels: list of labels for this profile
+            :>json int label[n].id: the unique id for this label
+            :>json str label[n].name: the label
+            :>json str last_update: the last time that information about this
+                profile was retrieved from the social media site (ISO-8601)
+            :>json str location: geographic location provided by the user, as free
+                text
+            :>json str name: the full name provided by this user
+            :>json int note[n].id: the unique id for this note
+            :>json int note[n].category: the user-defined category of this note
+            :>json int note[n].body: the user-defined text-body of this note
+            :>json int post_count: the number of posts made by this profile
+            :>json bool private: true if this is a private account (i.e. not world-
+                readable)
+            :>json str score: user-defined score for this profile. Can be null.
+            :>json str site: machine-readable site name that this profile belongs to
+            :>json str site_name: human-readable site name that this profile belongs
+                to
+            :>json str time_zone: the user's provided time zone as free text
+            :>json str upstream_id: the user ID assigned by the social site
+            :>json str url: URL endpoint for retriving more data about this profile
+            :>json str username: the current username for this profile
+            :>json list usernames: list of known usernames for this profile
+            :>json str usernames[n].end_date: the last known date this username was
+                used for this profile
+            :>json str usernames[n].start_date: the first known date this username
+                was used for this profile
+            :>json str usernames[n].username: a username used for this profile
 
-        :status 202: accepted for background processing
-        :status 400: invalid request body
-        :status 401: authentication required
+            :status 202: accepted for background processing
+            :status 400: invalid request body
+            :status 401: authentication required
 
         '''
 
@@ -1019,24 +1038,26 @@ class ProfileView(FlaskView):
     @route('/<id_>/update')
     def update_profile(self, id_):
         '''
-        Request new data from social site API for profile identified by `id`.
+        .. http:get: /api/profile/(int:id_)/update
 
-        **Example Response**
+            Request new data from social site API for profile identified by `id`.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-            "message": "Updating profile ID 22 (site: twitter, upstream_id: 20609518, username: dalailama)."
-            }
+            .. sourcecode:: json
+
+                {
+                "message": "Updating profile ID 22 (site: twitter, upstream_id: 20609518, username: dalailama)."
+                }
 
 
-        :>header Content-Type: application/json
-        :>json str message: API request confirmation message
+            :>header Content-Type: application/json
+            :>json str message: API request confirmation message
 
-        :status 202: accepted for background processing
-        :status 400: invalid argument[s]
-        :status 401: authentication required
-        :status 404: profile does not exist
+            :status 202: accepted for background processing
+            :status 400: invalid argument[s]
+            :status 401: authentication required
+            :status 404: profile does not exist
         '''
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
@@ -1062,48 +1083,50 @@ class ProfileView(FlaskView):
     @route('/<id_>/notes')
     def get_notes(self, id_):
         '''
-        Return an array of all notes for this profile.
+        .. http:get: /api/profile/(int:id_)/notes
 
-        **Example Response**
+            Return an array of all notes for this profile.
 
-        .. sourcecode:: json
+            **Example Response**
 
-            {
-                "notes": [
-                    {
-                        "id": 1,
-                        "category": "user annotation",
-                        "body": "This is an interesting) profile.",
-                        "created_at": "2015-12-15T10:41:55.792492",
-                        "url": "https://quickpin/api/note/1",
-                    }
-                    ...
-                ],
-                "total_count": 1
-                "username: "hyperiongray",
-                "sitename": twitter,
-            }
+            .. sourcecode:: json
 
-        :<header Content-Type: application/json
-        :<header X-Auth: the client's auth token
-        :query page: the page number to display (default: 1)
-        :query rpp: the number of results per page (default: 10)
+                {
+                    "notes": [
+                        {
+                            "id": 1,
+                            "category": "user annotation",
+                            "body": "This is an interesting) profile.",
+                            "created_at": "2015-12-15T10:41:55.792492",
+                            "url": "https://quickpin/api/note/1",
+                        }
+                        ...
+                    ],
+                    "total_count": 1
+                    "username: "hyperiongray",
+                    "sitename": twitter,
+                }
+
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+            :query page: the page number to display (default: 1)
+            :query rpp: the number of results per page (default: 10)
 
 
-        :>header Content-Type: application/json
-        :>json list notes: list of profile note objects
-        :>json int list[n].id: unique identifier for the note
-        :>json str list[n].category: the user-defined category of this note
-        :>json str list[n].body: the note
-        :>json str list[n].created_at: the iso-formatted creation time of the note
-        :>json str list[n].url: API endpoint URL for this note object
-        :>json str total_count: the total number of notes for this profile
-        :>json str username: the username of this profile
-        :>json str sitename: the name of the social site the profile belongs to
+            :>header Content-Type: application/json
+            :>json list notes: list of profile note objects
+            :>json int list[n].id: unique identifier for the note
+            :>json str list[n].category: the user-defined category of this note
+            :>json str list[n].body: the note
+            :>json str list[n].created_at: the iso-formatted creation time of the note
+            :>json str list[n].url: API endpoint URL for this note object
+            :>json str total_count: the total number of notes for this profile
+            :>json str username: the username of this profile
+            :>json str sitename: the name of the social site the profile belongs to
 
-        :status 200: ok
-        :status 400: invalid argument[s]
-        :status 401: authentication required
+            :status 200: ok
+            :status 400: invalid argument[s]
+            :status 401: authentication required
         '''
 
         # Parse paging arguments
@@ -1133,3 +1156,85 @@ class ProfileView(FlaskView):
             site_name=profile.site_name(),
             username=profile.username,
         )
+
+    def delete(self, id_):
+        """
+        .. http:delete: /api/profile/(int:id_)
+
+            Delete the proile identified by `id`.
+
+            **Example Response**
+
+            .. sourcecode:: json
+
+                {
+                    "message": "Profile ID `1234` deleted",
+                }
+
+            :<header Content-Type: application/json
+            :<header X-Auth: the client's auth token
+
+            :>header Content-Type: application/json
+            :>json str message: the API response message
+
+            :status 202: deleted
+            :status 400: invalid request body
+            :status 401: authentication required
+            :status 404: profile does not exist
+        """
+
+        # Get profile.
+        id_ = get_int_arg('id_', id_)
+        profile = g.db.query(Profile).filter(Profile.id == id_).first()
+
+        if profile is None:
+            raise NotFound("Profile '%s' does not exist." % id_)
+
+        # Delete profile 
+        g.db.delete(profile)
+        try:
+            g.db.commit()
+        except DBAPIError as e:
+            raise BadRequest('Database error: {}'.format(e))
+
+        # Queue jobs to delete profile and posts from index
+        app.queue.schedule_delete_profile_from_index(id_)
+        app.queue.schedule_delete_profile_posts_from_index(id_)
+
+        message = 'Profile ID `{}` deleted'.format(profile.id)
+        response = jsonify(message=message)
+        response.status_code = 202
+
+        return response
+
+    def _get_label_id(self, name):
+        """
+        Get or create a database label object, return the ID.
+        """
+        print('Label name to add:{}'.format(name), flush=True)
+        db_session = worker.get_session()
+        redis = worker.get_redis()
+        label = db_session.query(Label).filter_by(name=name.lower().strip()).first()
+
+        if label:
+            print('Found Label :{}'.format(label.id), flush=True)
+            return label.id
+        else:
+            label = Label(name=name.lower().strip())
+            db_session.add(label)
+
+            try:
+                db_session.commit()
+            except IntegrityError:
+                db_session.rollback()
+                raise
+            except AssertionError:
+                db_session.rollback()
+                raise ValueError(
+                    'Label "{}" contains non-alphanumeric character'
+                    .format(name)
+                )
+
+            redis.publish('label', json.dumps(label.as_dict()))
+            print('Created label :{}'.format(label.id), flush=True)
+            return label.id
