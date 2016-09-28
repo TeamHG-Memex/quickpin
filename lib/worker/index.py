@@ -35,3 +35,26 @@ def index_profile(profile_id):
     solr.commit()
     worker.finish_job()
 
+
+def delete_profile(profile_id):
+    ''' Delete a profile. '''
+
+    worker.start_job()
+    session = worker.get_session()
+    solr = worker.get_solr()
+    query = solr.Q(solr.Q(type_s='Profile') & solr.Q(profile_id_i=profile_id))
+    solr.delete_by_query(query=query)
+    solr.commit()
+    worker.finish_job()
+
+
+def delete_profile_posts(profile_id):
+    ''' Delete profile posts. '''
+
+    worker.start_job()
+    session = worker.get_session()
+    solr = worker.get_solr()
+    query = solr.Q(solr.Q(type_s='Post') & solr.Q(profile_id_i=profile_id))
+    solr.delete_by_query(query=query)
+    solr.commit()
+    worker.finish_job()
