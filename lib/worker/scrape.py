@@ -633,6 +633,9 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
                                 .filter(Profile.site=='twitter') \
                                 .filter(Profile.upstream_id==user_id) \
                                 .one()
+            # Profiles already in the system are either not stubs or
+            # being updated to full profiles
+            profile.is_stub = False
 
         _twitter_populate_profile(profile_json, profile)
 
