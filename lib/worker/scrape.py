@@ -5,6 +5,7 @@ from datetime import datetime
 import dateutil.parser
 import json
 import os
+import sys
 from urllib.parse import urlparse
 
 import requests
@@ -114,12 +115,15 @@ def scrape_profile(site, usernames, stub=False, labels={}):
         }
 
         if response.status_code == 404:
-            message['error'] = 'Does not exist on Twitter.'
+            message['error'] = 'Does not exist on {}.'.format(site)
         else:
-            message['error'] = 'Cannot communicate with Twitter ({})' \
-                               .format(response.status_code)
+            message['error'] = 'Cannot communicate with {} ({})' \
+                               .format(site, response.status_code)
 
-        redis.publish('profile', json.dumps(message))
+        message_str = json.dumps(message)
+        redis.publish('profile', message_str)
+        sys.stderr.write('{}\n'.format(message_str))
+        sys.stderr.write('{}\n'.format(response.text))
 
     except ScrapeException as se:
         message = {
@@ -166,12 +170,16 @@ def scrape_profile_by_id(site, upstream_ids, stub=False, labels={}):
         message = {'upstream_ids': upstream_ids, 'site': site, 'code': response.status_code}
 
         if response.status_code == 404:
-            message['error'] = 'Does not exist on Twitter.'
+            message['error'] = 'Does not exist on {}.'.format(site)
         else:
-            message['error'] = 'Cannot communicate with Twitter ({})' \
-                               .format(response.status_code)
+            message['error'] = 'Cannot communicate with {} ({})' \
+                               .format(site, response.status_code)
 
-        redis.publish('profile', json.dumps(message))
+
+        message_str = json.dumps(message)
+        redis.publish('profile', message_str)
+        sys.stderr.write('{}\n'.format(message_str))
+        sys.stderr.write('{}\n'.format(response.text))
 
     except ScrapeException as se:
         message = {
