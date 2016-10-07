@@ -55,6 +55,7 @@ def scrape_avatar(id_, site, url):
         if profile_avatar.upstream_url == url:
             profile_avatar.end_date = datetime.today()
             avatar = profile_avatar
+            break
 
     # Otherwise, scrape the new Avatar and append to the profile
     if avatar is None:
@@ -70,6 +71,7 @@ def scrape_avatar(id_, site, url):
         image = response.content
         avatar = Avatar(url, mime, image)
         profile.avatars.append(avatar)
+        profile.current_avatar = avatar
 
     db_session.commit()
     worker.finish_job()
@@ -1059,7 +1061,7 @@ def _label_profile(db_session, profile, labels):
     for id_ in labels:
         if id_ not in profile_label_ids:
             print('Label id: {}'.format(id_), flush=True)
-            label = db_session.query(Label).get(id_) 
+            label = db_session.query(Label).get(id_)
 
             if label:
                 print('Adding label: {}'.format(label.name), flush=True)

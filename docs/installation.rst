@@ -62,7 +62,7 @@ Now, we can install some dependencies via APT.
 .. code::
 
     $ sudo apt-get install -y apache2 dart libapache2-mod-wsgi-py3 \
-                              node node-less npm \
+                              libjpeg-dev node node-less npm \
                               openjdk-7-jre-headless postgresql \
                               python3-bcrypt python3-dateutil python3-lxml \
                               python3-pip python3-psycopg2 redis-server \
@@ -128,12 +128,6 @@ Note the ``-E`` argument to ``sudo`` to make sure that it can see the
 You should probably add ``PUB_CACHE`` to your ``.profile`` (or similar) so
 that you don't need to remember to export this variable every time you log
 in.
-
-We have one pub package that we've forked, so you'll need to install it
-yourself. You can either `git clone it
-<https://github.com/mehaase/route.dart.git>`_ or `download a zip
-<https://github.com/mehaase/route.dart/archive/master.zip>`_. Either way, place
-it in ``/opt/route.dart``.
 
 Now we can use Pub to bring in our dependencies.
 

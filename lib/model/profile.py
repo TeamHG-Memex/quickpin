@@ -130,6 +130,18 @@ class Profile(Base):
     # A user can give a profile a score
     score = Column(Float, nullable=True)
 
+    # A profile has 0 or 1 current avatars. (It may also have multiple older
+    # avatars; see `avatars` relationship above.)
+    current_avatar_id = Column(
+        Integer,
+        ForeignKey('avatar.id', name='fk_profile_current_avatar', use_alter=True)
+    )
+
+    current_avatar = relationship(
+        'Avatar',
+        primaryjoin='Profile.current_avatar_id == Avatar.id'
+    )
+
     def __init__(self, site, upstream_id, username, is_stub=False):
         ''' Constructor. '''
 

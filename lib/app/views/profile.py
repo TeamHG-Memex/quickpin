@@ -121,11 +121,10 @@ class ProfileView(FlaskView):
 
         # Get profile.
         id_ = get_int_arg('id_', id_)
-        current_avatar_id = self._current_avatar_subquery()
 
         try:
             profile, avatar = g.db.query(Profile, Avatar) \
-                                  .outerjoin(Avatar, Avatar.id == current_avatar_id) \
+                                  .outerjoin(Profile.current_avatar) \
                                   .filter(Profile.id == id_).one()
         except NoResultFound:
             raise NotFound("Profile '%s' does not exist." % id_)
@@ -370,7 +369,6 @@ class ProfileView(FlaskView):
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
-        current_avatar_id = self._current_avatar_subquery()
         profile = g.db.query(Profile).filter(Profile.id == id_).first()
 
         if profile is None:
@@ -387,7 +385,7 @@ class ProfileView(FlaskView):
 
         relationship_query = \
             g.db.query(Profile, Avatar) \
-                .outerjoin(Avatar, Avatar.id==current_avatar_id) \
+                .outerjoin(Profile.current_avatar) \
                 .join(profile_join_self, join_cond) \
                 .filter(filter_cond)
 
@@ -570,11 +568,9 @@ class ProfileView(FlaskView):
         sort_arguments = get_sort_arguments(request.args,
                                             '-added',
                                             allowed_sort_fields)
-        current_avatar_id = self._current_avatar_subquery()
 
         query = g.db.query(Profile, Avatar) \
-                    .outerjoin(Avatar, Avatar.id==current_avatar_id) \
-                   # .filter(Profile.is_stub == is_stub)
+                    .outerjoin(Profile.current_avatar)
 
         # Parse filter arguments
         is_stub = request.args.get('stub', None)
@@ -757,22 +753,6 @@ class ProfileView(FlaskView):
 
         return response
 
-    def _current_avatar_subquery(self):
-        '''
-        Return a scalar subquery that can be used for joining to a profile's
-        current avatar.
-        '''
-
-        return g.db.query(Avatar.id) \
-                   .join(avatar_join_profile,
-                         avatar_join_profile.c.avatar_id == Avatar.id) \
-                   .filter(avatar_join_profile.c.profile_id == Profile.id) \
-                   .order_by(Avatar.end_date.desc().nullsfirst(),
-                             Avatar.start_date) \
-                   .limit(1) \
-                   .correlate(Profile) \
-                   .as_scalar()
-
     def put(self, id_):
         '''
         .. http:put: /api/profile/(int:id_)
@@ -905,10 +885,8 @@ class ProfileView(FlaskView):
         # Get profile.
         id_ = get_int_arg('id_', id_)
 
-        current_avatar_id = self._current_avatar_subquery()
-
         profile, avatar = g.db.query(Profile, Avatar) \
-                              .outerjoin(Avatar, Avatar.id == current_avatar_id) \
+                              .outerjoin(Profile.current_avatar) \
                               .filter(Profile.id == id_).first()
 
         if profile is None:
@@ -1190,7 +1168,7 @@ class ProfileView(FlaskView):
         if profile is None:
             raise NotFound("Profile '%s' does not exist." % id_)
 
-        # Delete profile 
+        # Delete profile
         g.db.delete(profile)
         try:
             g.db.commit()

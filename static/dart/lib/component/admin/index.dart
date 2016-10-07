@@ -23,6 +23,6 @@ class AdminIndexComponent {
 
     /// Constructor.
     AdminIndexComponent(this._ts) {
-        this._ts.title = 'Profiles';
+        this._ts.title = 'Administration';
     }
 }
