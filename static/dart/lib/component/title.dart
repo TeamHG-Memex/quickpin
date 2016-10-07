@@ -1,19 +1,15 @@
+import 'dart:html';
+
 import 'package:angular/angular.dart';
 
 /// A service for holding the current page title.
 @Injectable()
 class TitleService {
-    String title;
-}
+    String _title;
 
-/// A component that controls the page title.
-@Component(
-    selector: 'title',
-    template: 'QuickPin | {{ts.title}}',
-    useShadowDom: false
-)
-class TitleComponent {
-    TitleService ts;
+    String get title => this._title;
 
-    TitleComponent(this.ts);
+    void set title(String t) {
+        window.document.title = '$t — QuickPin';
+    }
 }

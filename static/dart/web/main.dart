@@ -101,7 +101,6 @@ class QuickPinApplication extends Module {
         bind(SearchComponent);
         bind(SparklineComponent);
         bind(SseController);
-        bind(TitleComponent);
         bind(TitleService);
         bind(UserComponent);
         bind(UserListComponent);
