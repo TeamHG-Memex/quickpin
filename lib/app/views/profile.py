@@ -472,10 +472,6 @@ class ProfileView(FlaskView):
         '''
         Return an array of data about profiles.
 
-        Note that this only returns full profiles, not "stub" profiles. If user
-        A in QuickPin has a friend/follower user B but user B is not in
-        QuickPin, then a "stub" profile is created for user B.
-
         **Example Response**
 
         .. sourcecode:: json
