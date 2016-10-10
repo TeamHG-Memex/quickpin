@@ -423,7 +423,7 @@ class ProfileView(FlaskView):
     @route('/<id_>/relations/fetch')
     def get_more_relations(self, id_):
         '''
-        Request fetching of more relations of this profile.
+        Schedule jobs to fetch more relations for this profile.
 
         **Example Response**
 
@@ -432,6 +432,8 @@ class ProfileView(FlaskView):
             {
                 "message": "Fetching more friends & followers for profile ID 22."
             }
+
+        :>header Content-Type: application/json
 
         :>header Content-Type: application/json
         :>json str message: API request confirmation message
