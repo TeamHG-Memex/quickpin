@@ -21,102 +21,100 @@ class ProfileView(FlaskView):
 
     def get(self, id_):
         '''
-        .. http:get:: /api/profile/(int:id_)
+        Get the profile identified by `id`.
 
-            Get the profile identified by `id`.
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "avatar_url": "https://quickpin/api/file/1",
+                "avatar_thumb_url": "https://quickpin/api/file/2",
+                "description": "A human being.",
+                "follower_count": 71,
+                "friend_count": 28,
+                "id": 1,
+                "is_stub": false,
+                "is_interesting": false,
+                "join_date": "2012-01-30T15:11:35",
+                "labels": [
+                    {
+                        "id": 1,
+                        "name": "male"
+                    },
+                ],
+                "last_update": "2015-08-18T10:51:16",
+                "location": "Washington, DC",
+                "name": "John Doe",
+                "post_count": 1666,
+                "private": false,
+                "score": "-2.0621606863",
+                "site": "twitter",
+                "site_name": "Twitter",
+                "time_zone": "Central Time (US & Canada)",
+                "upstream_id": "11009418",
+                "url": "https://quickpin/api/profile/1",
+                "username": "mehaase",
+                "usernames": [
+                    {
+                        "end_date": "2012-06-30T15:00:00",
+                        "start_date": "2012-01-01T12:00:00",
+                        "username": "mehaase"
+                    },
+                    ...
+                ]
+            }
 
-                {
-                    "avatar_url": "https://quickpin/api/file/1",
-                    "avatar_thumb_url": "https://quickpin/api/file/2",
-                    "description": "A human being.",
-                    "follower_count": 71,
-                    "friend_count": 28,
-                    "id": 1,
-                    "is_stub": false,
-                    "is_interesting": false,
-                    "join_date": "2012-01-30T15:11:35",
-                    "labels": [
-                        {
-                            "id": 1,
-                            "name": "male"
-                        },
-                    ],
-                    "last_update": "2015-08-18T10:51:16",
-                    "location": "Washington, DC",
-                    "name": "John Doe",
-                    "post_count": 1666,
-                    "private": false,
-                    "score": "-2.0621606863",
-                    "site": "twitter",
-                    "site_name": "Twitter",
-                    "time_zone": "Central Time (US & Canada)",
-                    "upstream_id": "11009418",
-                    "url": "https://quickpin/api/profile/1",
-                    "username": "mehaase",
-                    "usernames": [
-                        {
-                            "end_date": "2012-06-30T15:00:00",
-                            "start_date": "2012-01-01T12:00:00",
-                            "username": "mehaase"
-                        },
-                        ...
-                    ]
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
+        :>header Content-Type: application/json
+        :>json str avatar_url: URL to the user's current avatar
+        :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
+            current avatar
+        :>json str description: profile description
+        :>json int follower_count: number of followers
+        :>json int friend_count: number of friends (a.k.a. followees)
+        :>json int id: unique identifier for profile
+        :>json bool is_stub: indicates that this is a stub profile, e.g.
+            related to another profile but has not been fully imported
+        :>json bool is_interesting: indicates whether this profile has been
+            marked as interesting. The value can be null.
+        :>json str join_date: the date this profile joined its social network
+            (ISO-8601)
+        :>json list labels: list of labels for this profile
+        :>json int label[n].id: the unique id for this label
+        :>json str label[n].name: the label
+        :>json str last_update: the last time that information about this
+            profile was retrieved from the social media site (ISO-8601)
+        :>json str location: geographic location provided by the user, as free
+            text
+        :>json str name: the full name provided by this user
+        :>json int note[n].body: the text body of of the note
+        :>json str note[n].category: the category of the note.
+        :>json str note[n].created_at: time at which the note was created.
+        :>json int post_count: the number of posts made by this profile
+        :>json bool private: true if this is a private account (i.e. not world-
+            readable)
+        :>json str score: user defined score for this profile
+        :>json str site: machine-readable site name that this profile belongs to
+        :>json str site_name: human-readable site name that this profile belongs
+            to
+        :>json str time_zone: the user's provided time zone as free text
+        :>json str upstream_id: the user ID assigned by the social site
+        :>json str url: URL endpoint for retriving more data about this profile
+        :>json str username: the current username for this profile
+        :>json list usernames: list of known usernames for this profile
+        :>json str usernames[n].end_date: the last known date this username was
+            used for this profile
+        :>json str usernames[n].start_date: the first known date this username
+            was used for this profile
+        :>json str usernames[n].username: a username used for this profile
 
-            :>header Content-Type: application/json
-            :>json str avatar_url: URL to the user's current avatar
-            :>json str avatar_thumb_url: URL to a 32x32px thumbnail of the user's
-                current avatar
-            :>json str description: profile description
-            :>json int follower_count: number of followers
-            :>json int friend_count: number of friends (a.k.a. followees)
-            :>json int id: unique identifier for profile
-            :>json bool is_stub: indicates that this is a stub profile, e.g.
-                related to another profile but has not been fully imported
-            :>json bool is_interesting: indicates whether this profile has been
-                marked as interesting. The value can be null.
-            :>json str join_date: the date this profile joined its social network
-                (ISO-8601)
-            :>json list labels: list of labels for this profile
-            :>json int label[n].id: the unique id for this label
-            :>json str label[n].name: the label
-            :>json str last_update: the last time that information about this
-                profile was retrieved from the social media site (ISO-8601)
-            :>json str location: geographic location provided by the user, as free
-                text
-            :>json str name: the full name provided by this user
-            :>json int note[n].body: the text body of of the note
-            :>json str note[n].category: the category of the note.
-            :>json str note[n].created_at: time at which the note was created.
-            :>json int post_count: the number of posts made by this profile
-            :>json bool private: true if this is a private account (i.e. not world-
-                readable)
-            :>json str score: user defined score for this profile
-            :>json str site: machine-readable site name that this profile belongs to
-            :>json str site_name: human-readable site name that this profile belongs
-                to
-            :>json str time_zone: the user's provided time zone as free text
-            :>json str upstream_id: the user ID assigned by the social site
-            :>json str url: URL endpoint for retriving more data about this profile
-            :>json str username: the current username for this profile
-            :>json list usernames: list of known usernames for this profile
-            :>json str usernames[n].end_date: the last known date this username was
-                used for this profile
-            :>json str usernames[n].start_date: the first known date this username
-                was used for this profile
-            :>json str usernames[n].username: a username used for this profile
-
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
-            :status 404: user does not exist
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
         '''
 
         # Get profile.
@@ -321,51 +319,49 @@ class ProfileView(FlaskView):
     @route('/<id_>/relations/<reltype>')
     def get_relations(self, id_, reltype):
         '''
-        .. http:get: /api/profile/(int:id_)/relations/<reltype>
+        Return an array of profiles that are related to the specified profile
+        by `reltype`, either "friends" or "followers".
 
-            Return an array of profiles that are related to the specified profile
-            by `reltype`, either "friends" or "followers".
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
-
+            {
+              "relations": [
                 {
-                  "relations": [
-                    {
-                      "avatar_thumb_url": "https://quickpin/api/file/1",
-                      "id": 3,
-                      "url": "https://quickpin/api/profile/3",
-                      "username": "rustlang"
-                    },
-                    {
-                      "avatar_thumb_url": "https://quickpin/api/file/2",
-                      "id": 4,
-                      "url": "https://quickpin/api/profile/4",
-                      "username": "ORGANICBUTCHER"
-                    },
-                    ...
-                }
+                  "avatar_thumb_url": "https://quickpin/api/file/1",
+                  "id": 3,
+                  "url": "https://quickpin/api/profile/3",
+                  "username": "rustlang"
+                },
+                {
+                  "avatar_thumb_url": "https://quickpin/api/file/2",
+                  "id": 4,
+                  "url": "https://quickpin/api/profile/4",
+                  "username": "ORGANICBUTCHER"
+                },
+                ...
+            }
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :query page: the page number to display (default: 1)
-            :query rpp: the number of results per page (default: 10)
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
 
-            :>header Content-Type: application/json
-            :>json object relations Array of related profiles.
-            :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
-                user's current avatar
-            :>json int relations[n].id Unique identifier for relation's profile.
-            :>json str relations[n].url The URL to fetch this relation's profile.
-            :>json str relations[n].username This relation's username.
-            :>json int total_count Total count of all related profiles, not just
-                those on the current page.
+        :>header Content-Type: application/json
+        :>json object relations Array of related profiles.
+        :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
+            user's current avatar
+        :>json int relations[n].id Unique identifier for relation's profile.
+        :>json str relations[n].url The URL to fetch this relation's profile.
+        :>json str relations[n].username This relation's username.
+        :>json int total_count Total count of all related profiles, not just
+            those on the current page.
 
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
-            :status 404: user does not exist
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -1189,13 +1185,11 @@ class ProfileView(FlaskView):
         """
         Get or create a database label object, return the ID.
         """
-        print('Label name to add:{}'.format(name), flush=True)
         db_session = worker.get_session()
         redis = worker.get_redis()
         label = db_session.query(Label).filter_by(name=name.lower().strip()).first()
 
         if label:
-            print('Found Label :{}'.format(label.id), flush=True)
             return label.id
         else:
             label = Label(name=name.lower().strip())
@@ -1214,5 +1208,4 @@ class ProfileView(FlaskView):
                 )
 
             redis.publish('label', json.dumps(label.as_dict()))
-            print('Created label :{}'.format(label.id), flush=True)
             return label.id
