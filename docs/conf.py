@@ -33,7 +33,7 @@ sys.path.append(os.path.abspath(_app_path))
 extensions = [
   'sphinx.ext.graphviz',
   'sphinx.ext.todo',
-  'sphinxcontrib.autohttp.flask'
+  'sphinxcontrib.autohttp.flask',
 ]
 todo_include_todos = True
 graphviz_output_format = 'svg'
