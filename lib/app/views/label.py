@@ -22,32 +22,30 @@ class LabelView(FlaskView):
 
     def get(self, id_):
         """
-        .. http:get: /api/label/(int:_id)
+        Get the label identified by `id`.
 
-            Get the label identified by `id`.
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "id": 1,
+                "name": "gender",
+                "url": "https://quickpin/api/label/1",
+            }
 
-                {
-                    "id": 1,
-                    "name": "gender",
-                    "url": "https://quickpin/api/label/1",
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
+        :>header Content-Type: application/json
+        :>json int id: unique identifier for label
+        :>json str name: the label name
+        :>json str url: URL endpoint for retriving more data about this label
 
-            :>header Content-Type: application/json
-            :>json int id: unique identifier for label
-            :>json str name: the label name
-            :>json str url: URL endpoint for retriving more data about this label
-
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
-            :status 404: label does not exist
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: label does not exist
         """
 
         # Get label.
@@ -65,41 +63,39 @@ class LabelView(FlaskView):
 
     def post(self):
         """
-        .. http:post: /api/label/
+        Create a label.
 
-            Create a label.
+        **Example Request**
 
-            **Example Request**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "labels": [
+                    {"name": "gender"},
+                    {"name": "age"},
+                    ...
+                ]
+            }
 
-                {
-                    "labels": [
-                        {"name": "gender"},
-                        {"name": "age"},
-                        ...
-                    ]
-                }
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "message": "2 new labels created."
+            }
 
-                {
-                    "message": "2 new labels created."
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :>json list labels: a list of labels to create
+        :>json str labels[n].name: name of label to create
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :>json list labels: a list of labels to create
-            :>json str labels[n].name: name of label to create
+        :>header Content-Type: application/json
+        :>json str message: api response message
 
-            :>header Content-Type: application/json
-            :>json str message: api response message
-
-            :status 202: created
-            :status 400: invalid request body
-            :status 401: authentication required
+        :status 202: created
+        :status 400: invalid request body
+        :status 401: authentication required
         """
 
         request_json = request.get_json()
@@ -144,42 +140,40 @@ class LabelView(FlaskView):
 
     def index(self):
         """
-        .. http:get: /api/label/
+        Return an array of all labels.
 
-            Return an array of all labels.
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "labels": [
+                    {
+                        "id": 1,
+                        "name": "gender",
+                        "url": "https://quickpin/api/label/1",
+                    },
+                    ...
+                ],
+                "total_count": 2
+            }
 
-                {
-                    "labels": [
-                        {
-                            "id": 1,
-                            "name": "gender",
-                            "url": "https://quickpin/api/label/1",
-                        },
-                        ...
-                    ],
-                    "total_count": 2
-                }
-
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :query page: the page number to display (default: 1)
-            :query rpp: the number of results per page (default: 10)
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
 
 
-            :>header Content-Type: application/json
-            :>json list labels: a list of label objects
-            :>json int labels[n].id: unique identifier for profile
-            :>json str labels[n].name: the label name
-            :>json str labels[n].url: URL endpoint for retriving more data
-                about this label
+        :>header Content-Type: application/json
+        :>json list labels: a list of label objects
+        :>json int labels[n].id: unique identifier for profile
+        :>json str labels[n].name: the label name
+        :>json str labels[n].url: URL endpoint for retriving more data
+            about this label
 
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
         """
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -204,36 +198,34 @@ class LabelView(FlaskView):
     @route('/autocompletion')
     def autocomplete(self):
         """
-        .. http:get: /api/label/autocompletion
+        Provide autocompletions for labels.
 
-            Provide autocompletions for labels.
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "results": [
+                    {
+                        "id": 1,
+                        "label": "gender",
+                    },
+                    ...
+                ],
+            }
 
-                {
-                    "results": [
-                        {
-                            "id": 1,
-                            "label": "gender",
-                        },
-                        ...
-                    ],
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query query: prefix to search for (case-insensitive)
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :query query: prefix to search for (case-insensitive)
+        :>header Content-Type: application/json
+        :>json list results: a list of results
+        :>json int results[n].id: unique label identifier
+        :>json str results[n].label: the label name
 
-            :>header Content-Type: application/json
-            :>json list results: a list of results
-            :>json int results[n].id: unique label identifier
-            :>json str results[n].label: the label name
-
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
         """
         request_query = get_arg(str, 'query', request.args)
         request_query = request_query.strip().replace('%', r'\%').replace('_', r'\_') + '%'
@@ -258,40 +250,38 @@ class LabelView(FlaskView):
 
     def put(self, id_):
         """
-        .. http:put: /api/label/(int:id_)
+        Update the label identified by `id`.
 
-            Update the label identified by `id`.
+        **Example Request**
 
-            **Example Request**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                {"name": "gender"},
+            }
 
-                {
-                    {"name": "gender"},
-                }
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "id": "2",
+                "name": "gender",
+                "url": "https://quickpin/api/label/1",
+            }
 
-                {
-                    "id": "2",
-                    "name": "gender",
-                    "url": "https://quickpin/api/label/1",
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :>json str name: the value of the name attribute
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :>json str name: the value of the name attribute
+        :>header Content-Type: application/json
+        :>json int id: unique identifier for label
+        :>json str name: the label name
+        :>json str url: URL endpoint for retriving more data about this label
 
-            :>header Content-Type: application/json
-            :>json int id: unique identifier for label
-            :>json str name: the label name
-            :>json str url: URL endpoint for retriving more data about this label
-
-            :status 202: created
-            :status 400: invalid request body
-            :status 401: authentication required
+        :status 202: created
+        :status 400: invalid request body
+        :status 401: authentication required
         """
 
         # Get label.
@@ -327,28 +317,26 @@ class LabelView(FlaskView):
 
     def delete(self, id_):
         """
-        .. http:delete: /api/label/(int:id_)
+        Delete the label identified by `id`.
 
-            Delete the label identified by `id`.
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
+            {
+                "message": "Label `gender` deleted",
+            }
 
-                {
-                    "message": "Label `gender` deleted",
-                }
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
+        :>header Content-Type: application/json
+        :>json str message: the API response message
 
-            :>header Content-Type: application/json
-            :>json str message: the API response message
-
-            :status 202: deleted
-            :status 400: invalid request body
-            :status 401: authentication required
-            :status 404: label does not exist
+        :status 202: deleted
+        :status 400: invalid request body
+        :status 401: authentication required
+        :status 404: label does not exist
         """
 
         # Get label.

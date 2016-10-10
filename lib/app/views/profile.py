@@ -211,19 +211,19 @@ class ProfileView(FlaskView):
         :query rpp: the number of results per page (default: 10)
 
         :>header Content-Type: application/json
-        :>json list posts Array of post objects.
-        :>json str posts[n].content Text content of the post.
-        :>json int posts[n].id Unique identifier for post.
-        :>json str posts[n].language Language of post, e.g. 'en'.
-        :>json str posts[n].last_update The date and time that this record was
+        :>json list posts: List of post objects.
+        :>json str posts[n].content: Text content of the post.
+        :>json int posts[n].id: Unique identifier for post.
+        :>json str posts[n].language: Language of post, e.g. 'en'.
+        :>json str posts[n].last_update: The date and time that this record was
             updated from the social media site.
-        :>json str posts[n].location 2-element array of longitude and latitude.
-        :>json str posts[n].upstream_created The date this was posted.
-        :>json str posts[n].upstream_id The unique identifier assigned by the
-        social media site.
-        :>json str username Username of the requested profile
-        :>json str site_name Site name associated with the requested profile
-        :>json int total_count Total count of all posts by this profile, not
+        :>json str posts[n].location: 2-element array of longitude and latitude.
+        :>json str posts[n].upstream_created: The date this was posted.
+        :>json str posts[n].upstream_id: The unique identifier assigned by the
+            social media site.
+        :>json str username: Username of the requested profile
+        :>json str site_name: Site name associated with the requested profile
+        :>json int total_count: Total count of all posts by this profile, not
             just those displayed on this page
 
         :status 200: ok
@@ -342,7 +342,7 @@ class ProfileView(FlaskView):
             }
 
         :>header Content-Type: application/json
-        :>json object relations: Array of related profiles.
+        :>json list relations: list of related profiles.
         :>json int relations[n].avatar_thumb_url: a URL to a thumbnail of the
             user's current avatar
         :>json int relations[n].id: Unique identifier for relation's profile.
@@ -685,11 +685,11 @@ class ProfileView(FlaskView):
 
         :<header Content-Type: application/json
         :<header X-Auth: the client's auth token
-        :>json list profiles: a list of profiles to create
-        :>json str profiles[n].username: username of profile to create
-        :>json str profiles[n].upstream_id: upstream id of profile to create
-        :>json str profiles[n].site: machine-readable name of social media site
-        :>json bool stub: whether to fetch profiles as stubs
+        :<json list profiles: a list of profiles to create
+        :<json str profiles[n].username: username of profile to create
+        :<json str profiles[n].upstream_id: upstream id of profile to create
+        :<json str profiles[n].site: machine-readable name of social media site
+        :<json bool stub: whether to fetch profiles as stubs
 
         :>header Content-Type: application/json
         :>json int id: unique identifier for new profile
@@ -827,8 +827,9 @@ class ProfileView(FlaskView):
 
         :<header Content-Type: application/json
         :<header X-Auth: the client's auth token
-        :>json bool is_interesting: whether profile is marked as interesting
-        :>json list labels: whether profile is marked as interesting
+        :<json bool is_interesting: whether profile is marked as interesting
+        :<json list labels: list of profile labels
+        :<json float score: profile score
 
         :>header Content-Type: application/json
         :>json str avatar_url: URL to the user's current avatar
@@ -1024,6 +1025,9 @@ class ProfileView(FlaskView):
             "message": "Updating profile ID 22 (site: twitter, upstream_id: 20609518, username: dalailama)."
             }
 
+
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
         :>header Content-Type: application/json
         :>json str message: API request confirmation message
