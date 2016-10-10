@@ -345,13 +345,13 @@ class ProfileView(FlaskView):
         :query rpp: the number of results per page (default: 10)
 
         :>header Content-Type: application/json
-        :>json object relations Array of related profiles.
-        :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
+        :>json object relations: Array of related profiles.
+        :>json int relations[n].avatar_thumb_url: a URL to a thumbnail of the
             user's current avatar
-        :>json int relations[n].id Unique identifier for relation's profile.
-        :>json str relations[n].url The URL to fetch this relation's profile.
-        :>json str relations[n].username This relation's username.
-        :>json int total_count Total count of all related profiles, not just
+        :>json int relations[n].id: Unique identifier for relation's profile.
+        :>json str relations[n].url: The URL to fetch this relation's profile.
+        :>json str relations[n].username: This relation's username.
+        :>json int total_count: Total count of all related profiles, not just
             those on the current page.
 
         :status 200: ok
@@ -426,10 +426,12 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-                "message": "Fetching more friends & followers for profile ID 22."
+                "message": 
+                    "Fetching more friends & followers for profile ID 22.",
             }
 
         :>header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
         :>header Content-Type: application/json
         :>json str message: API request confirmation message
