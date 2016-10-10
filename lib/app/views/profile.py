@@ -426,9 +426,8 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-            "message": "Fetching more friends & followers for profile ID 22."
+                "message": "Fetching more friends & followers for profile ID 22."
             }
-
 
         :>header Content-Type: application/json
         :>json str message: API request confirmation message
