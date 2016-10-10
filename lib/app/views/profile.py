@@ -317,51 +317,59 @@ class ProfileView(FlaskView):
     @route('/<id_>/relations/<reltype>')
     def get_relations(self, id_, reltype):
         '''
-        .. http:get: /api/profile/(int:id_)/relations/<reltype>
+        Return an array of profiles that are related to the specified profile
+        by `reltype`, either "friends" or "followers".
 
-            Return an array of profiles that are related to the specified profile
-            by `reltype`, either "friends" or "followers".
+        **Example Response**
 
-            **Example Response**
+        .. sourcecode:: json
 
-            .. sourcecode:: json
-
+            {
+              "relations": [
                 {
-                  "relations": [
-                    {
-                      "avatar_thumb_url": "https://quickpin/api/file/1",
-                      "id": 3,
-                      "url": "https://quickpin/api/profile/3",
-                      "username": "rustlang"
-                    },
-                    {
-                      "avatar_thumb_url": "https://quickpin/api/file/2",
-                      "id": 4,
-                      "url": "https://quickpin/api/profile/4",
-                      "username": "ORGANICBUTCHER"
-                    },
-                    ...
-                }
+                  "avatar_thumb_url": "https://quickpin/api/file/1",
+                  "id": 3,
+                  "url": "https://quickpin/api/profile/3",
+                  "username": "rustlang"
+                },
+                {
+                  "avatar_thumb_url": "https://quickpin/api/file/2",
+                  "id": 4,
+                  "url": "https://quickpin/api/profile/4",
+                  "username": "ORGANICBUTCHER"
+                },
+                ...
+            }
 
-            :<header Content-Type: application/json
-            :<header X-Auth: the client's auth token
-            :query page: the page number to display (default: 1)
-            :query rpp: the number of results per page (default: 10)
+        :>header Content-Type: application/json
+        :>json object relations: Array of related profiles.
+        :>json int relations[n].avatar_thumb_url: a URL to a thumbnail of the
+            user's current avatar
+        :>json int relations[n].id: Unique identifier for relation's profile.
+        :>json str relations[n].url: The URL to fetch this relation's profile.
+        :>json str relations[n].username: This relation's username.
+        :>json int total_count: Total count of all related profiles, not just
+            those on the current page.
 
-            :>header Content-Type: application/json
-            :>json object relations Array of related profiles.
-            :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
-                user's current avatar
-            :>json int relations[n].id Unique identifier for relation's profile.
-            :>json str relations[n].url The URL to fetch this relation's profile.
-            :>json str relations[n].username This relation's username.
-            :>json int total_count Total count of all related profiles, not just
-                those on the current page.
+        :<header Content-Type: application/json
+        :<header X-Auth: the client's auth token
+        :query page: the page number to display (default: 1)
+        :query rpp: the number of results per page (default: 10)
 
-            :status 200: ok
-            :status 400: invalid argument[s]
-            :status 401: authentication required
-            :status 404: user does not exist
+        :>header Content-Type: application/json
+        :>json object relations Array of related profiles.
+        :>json int relations[n].avatar_thumb_url a URL to a thumbnail of the
+            user's current avatar
+        :>json int relations[n].id Unique identifier for relation's profile.
+        :>json str relations[n].url The URL to fetch this relation's profile.
+        :>json str relations[n].username This relation's username.
+        :>json int total_count Total count of all related profiles, not just
+            those on the current page.
+
+        :status 200: ok
+        :status 400: invalid argument[s]
+        :status 401: authentication required
+        :status 404: user does not exist
         '''
 
         page, results_per_page = get_paging_arguments(request.args)
@@ -430,10 +438,12 @@ class ProfileView(FlaskView):
         .. sourcecode:: json
 
             {
-                "message": "Fetching more friends & followers for profile ID 22."
+                "message": 
+                    "Fetching more friends & followers for profile ID 22.",
             }
 
         :>header Content-Type: application/json
+        :<header X-Auth: the client's auth token
 
         :>header Content-Type: application/json
         :>json str message: API request confirmation message
