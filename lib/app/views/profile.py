@@ -513,7 +513,10 @@ class ProfileView(FlaskView):
         :<header X-Auth: the client's auth token
         :query page: the page number to display (default: 1)
         :query rpp: the number of results per page (default: 10)
+        :query interesting: filter by whether profile is set as interesting
+        :query label: comma seperated list of labels to filter by
         :query site: name of site to filter by
+        :query stub: filter by whether profile is stub
 
         :>header Content-Type: application/json
         :>json list profiles: a list of profile objects
