@@ -70,7 +70,8 @@ Now, we can install some dependencies via APT.
 
 .. code::
 
-    $ sudo apt-get install -y build-essential tcl8.5 apt-transport-https \
+    $ sudo apt-get install -y apache2 dart libapache2-mod-wsgi-py3 \
+                              build-essential tcl8.5 apt-transport-https \
                               redis-server dart postgresql postgresql-contrib \ 
                               openjdk-7-jre-headless libcurl4-gnutls-dev python3-bcrypt \
                               python3-dateutil python3-lxml python3-pip python3-psycopg2 \
