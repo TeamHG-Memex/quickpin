@@ -46,7 +46,7 @@ that it's easy to automate our build process in the future.)
 
 .. code:: bash
 
-    $ sudo apt-get -y install curl python-dev unzip
+    $ sudo apt-get -y install curl wget python-dev unzip
 
 Now, before we start installing the main dependencies, we need to add the Dart
 package repository to APT.
@@ -57,16 +57,27 @@ package repository to APT.
     $ sudo sh -c 'curl https://storage.googleapis.com/download.dartlang.org/linux/debian/dart_stable.list > /etc/apt/sources.list.d/dart_stable.list'
     $ sudo apt-get update
 
+
+We also need to ensure we have an up to date version of node.
+
+.. code::
+
+    $ sudo apt-get remove -y nodejs npm 
+    $ curl -sL https://deb.nodesource.com/setup_4.x | sudo bash - 
+
+
 Now, we can install some dependencies via APT.
 
 .. code::
 
     $ sudo apt-get install -y apache2 dart libapache2-mod-wsgi-py3 \
-                              libjpeg-dev node node-less npm \
-                              openjdk-7-jre-headless postgresql \
-                              python3-bcrypt python3-dateutil python3-lxml \
-                              python3-pip python3-psycopg2 redis-server \
-                              supervisor
+                              build-essential tcl8.5 apt-transport-https \
+                              redis-server dart postgresql postgresql-contrib \ 
+                              openjdk-7-jre-headless libcurl4-gnutls-dev python3-bcrypt \
+                              python3-dateutil python3-lxml python3-pip python3-psycopg2 \
+                              supervisor supervisor zlib1g-dev libtiff4-dev \
+                              libjpeg8-dev libfreetype6-dev liblcms1-dev libwebp-dev 
+
 
 If you want to build documentation, then you'll also need Sphinx:
 
@@ -129,6 +140,13 @@ You should probably add ``PUB_CACHE`` to your ``.profile`` (or similar) so
 that you don't need to remember to export this variable every time you log
 in.
 
+We also need to install the less package for node using npm,
+as the ubuntu version is out of date:
+
+.. code:: bash
+        
+    $ sudo npm install -g less
+
 Now we can use Pub to bring in our dependencies.
 
 .. code:: bash
@@ -157,6 +175,16 @@ packages expect the Node.js executable to be called ``node``.
 .. code:: bash
 
     $ sudo ln -s /usr/bin/nodejs /usr/local/bin/node
+
+
+Now upgrade the Dart packages.
+
+.. code:: bash
+
+    $ cd /opt/quickpin/static/dart
+    $ sudo -E pub upgrade
+    $ fixpub
+
 
 Finally, the last step is to get the Solr search engine installed. Begin by
 downloading version 5.x `from here

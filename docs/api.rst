@@ -302,4 +302,5 @@ Endpoints
     :undoc-static:
     :undoc-endpoints: angular, dart_package, main_dart_js
     :include-empty-docstring:
+    :order: path
 
