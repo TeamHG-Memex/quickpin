@@ -17,9 +17,10 @@ def make_markdown_file():
     Convert _build/singlehtml/index.html to
     markdown/quickpin.md using Pandoc.
     """
+    subprocess.check_call(['mkdir', '-p', '_build/markdown'])
     subprocess.check_call(['pandoc',
                            '-s', '_build/singlehtml/index.html',
-                           '-o', 'markdown/quickpin.md',
+                           '-o', '_build/markdown/quickpin.md',
                            '-w', 'markdown_github'])
 
 
@@ -100,8 +101,8 @@ def fix_endpoint_headers(text):
 def format_text(text):
     text = strip_colons(text)
     print('[*] Removed rogue colons.')
-    #text = fix_endpoint_lists(text)
-    #print('[*] Reformated endpoint lists')
+    # text = fix_endpoint_lists(text)
+    # print('[*] Reformated endpoint lists')
     text = fix_endpoint_headers(text)
     print('[*] Reformated endpoint headers.')
     text = fix_image(text)
@@ -124,18 +125,17 @@ if __name__ == '__main__':
     make_singlehtml_file()
     print('[*] Created index.html in ./_build/singlehtml.')
     make_markdown_file()
-    print('[*] Created quickpin.md in ./markdown.')
+    print('[*] Created quickpin.md in ./_build/markdown.')
 
-    with open('markdown/quickpin.md') as f:
+    with open('_build/markdown/quickpin.md') as f:
         text = f.read()
 
     if not text:
-        print('./markdown/quickpin.md is empty!')
+        print('./_build/markdown/quickpin.md is empty!')
         sys.exit()
-
 
     # Fix markdown
     text = format_text(text)
 
-    with open('./markdown/quickpin.md', 'w') as f:
+    with open('./_build/markdown/quickpin.md', 'w') as f:
         f.write(text)
