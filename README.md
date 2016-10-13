@@ -8,7 +8,7 @@ Read the [documentation](docs/markdown/quickpin.md).
 
 Requirements:
 
-* [QuickPin Sphinx dependencies](docs/markdown/quickpin.md#id5).
+* [QuickPin dependencies (inc Sphinx)](docs/markdown/quickpin.md#id5).
 * [Pandoc](http://pandoc.org/installing.html).
 * [QuickPin Python dependencies](install/python-dependencies.txt).
 
