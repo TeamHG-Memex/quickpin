@@ -5,6 +5,7 @@ Read the [documentation](docs/markdown/quickpin.md).
 
 
 ## Compiling documentation
+
 Requirements:
 
 * [QuickPin Sphinx dependencies](docs/markdown/quickpin.md#id5).
@@ -13,22 +14,23 @@ Requirements:
 
 There is a seperate branch used for compiling the documenation('rtd'). This contains a method to allow [sphinxcontrib.httpdomain.flask](http://pythonhosted.org/sphinxcontrib-httpdomain) to generate the API endpoint documentation.
 
-1. checkout the 'rtd' branch and ensure it is up to date with the 'master':
+### Checkout the 'rtd' branch
 
 ```bash
 $ git fetch
 $ git checkout rtd
 $ git rebase master
 ```
+Rebase ensures the 'rtd' branch is up to date with changes to master.
 
-2. Create a PDF:
+### Create PDF
 
 ```bash
 $ cd docs 
 $ make latexpdf
 ```
 
-3. Or HTML:
+### Create HTML
 ```bash
 $ cd docs 
 $ make html
@@ -36,12 +38,12 @@ $ make html
 
 Unless otherwise specified, output is created in docs/_build (excluded from github repository).
 
-4. To create markdown documentation:
+### Create Markdown
 
 ```bash
 $ cd docs 
 $ python make_markdown.py
 ```
 
-Which will create docs/markdown/quickpin.md.
+This scripts builds a single html file with Sphinx, converts it to markdown with Pandoc, and applies some formatting tweaks. File is stored in docs/markdown/quickpin.md.
 
