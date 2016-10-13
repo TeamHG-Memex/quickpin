@@ -29,14 +29,15 @@ Rebase ensures the 'rtd' branch is up to date with changes to master.
 $ cd docs 
 $ make latexpdf
 ```
+Unless otherwise specified, output is created in docs/_build/latexpdf (excluded from github repository).
 
 ### Create HTML
 ```bash
 $ cd docs 
 $ make html
 ```
+Unless otherwise specified, output is created in docs/_build/html (excluded from github repository).
 
-Unless otherwise specified, output is created in docs/_build (excluded from github repository).
 
 ### Create Markdown
 
@@ -44,6 +45,10 @@ Unless otherwise specified, output is created in docs/_build (excluded from gith
 $ cd docs 
 $ python make_markdown.py
 ```
+This scripts builds a single html file with Sphinx, converts it to markdown with Pandoc, and applies some formatting tweaks. 
 
-This scripts builds a single html file with Sphinx, converts it to markdown with Pandoc, and applies some formatting tweaks. File is stored in docs/markdown/quickpin.md.
+Output is created in docs/_build/markdown (excluded from github repository).
+
+
+
 
