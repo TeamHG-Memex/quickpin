@@ -10,6 +10,7 @@ Flask-Failsafe
 html2text
 jsmin
 Markdown
+pg8000
 Pillow
 phonenumbers
 psycopg2
