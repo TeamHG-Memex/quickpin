@@ -84,8 +84,6 @@ def hash_password(password, algorithm, rounds):
     ''' Hash a password with a chosen algorithm and number of rounds. '''
 
     if algorithm == 'bcrypt':
-        if type(password) == str:
-            password = password.encode('utf-8')
         return bcrypt.hashpw(password, bcrypt.gensalt(rounds))
     else:
         raise NotImplementedError("Hash algorithm is unsupported: %s" % algorithm)
