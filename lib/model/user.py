@@ -75,6 +75,10 @@ def check_password(password, hash_):
         raise ValueError("Hash is not in proper 'crypt' format: %s" % hash_)
 
     if crypt_types[crypt_type] == 'bcrypt':
+        if type(password) == str:
+            password = password.encode('utf8')
+        if type(hash_) == str:
+            hash_ = hash_.encode('utf8')
         return bcrypt.hashpw(password, hash_) == hash_
     else:
         raise NotImplementedError("Hash algorithm is unsupported: %s" % algorithm)
