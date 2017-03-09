@@ -67,6 +67,7 @@ def check_password(password, hash_):
 
     crypt_types = {
         '2a': 'bcrypt',
+        '2b': 'bcrypt',
     }
 
     try:
@@ -74,6 +75,7 @@ def check_password(password, hash_):
     except IndexError:
         raise ValueError("Hash is not in proper 'crypt' format: %s" % hash_)
 
+    print(crypt_type)
     if crypt_types[crypt_type] == 'bcrypt':
         if type(password) == str:
             password = password.encode('utf8')
