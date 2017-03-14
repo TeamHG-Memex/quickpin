@@ -1,0 +1,38 @@
+<div class='modal fade' role='dialog'>
+  <div class='modal-dialog'>
+    <div class='modal-content modal-{{modalType}}'>
+      <form class='form-horizontal' ng-submit='submit()'>
+        <div class='modal-header'>
+          <h4 class='modal-title'>{{title}}</h4>
+        </div>
+        <div class='modal-body'>
+          <div ng-show='error != null' class='alert alert-danger' role='alert'>
+            <button type='button'
+                    ng-click='clearErrors()'
+                    class='close'
+                    aria-label='Close'>
+              <span aria-hidden="true">&times;</span>
+            </button>
+            <p><strong>Error:</strong> {{error}}</p>
+          </div>
+          <content></content>
+        </div>
+        <div class='modal-footer'>
+          <button type='button'
+                  class='btn btn-link pull-left'
+                  ng-click='modal.hide()'
+                  ng-disabled='busy'>
+            Cancel
+          </button>
+          <button type='submit'
+                  class='btn btn-primary'
+                  click='submit()'
+                  ng-disabled='busy'>
+            <i class='fa' ng-class='submitIcon'></i>
+            {{submitText}}
+            <i class='fa fa-spinner fa-pulse' ng-class='{"hidden":!busy}'></i>
+          </button>
+      </form>
+    </div>
+  </div>
+</div>
