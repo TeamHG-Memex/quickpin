@@ -1,0 +1,16 @@
+<div class='modal fade' ng-class='"modal-{{type}}"' role='dialog'>
+  <div class='modal-dialog'>
+    <div class='modal-content'>
+        <div class='modal-header'>
+          <h4 class='modal-title'>
+            <i ng-if='icon != null' class='fa' ng-class='icon'></i>
+            {{title}}
+            <i class='fa fa-close pull-right' ng-click='modal.hide()'></i>
+          </h4>
+        </div>
+        <div class='modal-body no-footer' ng-bind-html='body'>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
