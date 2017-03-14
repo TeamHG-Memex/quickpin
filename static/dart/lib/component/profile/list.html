@@ -63,17 +63,15 @@
       Label: {{filterDescriptions['label']}} <span class='caret'></span>
     </button>
     <ul class='dropdown-menu sort-by' role='menu'>
-      <li><a ng-click='filterLabels(null)'>All Labels</a></li>
+      <li><a ng-click='showModalForm("#label-filter-modal")'>Add..</a></li>
       <li class='divider'></li>
-      <li ng-repeat='label in labels'>
-        <a ng-show="labelFilters == null || !labelFilters.contains(label.name)"
-           ng-click='filterLabels(label.name)'>
-          {{label.name}}
-        </a>
-        <a ng-show="labelFilters != null && labelFilters.contains(label.name)"
-           ng-click='filterLabelsRemove(label.name)'>
-          {{label.name}}
-          <i class='fa fa-check'></i>
+      <li ng-show='labelFilters == null'>
+        <em>No active filters.</em>
+      </li>
+      <li ng-repeat='label in labelFilters'>
+        <a ng-click='filterLabelsRemove(label)'>
+          {{label}}
+          <i class='fa fa-times'></i>
         </a>
       </li>
     </ul>
@@ -186,6 +184,35 @@
   </button>
 </form>
 
+<form ng-show='showLabels' class='form-inline filter-label-form'>
+  <div class='form-group'>
+    <div class='input-group'>
+      <div class='input-group-addon'><strong>Filter Label</strong></div>
+        <autocomplete id='label-id'
+                      name='id'
+                      class='bootstrap-form-control'
+                      placeholder='Search a label.'
+                      size='20'
+                      data-source='autocompleteLabel'>
+        </autocomplete>
+    </div>
+  </div>
+
+  <button class='btn btn-success'
+          ng-click='addProfile()'
+          ng-disabled='submittingProfile'>
+    <i class='fa fa-user-plus'></i>
+    Filter
+  </button>
+
+  <button class='btn btn-danger'
+          ng-click='hideLabelDialog()'
+          ng-disabled='submittingProfile'>
+    <i class='fa fa-times'></i>
+    Cancel
+  </button>
+</form>
+
 <div class="row">
   <div class="col-sm-12">
     <pager pager='pager'
@@ -193,20 +220,60 @@
   </div>
 </div>
 
-<div class='modal fade' id='filtered-profile-modal' role='dialog'>
+<div class='modal fade' id='filltered-profile-modal' role='dialog'>
   <div class='modal-dialog'> <!-- Start modal dialog -->
 
     <div class='modal-content'> <!-- Start modal content -->
 
       <div class='modal-header'> <!-- Start modal header -->
+        Select Label
       </div><!-- End modal header -->
 
       <div class='modal-body'><!--Start modal body -->
+        <div class='row' ng-show='labelFilters.length > 0'>
+          <div class='col-sm-2' ng-repeat='label in labelFilters'>
+            <button type='button'
+              class='btn btn-default'
+              ng-click='filterLabelsRemove(label)'
+              data-dismiss='modal'>
+              <i class='fa fa-times'></i>
+              {{label}}
+              </button>
+          </div>
+        </div>
+        <div class='row'>
+          <div class='col-sm-10'>
+            <div class='input-group'>
+              <div class='input-group-addon'><strong>Label Filters</strong></div>
+                <autocomplete id='label-id'
+                              name='id'
+                              class='bootstrap-form-control'
+                              placeholder='Search a label.'
+                              size='20'
+                              data-source='autocompleteLabel'>
+                </autocomplete>
+            </div>
+          </div>
+          <div class='col-sm-2'>
+            <button type='button'
+              class='btn btn-success'
+              ng-click='filterLabels()'
+              data-dismiss='modal'>
+              <i class='fa fa-plus'></i>
+              Add
+              </button>
+          </div>
+        </div>
+
       </div><!-- End modal body -->
 
       <div class='modal-footer'><!-- Start modal footer -->
-        <button type='button' class='btn btn-default pull-left' data-dismiss='modal'>
-          OK
+        <button type='button' class='btn btn-danger' data-dismiss='modal'>
+          <i class='fa fa-times'></i>
+          Cancel
+        </button>
+        <button type='button' class='btn btn-default' ng-click='forSho()'>
+          Show
         </button>
       </div><!-- End modal footer -->
 
@@ -304,3 +371,26 @@
   There are currently no profiles. Try clicking "Add Profiles" to get started.
 </p>
 <p ng-show='profiles.length == 0 && siteFilter != null'> No profiles match the current filter. Try changing the filter or click "Add Profiles" to add new profiles.  </p>
+
+
+<modal-form id='label-filter-modal'
+            title='"Edit Label Filters…"'
+            on-submit='filterLabels'
+            submit-text='"Save"'
+            submit-icon='"fa-plus"'>
+
+  <div class='form-group'>
+    <label class='col-sm-2 control-label' for='label'>
+      *Label
+    </label>
+    <div class='col-sm-10'>
+          <autocomplete id='label-id'
+                        name='label-autocomplete'
+                        class='bootstrap-form-control'
+                        placeholder='Search a label.'
+                        size='20'
+                        data-source='autocompleteLabel'>
+          </autocomplete>
+    </div>
+  </div>
+</modal-form>
