@@ -9,6 +9,8 @@ import 'package:dialog/dialogs/alert.dart';
 
 import 'package:dquery/dquery.dart';
 import 'package:quickpin/authentication.dart';
+import 'package:quickpin/component/autocomplete.dart';
+import 'package:quickpin/component/modal/form.dart' as modalForm;
 import 'package:quickpin/query_watcher.dart';
 import 'package:quickpin/component/breadcrumbs.dart';
 import 'package:quickpin/component/pager.dart';
@@ -32,10 +34,11 @@ class ProfileListComponent extends Object
     ];
 
     String error;
+    final Function showModalForm = modalForm.showModalForm;
     InputElement _inputEl;
+    InputElement _labelInputEl;
     String interestFilter, interestFilterDescription;
     Map<String> filterDescriptions;
-    List<Label> labels;
     List<String> labelFilters;
     String labelFilterDescription;
     bool loading = false;
@@ -50,6 +53,7 @@ class ProfileListComponent extends Object
 
     Scope scope;
     bool showAdd = false;
+    bool showLabels = false;
     String siteFilter, siteFilterDescription;
     String stubFilter, stubFilterDescription;
     String sortByDescription = 'Added';
@@ -81,7 +85,6 @@ class ProfileListComponent extends Object
         UnsubOnRouteLeave(rh, [
             this._sse.onAvatar.listen(this._avatarListener),
             this._sse.onProfile.listen(this._profileListener),
-            this._sse.onLabel.listen(this._labelListener)
         ]);
 
         this._queryWatcher = new QueryWatcher(
@@ -91,7 +94,7 @@ class ProfileListComponent extends Object
         );
 
         this._fetchCurrentPage();
-        this._fetchLabels();
+        //this._fetchLabels();
     }
 
     /// Convert a string to title case.
@@ -195,55 +198,6 @@ class ProfileListComponent extends Object
             .whenComplete(() {this.submittingProfile = false;});
     }
 
-    /// Fetch list of labels.
-    Future _fetchLabels() {
-        Completer completer = new Completer();
-        this.loading = true;
-        String pageUrl = '/api/label/';
-        int page = 1;
-        bool finished = false;
-        this.labels = new List<Label>();
-        int totalCount = 0;
-
-        while (!finished) {
-            Map urlArgs = {
-                'rpp': 100,
-                'page': page
-            };
-            new Future(() {
-                this.api
-                    .get(pageUrl, urlArgs: urlArgs, needsAuth: true)
-                    .then((response) {
-                        response.data['labels'].forEach((label) {
-                            this.labels.add(new Label.fromJson(label));
-
-                        });
-                        if (response.data.containsKey('total_count')) {
-                            totalCount = response.data['total_count'];
-                        } else {
-                            finished = true;
-                        }
-
-                    })
-                    .catchError((response) {
-                        this.labelError = response.data['message'];
-                    })
-                    .whenComplete(() {
-                    });
-            });
-
-            if (totalCount == this.labels.length) {
-                finished = true;
-            }
-            else {
-                page++;
-            }
-        };
-        this.loading = false;
-        completer.complete();
-        return completer.future;
-    }
-
     /// Remove a profile at the specified index. (Usually done because of an
     /// error creating or fetching the profile.)
     void dismissProfileAtIndex(int index) {
@@ -320,13 +274,44 @@ class ProfileListComponent extends Object
                         queryParameters: args);
     }
 
-    /// Filter profile list by labels.
-    void filterLabels(String label) {
-        Map args = this._makeUrlArgs();
+    void forSho() {
+        InputElement labelInputEl = this._element.querySelector('#label-id input');
+        window.console.debug(labelInputEl.placeholder);
+        window.console.debug(labelInputEl);
+        window.console.debug(labelInputEl.value);
+    }
 
-        if (label == null) {
-            args.remove('label');
+    void addLabelFilter(Map form, Completer<Map> formCompleter) {
+
+        Map validationErrors = new Map();
+
+
+        if (form['autocomplete-text'] == '') {
+            validationErrors['label'] = 'Label is required';
+        }
+        if (!form.containsKey('autocomplete-text')) {
+            validationErrors['label'] = 'There is an issue with the form';
+        }
+
+        if (validationErrors.isEmpty) {
+            window.console.debug(form);
+            formCompleter.complete();
         } else {
+            formCompleter.complete(validationErrors);
+        }
+    }
+
+    /// Filter profile list by labels.
+    void filterLabels(Map form, Completer<Map> formCompleter) {
+        Map validationErrors = new Map();
+        String label = form['autocomplete-text'];
+
+        if (label == '') {
+            validationErrors['label'] = 'Label is required';
+        }
+
+        if (validationErrors.isEmpty) {
+            Map args = this._makeUrlArgs();
             if (this.labelFilters != null) {
                 if (!this.labelFilters.contains(label)) {
                     this.labelFilters.add(label);
@@ -341,11 +326,42 @@ class ProfileListComponent extends Object
             } else {
                 args['label'] = this.labelFilters.join(',');
             }
+            formCompleter.complete();
+            this._router.go('profile_list',
+                            this._rp.route.parameters,
+                            queryParameters: args);
+        } else {
+            formCompleter.complete(validationErrors);
         }
-        this._router.go('profile_list',
-                        this._rp.route.parameters,
-                        queryParameters: args);
     }
+
+    /// Filter profile list by labels.
+    //void filterLabels() {
+    //    Map args = this._makeUrlArgs();
+    //    String label = this._labelInputEl.value;
+
+    //    if (label == null) {
+    //        args.remove('label');
+    //    } else {
+    //        if (this.labelFilters != null) {
+    //            if (!this.labelFilters.contains(label)) {
+    //                this.labelFilters.add(label);
+    //            }
+    //        } else {
+    //            this.labelFilters = [label];
+    //        }
+
+    //        if (this.labelFilters.length == 0) {
+    //            args.remove('label');
+    //            this.labelFilters = null;
+    //        } else {
+    //            args['label'] = this.labelFilters.join(',');
+    //        }
+    //    }
+    //    this._router.go('profile_list',
+    //                    this._rp.route.parameters,
+    //                    queryParameters: args);
+    //}
 
     /// Remove specified label from list of profile label filters.
     void filterLabelsRemove(String label) {
@@ -426,6 +442,11 @@ class ProfileListComponent extends Object
     void hideAddDialog() {
         this.showAdd = false;
         this.newProfile = '';
+    }
+
+    /// Show the "label filter" dialog.
+    void hideLabelDialog() {
+        this.showLabels = false;
     }
 
     /// Get a reference to this element.
@@ -561,15 +582,6 @@ class ProfileListComponent extends Object
         if (this.scope != null) {
             scope.apply();
             this.scope.broadcast('masonry.layout');
-        }
-    }
-
-    /// Listen for label updates.
-    void _labelListener(Event e) {
-        Map json = JSON.decode(e.data);
-
-        if (json['error'] == null) {
-            this._fetchLabels();
         }
     }
 
@@ -715,6 +727,35 @@ class ProfileListComponent extends Object
         });
 
         return profile;
+    }
+
+    /// Show label filter modal
+    void showLabelFilter() {
+        String selector = '#filtered-profile-modal';
+        DivElement modalDiv = this._element.querySelector(selector);
+        Modal.wire(modalDiv).show();
+        this._labelInputEl = this._element.querySelector('#label-id input');
+
+        if (this._labelInputEl != null) {
+            // Allow Angular to digest showLabel before trying to focus. (Can't
+            // focus a hidden element.)
+            new Timer(new Duration(seconds:0.1), () => this._labelInputEl.focus());
+        }
+    }
+
+    /// Run an autocomplete query for labels.
+    ///
+    /// Returns an autocomplete future.
+    Future<AutocompleteData> autocompleteLabel(String query) {
+        String url = '/api/label/autocompletion';
+        Map urlArgs = {'query': query};
+
+        return this.api
+                   .get(url, urlArgs: urlArgs, needsAuth: true)
+                   .then((response) {
+                       Map json = response.data['results'];
+                       return new AutocompleteData.fromJson(json);
+                   });
     }
 
 }
