@@ -22,6 +22,8 @@ import worker
 import worker.index
 
 
+TWITTER_HEADERS = {'ACCEPT-ENCODING': None}
+
 class ScrapeException(Exception):
     """ Represents a user-facing exception. """
 
@@ -616,11 +618,13 @@ def scrape_twitter_account(usernames, stub=False, labels=None):
 
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
     payload = {'screen_name': ','.join(usernames)}
+    headers = {'ACCEPT-ENCODING': None}
     response = requests.post(
         api_url,
         data=payload,
         proxies=_get_proxies(db_session),
-        verify=False
+        verify=False,
+        headers=TWITTER_HEADERS
     )
     response.raise_for_status()
 
@@ -683,11 +687,13 @@ def scrape_twitter_account_by_id(upstream_ids, stub=False, labels={}):
     # Request from Twitter API.
     api_url = 'https://api.twitter.com/1.1/users/lookup.json'
     payload = {'user_id': ','.join(upstream_ids)}
+    headers = {'ACCEPT-ENCODING': None}
     response = requests.post(
         api_url,
         data=payload,
         proxies=_get_proxies(db_session),
-        verify=False
+        verify=False,
+        headers=TWITTER_HEADERS
     )
     response.raise_for_status()
 
@@ -793,7 +799,8 @@ def scrape_twitter_posts(id_, recent):
             url,
             params=params,
             proxies=proxies,
-            verify=False
+            verify=False,
+            headers=TWITTER_HEADERS,
         )
         response.raise_for_status()
 
@@ -930,7 +937,8 @@ def scrape_twitter_relations(id_):
             friends_url,
             params=params,
             proxies=proxies,
-            verify=False
+            verify=False,
+            headers=TWITTER_HEADERS
         )
         friends_response.raise_for_status()
 
@@ -958,7 +966,8 @@ def scrape_twitter_relations(id_):
             followers_url,
             params=params,
             proxies=proxies,
-            verify=False
+            verify=False,
+            headers=TWITTER_HEADERS,
         )
         followers_response.raise_for_status()
 
@@ -993,6 +1002,7 @@ def scrape_twitter_relations(id_):
             lookup_url,
             proxies=_get_proxies(db),
             verify=False,
+            headers=TWITTER_HEADERS,
             data={'user_id': ','.join(chunk_lookup.keys())}
         )
         lookup_response.raise_for_status()
