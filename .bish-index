@@ -1,0 +1,8 @@
+./bin/stats.py
+./bin/index.py
+./bin/database.py
+./bin/run-worker.py
+./bin/run-server.py
+./AGENTS.md
+./README.md
+./docs/conf.py
